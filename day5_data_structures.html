@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 5 — Kernel Data Structures</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #090c14;
+    --bg2:     #0d1020;
+    --bg3:     #111428;
+    --card:    #0d1020;
+    --border:  #1a2040;
+    --accent:  #06b6d4;
+    --accent2: #22d3ee;
+    --blue:    #3b82f6;
+    --blue2:   #60a5fa;
+    --green:   #10b981;
+    --green2:  #34d399;
+    --yellow:  #eab308;
+    --yellow2: #facc15;
+    --red:     #ef4444;
+    --red2:    #f87171;
+    --purple:  #a855f7;
+    --purple2: #c084fc;
+    --orange:  #f97316;
+    --teal:    #14b8a6;
+    --text:    #e2e8f0;
+    --text2:   #94a3b8;
+    --text3:   #64748b;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:15px;}
+
+  /* HERO */
+  .hero{background:linear-gradient(135deg,#090c14 0%,#091a20 50%,#090c14 100%);border-bottom:1px solid var(--border);padding:60px 40px 50px;position:relative;overflow:hidden;}
+  .hero::before{content:'';position:absolute;top:-80px;right:-60px;width:500px;height:500px;background:radial-gradient(circle,rgba(6,182,212,0.10) 0%,transparent 70%);pointer-events:none;}
+  .hero::after{content:'';position:absolute;bottom:-60px;left:150px;width:400px;height:400px;background:radial-gradient(circle,rgba(168,85,247,0.06) 0%,transparent 70%);pointer-events:none;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.35);color:var(--accent2);padding:5px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;margin-bottom:20px;}
+  .badge .dot{width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+  .hero h1{font-family:var(--display);font-size:clamp(28px,4vw,46px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;}
+  .hero h1 span{color:var(--accent2);}
+  .hero .sub{color:var(--text2);font-size:16px;max-width:640px;margin-bottom:28px;}
+  .hero-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;font-size:12px;font-family:var(--mono);}
+
+  .container{max-width:980px;margin:0 auto;padding:40px 24px;}
+
+  .section-header{display:flex;align-items:center;gap:12px;margin:52px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .sn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;color:#fff;}
+  .sn.cyan{background:var(--accent);color:#000;} .sn.blue{background:var(--blue);}
+  .sn.green{background:var(--green);}  .sn.yellow{background:var(--yellow);color:#000;}
+  .sn.red{background:var(--red);}      .sn.purple{background:var(--purple);}
+  .sn.orange{background:var(--orange);} .sn.teal{background:var(--teal);}
+  .section-header h2{font-family:var(--display);font-size:22px;font-weight:700;color:#fff;}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+  .card h3{font-family:var(--display);font-size:16px;font-weight:700;color:var(--accent2);margin-bottom:12px;}
+  .card p{color:var(--text2);margin-bottom:10px;font-size:14.5px;}
+  .card p:last-child{margin-bottom:0;}
+  .card ul{padding-left:20px;}
+  .card ul li{color:var(--text2);margin-bottom:7px;font-size:14.5px;}
+  .card ul li strong{color:var(--text);}
+
+  .code-block{background:#050810;border:1px solid var(--border);border-radius:10px;margin:16px 0;overflow:hidden;}
+  .code-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#090d1a;border-bottom:1px solid var(--border);}
+  .code-lang{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
+  .code-dots{display:flex;gap:6px;}
+  .code-dots span{width:10px;height:10px;border-radius:50%;}
+  .code-dots span:nth-child(1){background:#ef4444;}.code-dots span:nth-child(2){background:#f59e0b;}.code-dots span:nth-child(3){background:#10b981;}
+  .code-block pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.85;color:#cdd6f4;}
+  .kw{color:#cba6f7;}.fn{color:#89b4fa;}.st{color:#a6e3a1;}.cm{color:#4a5568;font-style:italic;}
+  .nm{color:#fab387;}.tp{color:#89dceb;}.pp{color:#f38ba8;}.mc{color:#f9e2af;}
+  .hl    {background:rgba(6,182,212,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-ok {background:rgba(16,185,129,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--green);}
+  .hl-warn{background:rgba(234,179,8,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--yellow);}
+  .hl-red{background:rgba(239,68,68,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--red);}
+
+  .terminal{background:#050505;border:1px solid #1a2040;border-radius:10px;overflow:hidden;margin:16px 0;}
+  .terminal-header{background:#0a0a0a;padding:10px 16px;display:flex;align-items:center;gap:8px;}
+  .terminal-header span{width:12px;height:12px;border-radius:50%;}
+  .terminal-header span:nth-child(1){background:#ff5f57;}.terminal-header span:nth-child(2){background:#ffbd2e;}.terminal-header span:nth-child(3){background:#28c840;}
+  .t-title{margin-left:8px;font-family:var(--mono);font-size:12px;color:#444;}
+  .terminal pre{padding:18px 20px;font-family:var(--mono);font-size:13px;line-height:1.85;color:#d4d4d4;}
+  .t-prompt{color:#06b6d4;}.t-cmd{color:#e2e8f0;}.t-out{color:#6b7280;}
+  .t-green{color:#10b981;}.t-yellow{color:#eab308;}.t-red{color:#ef4444;}.t-cyan{color:#22d3ee;}
+
+  .diagram{background:#050810;border:1px solid var(--border);border-radius:10px;padding:24px;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.9;overflow-x:auto;white-space:pre;color:#cdd6f4;}
+
+  .info-box{display:flex;gap:14px;padding:16px 20px;border-radius:10px;margin:16px 0;font-size:14px;}
+  .info-box.note  {background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);}
+  .info-box.warn  {background:rgba(234,179,8,.07); border:1px solid rgba(234,179,8,.25);}
+  .info-box.tip   {background:rgba(6,182,212,.07); border:1px solid rgba(6,182,212,.2);}
+  .info-box.danger{background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);}
+  .info-box .icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .info-box .content{color:var(--text2);}
+  .info-box .content strong{color:var(--text);display:block;margin-bottom:4px;}
+
+  .table-wrap{overflow-x:auto;margin:16px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{background:var(--bg3);color:var(--accent2);font-family:var(--display);font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;}
+  td{padding:11px 16px;border-bottom:1px solid rgba(26,32,64,.5);color:var(--text2);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:nth-child(even) td{background:rgba(255,255,255,.013);}
+  td strong{color:var(--text);}
+  td code{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0;}
+  @media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr;}}
+
+  .mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;}
+  .mini-card .mc-icon{font-size:22px;margin-bottom:10px;}
+  .mini-card h4{color:#fff;font-weight:600;font-size:14px;margin-bottom:6px;font-family:var(--display);}
+  .mini-card p{color:var(--text2);font-size:13px;line-height:1.6;}
+
+  .steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+  .step{display:flex;gap:16px;position:relative;padding-bottom:28px;}
+  .step:last-child{padding-bottom:0;}
+  .step-left{display:flex;flex-direction:column;align-items:center;}
+  .step-num{width:32px;height:32px;background:var(--accent);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;z-index:1;}
+  .step-line{width:2px;flex:1;background:var(--border);margin-top:6px;}
+  .step:last-child .step-line{display:none;}
+  .step-content{padding-top:4px;flex:1;}
+  .step-content h4{color:#fff;font-weight:600;font-size:15px;margin-bottom:8px;font-family:var(--display);}
+  .step-content p{color:var(--text2);font-size:14px;margin-bottom:8px;}
+
+  code{background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12.5px;}
+
+  .nav-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:12px;color:var(--text3);position:sticky;top:0;z-index:100;}
+  .nav-bar .crumb{color:var(--text2);}.nav-bar .sep{color:var(--border);}.nav-bar .current{color:var(--accent2);}
+
+  .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;color:var(--text2);}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:18px;}
+  .progress-fill{height:100%;border-radius:3px;}
+
+  .quote{border-left:3px solid var(--accent);padding:14px 20px;margin:20px 0;background:rgba(6,182,212,0.04);border-radius:0 8px 8px 0;color:var(--text2);font-style:italic;font-size:14.5px;}
+  .quote strong{color:var(--accent2);font-style:normal;display:block;margin-top:6px;font-size:12px;}
+
+  .footer{margin-top:60px;padding:30px 24px;border-top:1px solid var(--border);text-align:center;color:var(--text3);font-size:13px;font-family:var(--mono);}
+
+  .checklist{list-style:none;padding:0;margin:12px 0;}
+  .checklist li{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(26,32,64,.4);color:var(--text2);font-size:14px;}
+  .checklist li:last-child{border-bottom:none;}
+  .chk{color:var(--accent2);font-size:15px;flex-shrink:0;margin-top:1px;}
+  .chk-no{color:var(--text3);font-size:15px;flex-shrink:0;margin-top:1px;}
+
+  /* ds comparison grid */
+  .ds-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0;}
+  @media(max-width:700px){.ds-grid{grid-template-columns:1fr 1fr;}}
+  .ds-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .ds-card .ds-icon{font-size:20px;margin-bottom:8px;}
+  .ds-card h4{font-family:var(--display);font-size:13px;font-weight:700;color:#fff;margin-bottom:5px;}
+  .ds-card .ds-op{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:4px;}
+  .ds-card p{color:var(--text2);font-size:12px;line-height:1.55;}
+
+  /* linked list visual */
+  .ll-visual{display:flex;align-items:center;gap:0;margin:16px 0;overflow-x:auto;padding:16px 0;}
+  .ll-node{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;min-width:120px;text-align:center;flex-shrink:0;}
+  .ll-node .nn{font-family:var(--mono);font-size:11px;color:var(--accent2);margin-bottom:4px;}
+  .ll-node .nd{font-size:12px;color:var(--text2);}
+  .ll-arrow{color:var(--text3);font-size:18px;padding:0 6px;flex-shrink:0;}
+  .ll-head{background:rgba(6,182,212,0.12);border-color:rgba(6,182,212,0.3);}
+  .ll-head .nn{color:var(--accent2);}
+
+  /* kfifo visual */
+  .fifo-vis{display:flex;gap:2px;margin:16px 0;align-items:flex-end;}
+  .fifo-slot{width:48px;height:48px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--text2);}
+  .fifo-slot.used{background:rgba(6,182,212,0.15);border-color:rgba(6,182,212,0.4);color:var(--accent2);}
+  .fifo-slot.head{background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.4);color:var(--green2);}
+  .fifo-slot.tail{background:rgba(234,179,8,0.15);border-color:rgba(234,179,8,0.4);color:var(--yellow2);}
+  .fifo-label{font-family:var(--mono);font-size:11px;color:var(--text3);text-align:center;margin-top:4px;}
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 1: Kernel Foundations</span>
+  <span class="sep">›</span>
+  <span class="current">Day 5 — Kernel Data Structures</span>
+</nav>
+
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 1 · Day 5 of 30</div>
+  <h1>Kernel Data<br><span>Structures</span></h1>
+  <p class="sub">Master the elegant data structures that power the Linux kernel — linked lists with container_of, hash tables, red-black trees, XArrays, integer ID allocators, lock-free ring buffers, and bitmaps. Every driver uses these daily.</p>
+  <div class="hero-tags">
+    <span class="tag">list_head</span>
+    <span class="tag">container_of()</span>
+    <span class="tag">DECLARE_HASHTABLE</span>
+    <span class="tag">rb_tree</span>
+    <span class="tag">XArray</span>
+    <span class="tag">IDR</span>
+    <span class="tag">kfifo</span>
+    <span class="tag">bitmap</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 5 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:16.6%;background:linear-gradient(90deg,#06b6d4,#22d3ee)"></div></div>
+    <div class="progress-header"><span>Week 1 Progress</span><span>Day 5 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:71.4%;background:linear-gradient(90deg,#06b6d4,#22d3ee)"></div></div>
+  </div>
+
+<!-- ══════════════════ OVERVIEW ══════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">0</div>
+    <h2>Overview — Why Kernel Data Structures Are Different</h2>
+  </div>
+
+  <div class="card">
+    <h3>🧬 The Kernel's Design Philosophy</h3>
+    <p>The kernel cannot use C++ STL, cannot use libc, and must work without dynamic dispatch overhead. Instead, Linux implements its own data structures in pure C using a brilliant technique: <strong>intrusive containers</strong>. Rather than storing your data inside the container, you embed the container node <em>inside</em> your struct. This is what <code>struct list_head</code>, <code>struct rb_node</code>, and <code>struct hlist_node</code> all are — tiny structs you embed in your own data type.</p>
+    <p>The magic that makes this work is <code>container_of()</code> — one macro that the entire kernel leans on. Understanding it is the foundation for reading any kernel code involving data structures.</p>
+  </div>
+
+  <div class="ds-grid">
+    <div class="ds-card">
+      <div class="ds-icon">🔗</div>
+      <h4>Linked List</h4>
+      <div class="ds-op">O(1) insert/delete</div>
+      <p>Doubly-linked circular. Used everywhere — device lists, work queues, timer lists.</p>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">#️⃣</div>
+      <h4>Hash Table</h4>
+      <div class="ds-op">O(1) avg lookup</div>
+      <p>Fixed-size bucket array with chained hlist. Fast key-value mapping.</p>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">🌲</div>
+      <h4>Red-Black Tree</h4>
+      <div class="ds-op">O(log n) all ops</div>
+      <p>Self-balancing BST. Used in scheduler (CFS), memory manager, timers.</p>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">📦</div>
+      <h4>XArray</h4>
+      <div class="ds-op">O(log n) by index</div>
+      <p>Modern radix tree. Maps integer index → pointer. Replaces IDR + radix_tree.</p>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">🔢</div>
+      <h4>IDR</h4>
+      <div class="ds-op">O(log n) alloc ID</div>
+      <p>Integer ID allocator. Assigns unique IDs to objects. Used for device minors.</p>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">🔄</div>
+      <h4>kfifo</h4>
+      <div class="ds-op">O(1) lockless</div>
+      <p>Lock-free circular FIFO. Perfect for single-producer single-consumer queues.</p>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">🗺️</div>
+      <h4>Bitmap</h4>
+      <div class="ds-op">O(1) bit ops</div>
+      <p>Dense bitfield operations. find_first_zero_bit, set_bit, test_and_set_bit.</p>
+    </div>
+    <div class="ds-card">
+      <div class="ds-icon">⚡</div>
+      <h4>container_of</h4>
+      <div class="ds-op">O(1) zero cost</div>
+      <p>The macro that ties everything together. Converts embedded node → parent struct.</p>
+    </div>
+  </div>
+
+<!-- ══════════════════ SECTION 1 — container_of ══════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">1</div>
+    <h2>container_of() — The Heart of Kernel Data Structures</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔍 The Most Important Macro in the Kernel</h3>
+    <p>Almost every kernel data structure API gives you a pointer to an <em>embedded node</em> (like <code>struct list_head *</code>). To get back to your actual data struct, you use <code>container_of()</code>. It does this by calculating the byte offset of the embedded member and subtracting it from the node pointer to get the base address of the containing struct.</p>
+  </div>
+
+  <div class="diagram">YOUR STRUCT IN MEMORY:
+
+  struct my_device {           ← base address (what container_of returns)
+      int   id;                ← offset 0
+      int   flags;             ← offset 4
+      struct list_head list;   ← offset 8  ← what list iteration gives you
+      char *name;              ← offset 24
+  };
+
+  Given a pointer to list_head at offset 8:
+  ┌─────────────────────────────────────────────────────────────┐
+  │   0   1   2   3   4   5   6   7 │  8   9  ...  23 │ 24 ... │
+  │ ←────── id ──────→ ←─ flags ──→ │ ←── list_head ─→ │ name  │
+  └─────────────────────────────────────────────────────────────┘
+                                      ↑
+                                  ptr (given)
+
+  container_of(ptr, struct my_device, list):
+    → (struct my_device *)( (char*)ptr - offsetof(struct my_device, list) )
+    → (struct my_device *)( (char*)ptr - 8 )
+    → points to base of my_device  ✓
+
+  The compile-time type check: GCC ensures ptr matches &obj.list type.</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — container_of() Implementation &amp; Usage</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/kernel.h&gt;</span>   <span class="cm">/* container_of is defined here */</span>
+
+<span class="cm">/* THE MACRO — from include/linux/kernel.h:
+ *
+ * #define container_of(ptr, type, member) ({              \
+ *     void *__mptr = (void *)(ptr);                       \
+ *     BUILD_BUG_ON_MSG(!__same_type(*(ptr),               \
+ *         ((type *)0)->member) &&                         \
+ *         !__same_type(*(ptr), void),                     \
+ *         "pointer type mismatch in container_of()");     \
+ *     ((type *)(__mptr - offsetof(type, member))); })
+ *
+ * ptr    = pointer to the embedded member
+ * type   = type of the containing struct
+ * member = name of the member inside that struct
+ */</span>
+
+<span class="cm">/* ── CONCRETE EXAMPLE ─────────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> {
+    <span class="kw">int</span>             id;
+    <span class="kw">int</span>             temperature;
+    <span class="kw">struct</span> <span class="tp">list_head</span> list;       <span class="cm">/* embedded — connects to other sensors */</span>
+    <span class="kw">char</span>           *name;
+};
+
+<span class="cm">/* Imagine list iteration gave us this pointer: */</span>
+<span class="kw">struct</span> <span class="tp">list_head</span> *node = <span class="cm">/* from list_for_each */</span>;
+
+<span class="cm">/* Get back to the sensor struct: */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> *s = <span class="fn">container_of</span>(node, <span class="kw">struct</span> <span class="tp">sensor</span>, list);
+
+<span class="cm">/* Now we can access sensor fields: */</span>
+<span class="fn">pr_info</span>(<span class="st">"Sensor %d: temp=%d°C name=%s\n"</span>, s-&gt;id, s-&gt;temperature, s-&gt;name);
+
+<span class="cm">/* ── USERSPACE EQUIVALENT (just to understand the math) ──────────── */</span>
+<span class="cm">/* This is what container_of expands to conceptually:
+ * struct sensor *s = (struct sensor *)(
+ *     (char *)node - offsetof(struct sensor, list)
+ * );
+ *
+ * offsetof(struct sensor, list) = 8 (after two ints)
+ * So: s = (struct sensor *)((char *)node - 8)
+ */</span>
+
+<span class="cm">/* ── TYPE SAFETY: The compiler catches mistakes ──────────────────── */</span>
+<span class="cm">/* This would give a compile-time error: */</span>
+<span class="cm">/* struct sensor *wrong = container_of(node, struct sensor, name); */</span>
+<span class="cm">/* Error: 'name' is char*, not list_head — type mismatch caught! */</span></pre>
+  </div>
+
+<!-- ══════════════════ SECTION 2 — Linked Lists ══════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">2</div>
+    <h2>Linked Lists — struct list_head</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔗 The Circular Doubly-Linked List</h3>
+    <p>The kernel's linked list is a <strong>circular doubly-linked list</strong>. The head node is a sentinel — it doesn't contain data itself but serves as both the start and the end of the list. This simplifies edge cases: an empty list is just the head pointing to itself. The list is <em>intrusive</em> — you embed <code>struct list_head</code> inside your struct.</p>
+  </div>
+
+  <div class="ll-visual">
+    <div class="ll-node ll-head">
+      <div class="nn">HEAD</div>
+      <div class="nd">sentinel</div>
+    </div>
+    <div class="ll-arrow">⟺</div>
+    <div class="ll-node">
+      <div class="nn">sensor[0]</div>
+      <div class="nd">id=1, temp=23</div>
+    </div>
+    <div class="ll-arrow">⟺</div>
+    <div class="ll-node">
+      <div class="nn">sensor[1]</div>
+      <div class="nd">id=2, temp=45</div>
+    </div>
+    <div class="ll-arrow">⟺</div>
+    <div class="ll-node">
+      <div class="nn">sensor[2]</div>
+      <div class="nd">id=3, temp=31</div>
+    </div>
+    <div class="ll-arrow">⟺</div>
+    <div class="ll-node ll-head">
+      <div class="nn">HEAD</div>
+      <div class="nd">(wraps back)</div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Complete Linked List API Reference</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/list.h&gt;</span>
+
+<span class="cm">/* ── STEP 1: Embed list_head in your struct ──────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> {
+    <span class="kw">int</span>             id;
+    <span class="kw">int</span>             temp_celsius;
+    <span class="kw">struct</span> <span class="tp">list_head</span> list;   <span class="cm">/* embed this — connects sensor to the list */</span>
+    <span class="kw">char</span>            name[<span class="nm">32</span>];
+};
+
+<span class="cm">/* ── STEP 2: Declare the list head ───────────────────────────────── */</span>
+<span class="kw">static</span> <span class="mc">LIST_HEAD</span>(sensor_list);   <span class="cm">/* declare & init a global list head */</span>
+
+<span class="cm">/* OR: for a head inside a struct, init at runtime: */</span>
+<span class="kw">struct</span> <span class="tp">my_driver</span> {
+    <span class="kw">struct</span> <span class="tp">list_head</span> devices;   <span class="cm">/* list of devices managed by this driver */</span>
+    <span class="kw">int</span>              count;
+};
+<span class="cm">/* In probe(): */</span>
+<span class="fn">INIT_LIST_HEAD</span>(&amp;drv-&gt;devices);  <span class="cm">/* initialise dynamically-created list head */</span>
+
+<span class="cm">/* ── STEP 3: Add/Remove elements ─────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> *s = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*s), <span class="nm">GFP_KERNEL</span>);
+s-&gt;id = <span class="nm">42</span>;
+s-&gt;temp_celsius = <span class="nm">25</span>;
+<span class="fn">strscpy</span>(s-&gt;name, <span class="st">"temp0"</span>, <span class="kw">sizeof</span>(s-&gt;name));
+
+<span class="fn">list_add</span>(&amp;s-&gt;list, &amp;sensor_list);        <span class="cm">/* add at HEAD (stack order, LIFO) */</span>
+<span class="fn">list_add_tail</span>(&amp;s-&gt;list, &amp;sensor_list);   <span class="cm">/* add at TAIL (queue order, FIFO) */</span>
+<span class="fn">list_del</span>(&amp;s-&gt;list);                       <span class="cm">/* remove from list (does NOT free!) */</span>
+<span class="fn">list_del_init</span>(&amp;s-&gt;list);                 <span class="cm">/* remove AND reinitialise as empty */</span>
+<span class="fn">list_move</span>(&amp;s-&gt;list, &amp;other_list);        <span class="cm">/* atomic move to another list */</span>
+<span class="fn">list_move_tail</span>(&amp;s-&gt;list, &amp;other_list);   <span class="cm">/* move to tail of other list */</span>
+<span class="fn">list_splice</span>(&amp;source_list, &amp;dest_list);   <span class="cm">/* append entire list to another */</span>
+
+<span class="cm">/* ── STEP 4: Query the list ──────────────────────────────────────── */</span>
+<span class="fn">list_empty</span>(&amp;sensor_list);               <span class="cm">/* returns true if list has no entries */</span>
+<span class="fn">list_is_singular</span>(&amp;sensor_list);         <span class="cm">/* exactly one entry? */</span>
+
+<span class="cm">/* ── STEP 5: Iterate the list ────────────────────────────────────── */</span>
+
+<span class="cm">/* Most common: iterate getting your struct directly */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> *cur;
+<span class="fn">list_for_each_entry</span>(cur, &amp;sensor_list, list) {
+    <span class="fn">pr_info</span>(<span class="st">"Sensor %s: %d°C\n"</span>, cur-&gt;name, cur-&gt;temp_celsius);
+}
+<span class="cm">/* list_for_each_entry(pos, head, member)
+ *   pos    = pointer of your struct type (loop variable)
+ *   head   = pointer to the list_head head node
+ *   member = name of list_head member inside your struct */</span>
+
+<span class="cm">/* Safe iteration: allows deleting cur inside the loop */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> *tmp;
+<span class="fn">list_for_each_entry_safe</span>(cur, tmp, &amp;sensor_list, list) {
+    <span class="kw">if</span> (cur-&gt;temp_celsius &gt; <span class="nm">80</span>) {
+        <span class="fn">list_del</span>(&amp;cur-&gt;list);   <span class="cm">/* safe because tmp saves next ptr */</span>
+        <span class="fn">kfree</span>(cur);
+    }
+}
+
+<span class="cm">/* Reverse iteration */</span>
+<span class="fn">list_for_each_entry_reverse</span>(cur, &amp;sensor_list, list) {
+    <span class="fn">pr_info</span>(<span class="st">"Reverse: %s\n"</span>, cur-&gt;name);
+}
+
+<span class="cm">/* Get first/last entry */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> *first = <span class="fn">list_first_entry</span>(&amp;sensor_list, <span class="kw">struct</span> <span class="tp">sensor</span>, list);
+<span class="kw">struct</span> <span class="tp">sensor</span> *last  = <span class="fn">list_last_entry</span>(&amp;sensor_list, <span class="kw">struct</span> <span class="tp">sensor</span>, list);
+
+<span class="cm">/* Get first entry or NULL if list is empty (safe) */</span>
+<span class="kw">struct</span> <span class="tp">sensor</span> *s = <span class="fn">list_first_entry_or_null</span>(&amp;sensor_list, <span class="kw">struct</span> <span class="tp">sensor</span>, list);
+<span class="kw">if</span> (s)
+    <span class="fn">pr_info</span>(<span class="st">"First: %s\n"</span>, s-&gt;name);
+
+<span class="cm">/* ── STEP 6: Cleanup — free all entries ──────────────────────────── */</span>
+<span class="fn">list_for_each_entry_safe</span>(cur, tmp, &amp;sensor_list, list) {
+    <span class="fn">list_del</span>(&amp;cur-&gt;list);
+    <span class="fn">kfree</span>(cur);
+}</pre>
+  </div>
+
+  <div class="info-box warn">
+    <span class="icon">⚠️</span>
+    <div class="content"><strong>Critical: list_for_each_entry vs list_for_each_entry_safe</strong>Never delete the current entry inside <code>list_for_each_entry()</code> — it will corrupt the iteration because the next pointer has been freed. Always use <code>list_for_each_entry_safe()</code> when you might delete entries during iteration. The <code>safe</code> variant saves <code>next</code> before processing the current entry.</div>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>Locking: Lists Are Not Thread-Safe</strong>A bare <code>list_head</code> has no built-in locking. If multiple CPUs or kernel threads can add/remove from the same list concurrently, you must protect it with a lock — usually a <code>spinlock_t</code> for atomic/IRQ contexts or a <code>mutex</code> for process context. We cover locks on Day 13.</div>
+  </div>
+
+<!-- ══════════════════ SECTION 3 — Hash Tables ══════════════════ -->
+  <div class="section-header">
+    <div class="sn green">3</div>
+    <h2>Hash Tables — DECLARE_HASHTABLE</h2>
+  </div>
+
+  <div class="card">
+    <h3>#️⃣ Fast Key-Value Lookup in the Kernel</h3>
+    <p>The kernel's hash table is an array of <code>struct hlist_head</code> buckets, each being the head of a singly-linked hash chain. <code>hlist</code> (hash list) uses less memory than <code>list_head</code> per bucket (one pointer instead of two) — important when you have thousands of buckets. The <code>DECLARE_HASHTABLE(name, bits)</code> macro creates a hash table with <code>2^bits</code> buckets.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Hash Table — Complete API</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/hashtable.h&gt;</span>
+
+<span class="cm">/* ── STEP 1: Embed hlist_node in your struct ──────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">connection</span> {
+    <span class="kw">u32</span>              src_ip;
+    <span class="kw">u32</span>              dst_ip;
+    <span class="kw">u16</span>              src_port;
+    <span class="kw">u16</span>              dst_port;
+    <span class="kw">struct</span> <span class="tp">hlist_node</span> node;    <span class="cm">/* embed this for hash table membership */</span>
+    <span class="kw">ktime_t</span>          last_seen;
+};
+
+<span class="cm">/* ── STEP 2: Declare the hash table ───────────────────────────────── */</span>
+<span class="mc">DECLARE_HASHTABLE</span>(conn_table, <span class="nm">10</span>);
+<span class="cm">/* Creates: struct hlist_head conn_table[1024]  (2^10 buckets)
+ * Choose bits so average chain length stays < 5-10 elements.
+ * 10 bits = 1024 buckets, good for ~5000-10000 entries. */</span>
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">driver_init</span>(<span class="kw">void</span>)
+{
+    <span class="fn">hash_init</span>(conn_table);   <span class="cm">/* initialise all bucket heads to empty */</span>
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── STEP 3: Compute a hash key ───────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="tp">u32</span> <span class="fn">conn_hash</span>(<span class="kw">u32</span> src_ip, <span class="kw">u32</span> dst_ip, <span class="kw">u16</span> sport, <span class="kw">u16</span> dport)
+{
+    <span class="cm">/* hash_32(val, bits) — Jenkins hash, fits result into 'bits' bits */</span>
+    <span class="cm">/* jhash2: Jenkins hash for arrays of u32 */</span>
+    <span class="kw">u32</span> key = src_ip ^ dst_ip ^ ((<span class="tp">u32</span>)sport &lt;&lt; <span class="nm">16</span>) ^ dport;
+    <span class="kw">return</span> <span class="fn">hash_32</span>(key, <span class="nm">10</span>);   <span class="cm">/* returns 0..1023 */</span>
+}
+
+<span class="cm">/* ── STEP 4: Add an entry ─────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">connection</span> *c = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*c), <span class="nm">GFP_KERNEL</span>);
+c-&gt;src_ip   = <span class="fn">htonl</span>(<span class="nm">0xC0A80101</span>);   <span class="cm">/* 192.168.1.1 */</span>
+c-&gt;dst_ip   = <span class="fn">htonl</span>(<span class="nm">0x08080808</span>);   <span class="cm">/* 8.8.8.8 */</span>
+c-&gt;src_port = <span class="fn">htons</span>(<span class="nm">45678</span>);
+c-&gt;dst_port = <span class="fn">htons</span>(<span class="nm">443</span>);
+c-&gt;last_seen = <span class="fn">ktime_get</span>();
+
+<span class="tp">u32</span> key = <span class="fn">conn_hash</span>(c-&gt;src_ip, c-&gt;dst_ip, c-&gt;src_port, c-&gt;dst_port);
+<span class="fn">hash_add</span>(conn_table, &amp;c-&gt;node, key);   <span class="cm">/* add to the appropriate bucket */</span>
+
+<span class="cm">/* ── STEP 5: Look up an entry ────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">connection</span> *found = <span class="nm">NULL</span>, *cur;
+<span class="tp">u32</span> lookup_key = <span class="fn">conn_hash</span>(src, dst, sport, dport);
+
+<span class="fn">hash_for_each_possible</span>(conn_table, cur, node, lookup_key) {
+    <span class="cm">/* Hash table gives us all entries in the same bucket.
+     * We must compare fields to find the exact match. */</span>
+    <span class="kw">if</span> (cur-&gt;src_ip   == src   && cur-&gt;dst_ip   == dst &&
+        cur-&gt;src_port == sport && cur-&gt;dst_port == dport) {
+        found = cur;
+        <span class="kw">break</span>;
+    }
+}
+<span class="kw">if</span> (found)
+    <span class="fn">pr_info</span>(<span class="st">"Connection found, last seen: %lld ns ago\n"</span>,
+            <span class="fn">ktime_to_ns</span>(<span class="fn">ktime_sub</span>(<span class="fn">ktime_get</span>(), found-&gt;last_seen)));
+
+<span class="cm">/* ── STEP 6: Iterate ALL entries ─────────────────────────────────── */</span>
+<span class="kw">unsigned int</span> bkt;
+<span class="fn">hash_for_each</span>(conn_table, bkt, cur, node) {
+    <span class="fn">pr_info</span>(<span class="st">"  bucket %u: %pI4:%u → %pI4:%u\n"</span>,
+            bkt,
+            &amp;cur-&gt;src_ip, <span class="fn">ntohs</span>(cur-&gt;src_port),
+            &amp;cur-&gt;dst_ip, <span class="fn">ntohs</span>(cur-&gt;dst_port));
+}
+
+<span class="cm">/* ── STEP 7: Remove an entry ─────────────────────────────────────── */</span>
+<span class="fn">hash_del</span>(&amp;c-&gt;node);   <span class="cm">/* remove from table — does NOT free c */</span>
+<span class="fn">kfree</span>(c);              <span class="cm">/* free the struct separately */</span>
+
+<span class="cm">/* ── STEP 8: Check if entry is in a table ────────────────────────── */</span>
+<span class="kw">if</span> (<span class="fn">hash_hashed</span>(&amp;c-&gt;node))
+    <span class="fn">pr_info</span>(<span class="st">"entry is in a hash table\n"</span>);</pre>
+  </div>
+
+<!-- ══════════════════ SECTION 4 — Red-Black Trees ══════════════════ -->
+  <div class="section-header">
+    <div class="sn yellow">4</div>
+    <h2>Red-Black Trees — struct rb_root / rb_node</h2>
+  </div>
+
+  <div class="card">
+    <h3>🌲 Balanced BST for O(log n) Ordered Access</h3>
+    <p>Red-black trees provide guaranteed O(log n) insertion, deletion, and lookup. They maintain sorted order, unlike hash tables. The Linux scheduler uses an rb-tree to track runnable tasks by virtual runtime (the CFS scheduler). The virtual memory subsystem uses them for VMA (Virtual Memory Area) management. Timer wheels use them for high-resolution timers.</p>
+    <p>The kernel's rb-tree is <em>augmentable</em> — you provide your own comparison function and insertion logic, giving maximum flexibility.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Red-Black Tree — Complete Working Example</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/rbtree.h&gt;</span>
+
+<span class="cm">/* ── STEP 1: Embed rb_node in your struct ─────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">task_record</span> {
+    <span class="kw">u64</span>           vruntime;      <span class="cm">/* the key we search/sort by */</span>
+    <span class="kw">pid_t</span>         pid;
+    <span class="kw">char</span>          name[<span class="nm">16</span>];
+    <span class="kw">struct</span> <span class="tp">rb_node</span> rb;           <span class="cm">/* embedded rb_node */</span>
+};
+
+<span class="cm">/* ── STEP 2: Declare the root ─────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">rb_root</span> task_tree = <span class="mc">RB_ROOT</span>;  <span class="cm">/* empty tree */</span>
+
+<span class="cm">/* ── STEP 3: Write your INSERT function ───────────────────────────── */</span>
+<span class="cm">/* The kernel doesn't provide a generic insert — you write it yourself.
+ * This gives you full control over the comparison and duplicate handling. */</span>
+<span class="kw">static void</span> <span class="fn">task_insert</span>(<span class="kw">struct</span> <span class="tp">rb_root</span> *root, <span class="kw">struct</span> <span class="tp">task_record</span> *new)
+{
+    <span class="kw">struct</span> <span class="tp">rb_node</span> **link = &amp;root-&gt;rb_node;   <span class="cm">/* start at root */</span>
+    <span class="kw">struct</span> <span class="tp">rb_node</span>  *parent = <span class="nm">NULL</span>;
+
+    <span class="cm">/* Walk the tree to find the insertion point */</span>
+    <span class="kw">while</span> (*link) {
+        <span class="kw">struct</span> <span class="tp">task_record</span> *cur =
+            <span class="fn">rb_entry</span>(*link, <span class="kw">struct</span> <span class="tp">task_record</span>, rb);
+        <span class="cm">/* rb_entry = container_of for rb_node */</span>
+
+        parent = *link;
+        <span class="kw">if</span> (new-&gt;vruntime &lt; cur-&gt;vruntime)
+            link = &amp;(*link)-&gt;rb_left;       <span class="cm">/* go left: smaller */</span>
+        <span class="kw">else if</span> (new-&gt;vruntime &gt; cur-&gt;vruntime)
+            link = &amp;(*link)-&gt;rb_right;      <span class="cm">/* go right: larger */</span>
+        <span class="kw">else</span>
+            <span class="kw">return</span>;   <span class="cm">/* duplicate key: don't insert */</span>
+    }
+
+    <span class="cm">/* Attach new node and rebalance */</span>
+    <span class="fn">rb_link_node</span>(&amp;new-&gt;rb, parent, link);      <span class="cm">/* link into tree */</span>
+    <span class="fn">rb_insert_color</span>(&amp;new-&gt;rb, root);           <span class="cm">/* rebalance (fix RB properties) */</span>
+}
+
+<span class="cm">/* ── STEP 4: Write your SEARCH function ───────────────────────────── */</span>
+<span class="kw">static struct</span> <span class="tp">task_record</span> *<span class="fn">task_search</span>(<span class="kw">struct</span> <span class="tp">rb_root</span> *root, <span class="tp">u64</span> vruntime)
+{
+    <span class="kw">struct</span> <span class="tp">rb_node</span> *node = root-&gt;rb_node;
+
+    <span class="kw">while</span> (node) {
+        <span class="kw">struct</span> <span class="tp">task_record</span> *cur = <span class="fn">rb_entry</span>(node, <span class="kw">struct</span> <span class="tp">task_record</span>, rb);
+
+        <span class="kw">if</span> (vruntime &lt; cur-&gt;vruntime)
+            node = node-&gt;rb_left;
+        <span class="kw">else if</span> (vruntime &gt; cur-&gt;vruntime)
+            node = node-&gt;rb_right;
+        <span class="kw">else</span>
+            <span class="kw">return</span> cur;   <span class="cm">/* found! */</span>
+    }
+    <span class="kw">return</span> <span class="nm">NULL</span>;   <span class="cm">/* not found */</span>
+}
+
+<span class="cm">/* ── STEP 5: Remove an entry ─────────────────────────────────────── */</span>
+<span class="fn">rb_erase</span>(&amp;task-&gt;rb, &amp;task_tree);   <span class="cm">/* remove and rebalance */</span>
+<span class="fn">kfree</span>(task);                         <span class="cm">/* then free the struct */</span>
+
+<span class="cm">/* ── STEP 6: In-order iteration (sorted!) ────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">rb_node</span> *node;
+<span class="kw">for</span> (node = <span class="fn">rb_first</span>(&amp;task_tree); node; node = <span class="fn">rb_next</span>(node)) {
+    <span class="kw">struct</span> <span class="tp">task_record</span> *t = <span class="fn">rb_entry</span>(node, <span class="kw">struct</span> <span class="tp">task_record</span>, rb);
+    <span class="fn">pr_info</span>(<span class="st">"pid=%d vruntime=%llu name=%s\n"</span>, t-&gt;pid, t-&gt;vruntime, t-&gt;name);
+}
+<span class="cm">/* rb_first → smallest; rb_last → largest; rb_prev/rb_next for traversal */</span>
+
+<span class="cm">/* ── STEP 7: Get min/max quickly ─────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">rb_node</span> *min_node = <span class="fn">rb_first</span>(&amp;task_tree);
+<span class="kw">if</span> (min_node) {
+    <span class="kw">struct</span> <span class="tp">task_record</span> *min_task = <span class="fn">rb_entry</span>(min_node, <span class="kw">struct</span> <span class="tp">task_record</span>, rb);
+    <span class="fn">pr_info</span>(<span class="st">"Min vruntime task: %s\n"</span>, min_task-&gt;name);
+}</pre>
+  </div>
+
+<!-- ══════════════════ SECTION 5 — XArray ══════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">5</div>
+    <h2>XArray — The Modern Index-to-Pointer Map</h2>
+  </div>
+
+  <div class="card">
+    <h3>📦 Replacing IDR + radix_tree with One Clean API</h3>
+    <p>The XArray (introduced in kernel 4.20) is a modern replacement for both the old radix tree and IDR APIs. It maps <code>unsigned long</code> indices to pointers, is internally thread-safe with its own spinlock, supports sparse arrays efficiently, and has a far cleaner API than its predecessors.</p>
+    <p>Use XArray when you need to: store objects indexed by an integer (file descriptors, device IDs, page cache), iterate a range of indices, or atomically store/load/compare values.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — XArray Complete API</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/xarray.h&gt;</span>
+
+<span class="cm">/* ── DECLARE &amp; INIT ───────────────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="mc">DEFINE_XARRAY</span>(device_xa);        <span class="cm">/* static declaration + init */</span>
+
+<span class="cm">/* OR: for dynamic allocation */</span>
+<span class="kw">struct</span> <span class="tp">xarray</span> *xa = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*xa), <span class="nm">GFP_KERNEL</span>);
+<span class="fn">xa_init</span>(xa);
+
+<span class="cm">/* ── STORE — index → pointer ──────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> *dev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*dev), <span class="nm">GFP_KERNEL</span>);
+dev-&gt;id = <span class="nm">42</span>;
+
+<span class="cm">/* xa_store: store pointer at index. Returns old value or error. */</span>
+<span class="kw">void</span> *old = <span class="fn">xa_store</span>(&amp;device_xa, <span class="nm">42</span>, dev, <span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (<span class="fn">xa_is_err</span>(old)) {
+    <span class="fn">pr_err</span>(<span class="st">"xa_store failed: %d\n"</span>, <span class="fn">xa_err</span>(old));
+    <span class="fn">kfree</span>(dev);
+    <span class="kw">return</span> <span class="nm">-ENOMEM</span>;
+}
+
+<span class="cm">/* ── LOAD — index → pointer ───────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> *found = <span class="fn">xa_load</span>(&amp;device_xa, <span class="nm">42</span>);
+<span class="kw">if</span> (found)
+    <span class="fn">pr_info</span>(<span class="st">"Found device at index 42: id=%d\n"</span>, found-&gt;id);
+
+<span class="cm">/* ── AUTO-ALLOCATE an unused index ────────────────────────────────── */</span>
+<span class="tp">unsigned long</span> idx;
+<span class="kw">int</span> ret = <span class="fn">xa_alloc</span>(&amp;device_xa, &amp;idx, dev, <span class="fn">xa_limit_32b</span>, <span class="nm">GFP_KERNEL</span>);
+<span class="cm">/* xa_alloc finds the lowest unused index in [0, UINT_MAX], stores dev there,
+ * and writes the chosen index into idx. Perfect for assigning device IDs. */</span>
+<span class="kw">if</span> (ret)
+    <span class="kw">return</span> ret;
+<span class="fn">pr_info</span>(<span class="st">"Device stored at auto-allocated index %lu\n"</span>, idx);
+
+<span class="cm">/* ── ERASE — remove entry ─────────────────────────────────────────── */</span>
+<span class="kw">void</span> *erased = <span class="fn">xa_erase</span>(&amp;device_xa, idx);   <span class="cm">/* returns the old pointer */</span>
+<span class="kw">if</span> (erased)
+    <span class="fn">kfree</span>(erased);   <span class="cm">/* free the struct after removing from XArray */</span>
+
+<span class="cm">/* ── ITERATE a range of indices ───────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> *dev_iter;
+<span class="tp">unsigned long</span> i = <span class="nm">0</span>;   <span class="cm">/* start index */</span>
+<span class="fn">xa_for_each</span>(&amp;device_xa, i, dev_iter) {
+    <span class="fn">pr_info</span>(<span class="st">"Index %lu: device id=%d\n"</span>, i, dev_iter-&gt;id);
+}
+<span class="cm">/* xa_for_each(xa, index, entry): iterates all non-NULL entries.
+ * index is updated to each entry's index on each iteration. */</span>
+
+<span class="cm">/* ── ITERATE a specific range ─────────────────────────────────────── */</span>
+<span class="fn">xa_for_each_range</span>(&amp;device_xa, i, dev_iter, <span class="nm">10</span>, <span class="nm">20</span>) {
+    <span class="fn">pr_info</span>(<span class="st">"Index %lu (10-20): %d\n"</span>, i, dev_iter-&gt;id);
+}
+
+<span class="cm">/* ── ATOMIC COMPARE-AND-STORE ─────────────────────────────────────── */</span>
+<span class="kw">void</span> *prev = <span class="fn">xa_cmpxchg</span>(&amp;device_xa, idx, old_ptr, new_ptr, <span class="nm">GFP_KERNEL</span>);
+<span class="cm">/* Only stores new_ptr if current value == old_ptr. Returns old value.
+ * Essential for lock-free updates. */</span>
+
+<span class="cm">/* ── CLEANUP — destroy XArray, free all entries ───────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> *d;
+<span class="tp">unsigned long</span> idx2;
+<span class="fn">xa_for_each</span>(&amp;device_xa, idx2, d)
+    <span class="fn">kfree</span>(d);
+<span class="fn">xa_destroy</span>(&amp;device_xa);</pre>
+  </div>
+
+<!-- ══════════════════ SECTION 6 — IDR ══════════════════ -->
+  <div class="section-header">
+    <div class="sn red">6</div>
+    <h2>IDR — Integer ID Allocator</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔢 Assigning Unique Integer IDs to Kernel Objects</h3>
+    <p>The IDR (ID Radix) allocator assigns unique integer IDs to objects and lets you look up objects by their ID. It's backed by XArray internally since kernel 5.0. Classic use cases: assigning minor device numbers, USB device IDs, network interface indices, and any place where you need a unique small integer per object.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — IDR API — Device Minor Number Assignment Pattern</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/idr.h&gt;</span>
+
+<span class="cm">/* ── Declare and initialise ───────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="mc">DEFINE_IDR</span>(minor_idr);    <span class="cm">/* static global IDR */</span>
+
+<span class="cm">/* ── Allocate an ID when device is created ───────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> *dev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*dev), <span class="nm">GFP_KERNEL</span>);
+<span class="kw">int</span> id;
+
+<span class="cm">/* idr_alloc: find lowest free ID in [min, max), store dev ptr, return ID */</span>
+id = <span class="fn">idr_alloc</span>(&amp;minor_idr, dev, <span class="nm">0</span>, <span class="nm">256</span>, <span class="nm">GFP_KERNEL</span>);
+<span class="cm">/*             ^IDR    ^ptr  ^min ^max  ^gfp
+ * Returns: allocated ID (>= 0) on success, negative errno on failure
+ * -ENOSPC if [min,max) range is exhausted */</span>
+<span class="kw">if</span> (id &lt; <span class="nm">0</span>) {
+    <span class="fn">pr_err</span>(<span class="st">"No free minor numbers available: %d\n"</span>, id);
+    <span class="fn">kfree</span>(dev);
+    <span class="kw">return</span> id;
+}
+dev-&gt;minor = id;
+<span class="fn">pr_info</span>(<span class="st">"Assigned minor number: %d\n"</span>, id);
+
+<span class="cm">/* ── Look up by ID ───────────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> *d = <span class="fn">idr_find</span>(&amp;minor_idr, id);
+<span class="kw">if</span> (d)
+    <span class="fn">pr_info</span>(<span class="st">"Device with minor %d: %p\n"</span>, id, d);
+
+<span class="cm">/* ── Iterate all allocated IDs ───────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> *iter_dev;
+<span class="kw">int</span> iter_id;
+<span class="fn">idr_for_each_entry</span>(&amp;minor_idr, iter_dev, iter_id) {
+    <span class="fn">pr_info</span>(<span class="st">"  minor %d: device %p\n"</span>, iter_id, iter_dev);
+}
+
+<span class="cm">/* ── Remove when device is destroyed ─────────────────────────────── */</span>
+<span class="fn">idr_remove</span>(&amp;minor_idr, id);   <span class="cm">/* frees the ID slot, does NOT free dev */</span>
+<span class="fn">kfree</span>(dev);                    <span class="cm">/* free the device struct separately */</span>
+
+<span class="cm">/* ── Destroy IDR (cleanup in module exit) ────────────────────────── */</span>
+<span class="fn">idr_destroy</span>(&amp;minor_idr);   <span class="cm">/* frees IDR internals, NOT the stored pointers */</span>
+
+<span class="cm">/* ── REAL DRIVER PATTERN: protect with a lock ─────────────────────── */</span>
+<span class="kw">static</span> <span class="mc">DEFINE_MUTEX</span>(minor_lock);
+
+<span class="fn">mutex_lock</span>(&amp;minor_lock);
+id = <span class="fn">idr_alloc</span>(&amp;minor_idr, dev, <span class="nm">0</span>, <span class="nm">256</span>, <span class="nm">GFP_KERNEL</span>);
+<span class="fn">mutex_unlock</span>(&amp;minor_lock);</pre>
+  </div>
+
+<!-- ══════════════════ SECTION 7 — kfifo ══════════════════ -->
+  <div class="section-header">
+    <div class="sn orange">7</div>
+    <h2>kfifo — Lock-Free Circular FIFO Buffer</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔄 The Driver's Best Friend for Producer-Consumer Queues</h3>
+    <p><code>kfifo</code> is a kernel ring buffer (circular queue) that is <strong>lock-free when used with exactly one producer and one consumer</strong>. This makes it perfect for driver interrupt handlers (producer) feeding data to a read() syscall (consumer). It uses power-of-2 sizing so the index wrapping is a simple bitmask — no modulo, no division.</p>
+  </div>
+
+  <div style="margin:16px 0">
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot head">0x41</div>
+        <div class="fifo-label">head(R)</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot used">0x62</div>
+        <div class="fifo-label">1</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot used">0x63</div>
+        <div class="fifo-label">2</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot tail">___</div>
+        <div class="fifo-label">tail(W)</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot">___</div>
+        <div class="fifo-label">4</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot">___</div>
+        <div class="fifo-label">5</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot">___</div>
+        <div class="fifo-label">6</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="fifo-slot">___</div>
+        <div class="fifo-label">7</div>
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--text3)">
+      🟢 head = read ptr (consumer) &nbsp;&nbsp; 🟡 tail = write ptr (producer) &nbsp;&nbsp; ⬜ empty slots
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — kfifo Complete API — IRQ → read() Driver Pattern</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/kfifo.h&gt;</span>
+
+<span class="cm">/* ── DECLARE: Type-safe kfifo for u8 bytes, 4096 element capacity ─── */</span>
+<span class="mc">DECLARE_KFIFO</span>(rx_fifo, <span class="tp">u8</span>, <span class="nm">4096</span>);   <span class="cm">/* static declaration, power-of-2 size */</span>
+<span class="cm">/* OR for struct elements: */</span>
+<span class="mc">DECLARE_KFIFO</span>(event_fifo, <span class="kw">struct</span> <span class="tp">input_event</span>, <span class="nm">64</span>);
+
+<span class="cm">/* ── INIT ─────────────────────────────────────────────────────────── */</span>
+<span class="fn">INIT_KFIFO</span>(rx_fifo);
+
+<span class="cm">/* OR: Dynamically allocated kfifo (size determined at runtime): */</span>
+<span class="kw">struct</span> <span class="tp">kfifo</span> dyn_fifo;
+<span class="kw">int</span> ret = <span class="fn">kfifo_alloc</span>(&amp;dyn_fifo, <span class="nm">PAGE_SIZE</span>, <span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (ret) <span class="kw">return</span> ret;
+
+<span class="cm">/* ── PRODUCER SIDE: Interrupt handler puts data in ──────────────────
+ * Called from IRQ context — NO LOCK NEEDED with single producer/consumer */</span>
+<span class="kw">static</span> <span class="tp">irqreturn_t</span> <span class="fn">my_irq_handler</span>(<span class="kw">int</span> irq, <span class="kw">void</span> *dev_id)
+{
+    <span class="kw">u8</span> byte_from_hw = <span class="fn">read_hw_register</span>(dev_id);
+
+    <span class="kw">if</span> (<span class="fn">kfifo_put</span>(&amp;rx_fifo, byte_from_hw))   <span class="cm">/* add ONE element */</span>
+        <span class="fn">wake_up_interruptible</span>(&amp;rx_wait_queue); <span class="cm">/* wake sleeping reader */</span>
+    <span class="kw">else</span>
+        <span class="fn">pr_warn_ratelimited</span>(<span class="st">"RX buffer full, dropping byte\n"</span>);
+
+    <span class="kw">return</span> <span class="nm">IRQ_HANDLED</span>;
+}
+
+<span class="cm">/* kfifo_in: add multiple elements at once */</span>
+<span class="kw">u8</span> data[<span class="nm">16</span>] = {<span class="nm">0x01</span>, <span class="nm">0x02</span>, ...};
+<span class="kw">unsigned int</span> pushed = <span class="fn">kfifo_in</span>(&amp;rx_fifo, data, <span class="nm">16</span>);
+<span class="cm">/* Returns how many elements were actually pushed (may be < 16 if full) */</span>
+
+<span class="cm">/* ── CONSUMER SIDE: read() syscall gets data out ────────────────────
+ * Called from process context — NO LOCK NEEDED with single producer */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">my_read</span>(<span class="kw">struct</span> <span class="tp">file</span> *f, <span class="kw">char __user</span> *buf,
+                        <span class="tp">size_t</span> count, <span class="tp">loff_t</span> *off)
+{
+    <span class="kw">unsigned int</span> copied;
+
+    <span class="cm">/* Block until data is available */</span>
+    <span class="kw">if</span> (<span class="fn">wait_event_interruptible</span>(rx_wait_queue, !<span class="fn">kfifo_is_empty</span>(&amp;rx_fifo)))
+        <span class="kw">return</span> -<span class="nm">ERESTARTSYS</span>;
+
+    <span class="cm">/* kfifo_to_user: copy directly from kfifo to userspace buffer */</span>
+    ret = <span class="fn">kfifo_to_user</span>(&amp;rx_fifo, buf, count, &amp;copied);
+    <span class="kw">return</span> ret ? ret : copied;
+}
+
+<span class="cm">/* ── STATUS QUERIES ───────────────────────────────────────────────── */</span>
+<span class="fn">kfifo_len</span>(&amp;rx_fifo);         <span class="cm">/* number of elements stored */</span>
+<span class="fn">kfifo_avail</span>(&amp;rx_fifo);       <span class="cm">/* free space (elements that can be added) */</span>
+<span class="fn">kfifo_size</span>(&amp;rx_fifo);        <span class="cm">/* total capacity */</span>
+<span class="fn">kfifo_is_empty</span>(&amp;rx_fifo);    <span class="cm">/* true if no elements */</span>
+<span class="fn">kfifo_is_full</span>(&amp;rx_fifo);     <span class="cm">/* true if no space */</span>
+
+<span class="cm">/* ── PEEK (look without consuming) ──────────────────────────────── */</span>
+<span class="kw">u8</span> val;
+<span class="kw">if</span> (<span class="fn">kfifo_peek</span>(&amp;rx_fifo, &amp;val))   <span class="cm">/* read ONE element without removing */</span>
+    <span class="fn">pr_info</span>(<span class="st">"Next byte: 0x%02x\n"</span>, val);
+
+<span class="cm">/* ── WHEN TO ADD LOCKING ─────────────────────────────────────────── */</span>
+<span class="cm">/* Single producer + single consumer: NO lock needed (lock-free)
+ * Multiple producers OR multiple consumers: protect with spinlock_t
+ *
+ * kfifo_in_spinlocked(fifo, buf, n, lock)   — producer with lock
+ * kfifo_out_spinlocked(fifo, buf, n, lock)  — consumer with lock
+ */</span>
+
+<span class="cm">/* ── CLEANUP ─────────────────────────────────────────────────────── */</span>
+<span class="fn">kfifo_free</span>(&amp;dyn_fifo);    <span class="cm">/* for kfifo_alloc'd fifos only */</span>
+<span class="cm">/* DECLARE_KFIFO: no free needed — static storage */</span></pre>
+  </div>
+
+<!-- ══════════════════ SECTION 8 — Bitmaps ══════════════════ -->
+  <div class="section-header">
+    <div class="sn teal">8</div>
+    <h2>Bitmaps — Dense Bitfield Operations</h2>
+  </div>
+
+  <div class="card">
+    <h3>🗺️ Tracking Sets of Flags, Channels, Resources</h3>
+    <p>Bitmaps are arrays of <code>unsigned long</code> that the kernel provides rich operations for. They're used to track which IRQs are in use, which CPUs are online, which resources are allocated, which ports are open — anywhere you need a dense set of boolean flags indexed by number.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Bitmap API — Static and Dynamic</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/bitmap.h&gt;</span>
+<span class="pp">#include &lt;linux/bitops.h&gt;</span>
+
+<span class="cm">/* ── STATIC BITMAP (size known at compile time) ───────────────────── */</span>
+<span class="mc">DECLARE_BITMAP</span>(channel_map, <span class="nm">256</span>);   <span class="cm">/* 256-bit bitmap = 4 × unsigned long */</span>
+<span class="fn">bitmap_zero</span>(channel_map, <span class="nm">256</span>);      <span class="cm">/* clear all bits */</span>
+<span class="fn">bitmap_fill</span>(channel_map, <span class="nm">256</span>);      <span class="cm">/* set all bits */</span>
+
+<span class="cm">/* ── INDIVIDUAL BIT OPERATIONS ────────────────────────────────────── */</span>
+<span class="fn">set_bit</span>(<span class="nm">5</span>, channel_map);            <span class="cm">/* set bit 5 atomically */</span>
+<span class="fn">clear_bit</span>(<span class="nm">5</span>, channel_map);          <span class="cm">/* clear bit 5 atomically */</span>
+<span class="fn">change_bit</span>(<span class="nm">5</span>, channel_map);         <span class="cm">/* toggle bit 5 atomically */</span>
+<span class="fn">test_bit</span>(<span class="nm">5</span>, channel_map);           <span class="cm">/* read bit 5 (returns 0 or 1) */</span>
+
+<span class="cm">/* ── ATOMIC READ-MODIFY-WRITE ─────────────────────────────────────── */</span>
+<span class="cm">/* test_and_set_bit: atomically set bit, return OLD value */</span>
+<span class="kw">if</span> (!<span class="fn">test_and_set_bit</span>(<span class="nm">7</span>, channel_map)) {
+    <span class="cm">/* bit was 0, now set to 1 — WE own channel 7 */</span>
+    <span class="fn">pr_info</span>(<span class="st">"Acquired channel 7\n"</span>);
+} <span class="kw">else</span> {
+    <span class="fn">pr_info</span>(<span class="st">"Channel 7 already taken\n"</span>);
+}
+
+<span class="cm">/* test_and_clear_bit: atomically clear, return OLD value */</span>
+<span class="kw">if</span> (<span class="fn">test_and_clear_bit</span>(<span class="nm">7</span>, channel_map))
+    <span class="fn">pr_info</span>(<span class="st">"Released channel 7\n"</span>);
+
+<span class="cm">/* ── FINDING BITS ─────────────────────────────────────────────────── */</span>
+<span class="tp">unsigned long</span> bit;
+
+<span class="cm">/* Find first zero (free resource) — for resource allocation */</span>
+bit = <span class="fn">find_first_zero_bit</span>(channel_map, <span class="nm">256</span>);
+<span class="kw">if</span> (bit &lt; <span class="nm">256</span>) {
+    <span class="fn">set_bit</span>(bit, channel_map);        <span class="cm">/* allocate it */</span>
+    <span class="fn">pr_info</span>(<span class="st">"Allocated channel %lu\n"</span>, bit);
+} <span class="kw">else</span> {
+    <span class="fn">pr_err</span>(<span class="st">"No free channels!\n"</span>);
+}
+
+bit = <span class="fn">find_first_bit</span>(channel_map, <span class="nm">256</span>);     <span class="cm">/* first SET bit */</span>
+bit = <span class="fn">find_next_bit</span>(channel_map, <span class="nm">256</span>, <span class="nm">10</span>);  <span class="cm">/* first SET bit at or after 10 */</span>
+bit = <span class="fn">find_next_zero_bit</span>(channel_map, <span class="nm">256</span>, <span class="nm">10</span>); <span class="cm">/* first ZERO bit at or after 10 */</span>
+
+<span class="cm">/* ── ITERATE SET BITS (great for active channel processing) ──────── */</span>
+<span class="fn">for_each_set_bit</span>(bit, channel_map, <span class="nm">256</span>) {
+    <span class="fn">pr_info</span>(<span class="st">"Channel %lu is active\n"</span>, bit);
+}
+<span class="fn">for_each_clear_bit</span>(bit, channel_map, <span class="nm">256</span>) {
+    <span class="fn">pr_info</span>(<span class="st">"Channel %lu is free\n"</span>, bit);
+}
+
+<span class="cm">/* ── BITMAP LOGIC OPS ─────────────────────────────────────────────── */</span>
+<span class="mc">DECLARE_BITMAP</span>(a, <span class="nm">256</span>), b[<span class="mc">BITS_TO_LONGS</span>(<span class="nm">256</span>)], c[<span class="mc">BITS_TO_LONGS</span>(<span class="nm">256</span>)];
+<span class="fn">bitmap_and</span>(c, a, b, <span class="nm">256</span>);       <span class="cm">/* c = a AND b */</span>
+<span class="fn">bitmap_or</span>(c, a, b, <span class="nm">256</span>);        <span class="cm">/* c = a OR  b */</span>
+<span class="fn">bitmap_xor</span>(c, a, b, <span class="nm">256</span>);       <span class="cm">/* c = a XOR b */</span>
+<span class="fn">bitmap_andnot</span>(c, a, b, <span class="nm">256</span>);    <span class="cm">/* c = a AND NOT b */</span>
+<span class="fn">bitmap_complement</span>(c, a, <span class="nm">256</span>);   <span class="cm">/* c = NOT a */</span>
+<span class="fn">bitmap_equal</span>(a, b, <span class="nm">256</span>);        <span class="cm">/* true if a == b */</span>
+<span class="fn">bitmap_subset</span>(a, b, <span class="nm">256</span>);       <span class="cm">/* true if a is subset of b */</span>
+<span class="fn">bitmap_weight</span>(channel_map, <span class="nm">256</span>); <span class="cm">/* count of set bits (popcount) */</span>
+
+<span class="cm">/* ── CPUMASK — specialised bitmap for CPUs (very common in drivers) ── */</span>
+<span class="pp">#include &lt;linux/cpumask.h&gt;</span>
+<span class="tp">cpumask_t</span> mask;
+<span class="fn">cpumask_set_cpu</span>(<span class="nm">0</span>, &amp;mask);       <span class="cm">/* pin to CPU 0 */</span>
+<span class="fn">cpumask_clear_cpu</span>(<span class="nm">1</span>, &amp;mask);     <span class="cm">/* remove CPU 1 */</span>
+<span class="fn">for_each_cpu</span>(cpu, &amp;mask)         <span class="cm">/* iterate CPUs in mask */</span>
+    <span class="fn">pr_info</span>(<span class="st">"CPU %d in mask\n"</span>, cpu);</pre>
+  </div>
+
+<!-- ══════════════════ SECTION 9 — Practice ══════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">9</div>
+    <h2>Day 5 Practice Project — Driver Registry Module</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Today's Goal</strong>Build a "device registry" module that combines all today's data structures: a linked list of devices, a hash table for fast lookup by IP, an IDR for minor number assignment, a kfifo for an event queue, and a bitmap for tracking used channels. This simulates the core of a real network driver's bookkeeping.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — ds_practice.c — Device Registry with All Data Structures</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * ds_practice.c — Day 5: Kernel Data Structures Practice
+ * A mock device registry using: list, hashtable, IDR, kfifo, bitmap
+ */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/slab.h&gt;</span>
+<span class="pp">#include &lt;linux/list.h&gt;</span>
+<span class="pp">#include &lt;linux/hashtable.h&gt;</span>
+<span class="pp">#include &lt;linux/idr.h&gt;</span>
+<span class="pp">#include &lt;linux/kfifo.h&gt;</span>
+<span class="pp">#include &lt;linux/bitmap.h&gt;</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Day 5: Data Structures Practice"</span>);
+
+<span class="cm">/* ── DATA MODEL ───────────────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">mock_device</span> {
+    <span class="kw">int</span>              minor;         <span class="cm">/* assigned by IDR */</span>
+    <span class="kw">u32</span>              ip_addr;       <span class="cm">/* key for hash table */</span>
+    <span class="kw">char</span>             name[<span class="nm">32</span>];
+    <span class="kw">struct</span> <span class="tp">list_head</span>  list;         <span class="cm">/* for the device list */</span>
+    <span class="kw">struct</span> <span class="tp">hlist_node</span> hash_node;    <span class="cm">/* for the hash table */</span>
+};
+
+<span class="cm">/* ── GLOBAL DATA STRUCTURES ───────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="mc">LIST_HEAD</span>(dev_list);            <span class="cm">/* all devices in insertion order */</span>
+<span class="mc">DECLARE_HASHTABLE</span>(ip_table, <span class="nm">8</span>);        <span class="cm">/* 256 buckets, keyed by IP */</span>
+<span class="kw">static</span> <span class="mc">DEFINE_IDR</span>(minor_idr);          <span class="cm">/* minor number pool */</span>
+<span class="mc">DECLARE_KFIFO</span>(event_queue, <span class="kw">u32</span>, <span class="nm">32</span>);  <span class="cm">/* event IDs from devices */</span>
+<span class="mc">DECLARE_BITMAP</span>(channel_map, <span class="nm">64</span>);       <span class="cm">/* which of 64 channels are in use */</span>
+
+<span class="cm">/* ── HELPERS ──────────────────────────────────────────────────────── */</span>
+<span class="kw">static struct</span> <span class="tp">mock_device</span> *<span class="fn">device_create</span>(<span class="kw">const char</span> *name, <span class="kw">u32</span> ip)
+{
+    <span class="kw">struct</span> <span class="tp">mock_device</span> *dev;
+    <span class="kw">int</span> minor;
+
+    dev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*dev), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!dev) <span class="kw">return</span> <span class="nm">NULL</span>;
+
+    <span class="cm">/* Assign a minor number */</span>
+    minor = <span class="fn">idr_alloc</span>(&amp;minor_idr, dev, <span class="nm">0</span>, <span class="nm">256</span>, <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (minor &lt; <span class="nm">0</span>) { <span class="fn">kfree</span>(dev); <span class="kw">return</span> <span class="nm">NULL</span>; }
+
+    dev-&gt;minor   = minor;
+    dev-&gt;ip_addr = ip;
+    <span class="fn">strscpy</span>(dev-&gt;name, name, <span class="kw">sizeof</span>(dev-&gt;name));
+
+    <span class="cm">/* Add to linked list (tail = insertion order) */</span>
+    <span class="fn">list_add_tail</span>(&amp;dev-&gt;list, &amp;dev_list);
+
+    <span class="cm">/* Add to hash table keyed by IP */</span>
+    <span class="fn">hash_add</span>(ip_table, &amp;dev-&gt;hash_node, <span class="fn">hash_32</span>(ip, <span class="nm">8</span>));
+
+    <span class="fn">pr_info</span>(<span class="st">"Created device '%s' minor=%d ip=%pI4\n"</span>,
+            name, minor, &amp;ip);
+    <span class="kw">return</span> dev;
+}
+
+<span class="kw">static struct</span> <span class="tp">mock_device</span> *<span class="fn">device_find_by_ip</span>(<span class="kw">u32</span> ip)
+{
+    <span class="kw">struct</span> <span class="tp">mock_device</span> *cur;
+    <span class="fn">hash_for_each_possible</span>(ip_table, cur, hash_node, <span class="fn">hash_32</span>(ip, <span class="nm">8</span>)) {
+        <span class="kw">if</span> (cur-&gt;ip_addr == ip)
+            <span class="kw">return</span> cur;
+    }
+    <span class="kw">return</span> <span class="nm">NULL</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">device_destroy</span>(<span class="kw">struct</span> <span class="tp">mock_device</span> *dev)
+{
+    <span class="fn">hash_del</span>(&amp;dev-&gt;hash_node);
+    <span class="fn">list_del</span>(&amp;dev-&gt;list);
+    <span class="fn">idr_remove</span>(&amp;minor_idr, dev-&gt;minor);
+    <span class="fn">pr_info</span>(<span class="st">"Destroyed device '%s'\n"</span>, dev-&gt;name);
+    <span class="fn">kfree</span>(dev);
+}
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">ds_practice_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">struct</span> <span class="tp">mock_device</span> *dev, *tmp, *found;
+    <span class="tp">unsigned long</span> ch;
+    <span class="kw">u32</span> event;
+    <span class="kw">u32</span> ip1 = <span class="nm">0x0A000001</span>;   <span class="cm">/* 10.0.0.1 */</span>
+    <span class="kw">u32</span> ip2 = <span class="nm">0x0A000002</span>;   <span class="cm">/* 10.0.0.2 */</span>
+    <span class="kw">u32</span> ip3 = <span class="nm">0x0A000003</span>;   <span class="cm">/* 10.0.0.3 */</span>
+
+    <span class="fn">pr_info</span>(<span class="st">"=== Day 5: Data Structures Practice ===\n"</span>);
+
+    <span class="fn">hash_init</span>(ip_table);
+    <span class="fn">INIT_KFIFO</span>(event_queue);
+    <span class="fn">bitmap_zero</span>(channel_map, <span class="nm">64</span>);
+
+    <span class="cm">/* Create devices */</span>
+    <span class="fn">device_create</span>(<span class="st">"eth0"</span>, ip1);
+    <span class="fn">device_create</span>(<span class="st">"eth1"</span>, ip2);
+    <span class="fn">device_create</span>(<span class="st">"eth2"</span>, ip3);
+
+    <span class="cm">/* List iteration */</span>
+    <span class="fn">pr_info</span>(<span class="st">"\n--- All devices (list order) ---\n"</span>);
+    <span class="fn">list_for_each_entry</span>(dev, &amp;dev_list, list)
+        <span class="fn">pr_info</span>(<span class="st">"  minor=%d name=%s\n"</span>, dev-&gt;minor, dev-&gt;name);
+
+    <span class="cm">/* Hash lookup */</span>
+    <span class="fn">pr_info</span>(<span class="st">"\n--- Hash lookup by IP ---\n"</span>);
+    found = <span class="fn">device_find_by_ip</span>(ip2);
+    <span class="kw">if</span> (found)
+        <span class="fn">pr_info</span>(<span class="st">"  Found: '%s' minor=%d\n"</span>, found-&gt;name, found-&gt;minor);
+
+    <span class="cm">/* IDR lookup */</span>
+    <span class="fn">pr_info</span>(<span class="st">"\n--- IDR lookup by minor ---\n"</span>);
+    dev = <span class="fn">idr_find</span>(&amp;minor_idr, <span class="nm">1</span>);
+    <span class="kw">if</span> (dev)
+        <span class="fn">pr_info</span>(<span class="st">"  minor=1 → '%s'\n"</span>, dev-&gt;name);
+
+    <span class="cm">/* kfifo — simulate events */</span>
+    <span class="fn">pr_info</span>(<span class="st">"\n--- kfifo event queue ---\n"</span>);
+    <span class="fn">kfifo_put</span>(&amp;event_queue, (<span class="kw">u32</span>)<span class="nm">0xDEAD0001</span>);
+    <span class="fn">kfifo_put</span>(&amp;event_queue, (<span class="kw">u32</span>)<span class="nm">0xDEAD0002</span>);
+    <span class="fn">kfifo_put</span>(&amp;event_queue, (<span class="kw">u32</span>)<span class="nm">0xDEAD0003</span>);
+    <span class="fn">pr_info</span>(<span class="st">"  Events queued: %u\n"</span>, <span class="fn">kfifo_len</span>(&amp;event_queue));
+    <span class="kw">while</span> (<span class="fn">kfifo_get</span>(&amp;event_queue, &amp;event))
+        <span class="fn">pr_info</span>(<span class="st">"  Processing event: 0x%08x\n"</span>, event);
+
+    <span class="cm">/* bitmap — channel allocation */</span>
+    <span class="fn">pr_info</span>(<span class="st">"\n--- Bitmap channel allocation ---\n"</span>);
+    <span class="fn">set_bit</span>(<span class="nm">0</span>, channel_map); <span class="fn">set_bit</span>(<span class="nm">3</span>, channel_map); <span class="fn">set_bit</span>(<span class="nm">7</span>, channel_map);
+    ch = <span class="fn">find_first_zero_bit</span>(channel_map, <span class="nm">64</span>);
+    <span class="fn">set_bit</span>(ch, channel_map);
+    <span class="fn">pr_info</span>(<span class="st">"  Allocated channel %lu  (used: %u/64)\n"</span>,
+            ch, (<span class="kw">unsigned int</span>)<span class="fn">bitmap_weight</span>(channel_map, <span class="nm">64</span>));
+
+    <span class="cm">/* Cleanup */</span>
+    <span class="fn">pr_info</span>(<span class="st">"\n--- Cleanup ---\n"</span>);
+    <span class="fn">list_for_each_entry_safe</span>(dev, tmp, &amp;dev_list, list)
+        <span class="fn">device_destroy</span>(dev);
+
+    <span class="fn">idr_destroy</span>(&amp;minor_idr);
+    <span class="fn">pr_info</span>(<span class="st">"=== Practice complete ===\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">ds_practice_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"ds_practice: unloaded\n"</span>);
+}
+
+<span class="mc">module_init</span>(<span class="fn">ds_practice_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">ds_practice_exit</span>);</pre>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Build, load, and read the output</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make && sudo insmod ds_practice.ko && dmesg | grep "ds_practice\|Day 5"</span>
+<span class="cm"># Observe: device creation with minor numbers, list order, hash lookup,
+# IDR find, kfifo event processing, bitmap channel allocation</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Extend: Add an rb-tree sorted by minor number</h4>
+        <p>Add a <code>struct rb_node rb;</code> to <code>struct mock_device</code>, implement <code>device_insert_rbtree()</code> and <code>rbtree_inorder_print()</code>, and call them in init(). Verify that iterating the tree prints devices in minor-number order regardless of insertion order.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Extend: Fill the kfifo and observe overflow behaviour</h4>
+        <p>Try to <code>kfifo_put()</code> 64 events into a 32-element fifo. Check the return values — what happens after slot 32? Verify <code>kfifo_is_full()</code>, then drain and refill.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Trace container_of manually</h4>
+        <p>Add <code>pr_info("offsetof list: %zu, offsetof hash_node: %zu\n", offsetof(struct mock_device, list), offsetof(struct mock_device, hash_node));</code> and verify that adding each offset to the embedded pointer gives back the base of the struct (compare with direct <code>%px</code> print of the device pointer).</p>
+      </div>
+    </div>
+  </div>
+
+<!-- ══════════════════ SECTION 10 — Summary ══════════════════ -->
+  <div class="section-header">
+    <div class="sn green">10</div>
+    <h2>Quick Reference — When to Use Which Structure</h2>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Need</th><th>Use</th><th>Header</th><th>Key Macros/Functions</th></tr>
+      <tr><td><strong>Ordered sequence, fast insert/delete at any position</strong></td><td>Linked list</td><td><code>linux/list.h</code></td><td><code>list_add_tail</code>, <code>list_for_each_entry_safe</code>, <code>list_del</code></td></tr>
+      <tr><td><strong>Fast lookup by key (O(1) avg), no ordering needed</strong></td><td>Hash table</td><td><code>linux/hashtable.h</code></td><td><code>DECLARE_HASHTABLE</code>, <code>hash_add</code>, <code>hash_for_each_possible</code></td></tr>
+      <tr><td><strong>Sorted data, O(log n) lookup/insert/delete</strong></td><td>Red-black tree</td><td><code>linux/rbtree.h</code></td><td><code>rb_insert_color</code>, <code>rb_erase</code>, <code>rb_entry</code>, <code>rb_first</code></td></tr>
+      <tr><td><strong>Integer index → pointer, sparse array</strong></td><td>XArray</td><td><code>linux/xarray.h</code></td><td><code>xa_store</code>, <code>xa_load</code>, <code>xa_alloc</code>, <code>xa_for_each</code></td></tr>
+      <tr><td><strong>Unique integer ID assignment</strong></td><td>IDR</td><td><code>linux/idr.h</code></td><td><code>idr_alloc</code>, <code>idr_find</code>, <code>idr_remove</code>, <code>idr_for_each_entry</code></td></tr>
+      <tr><td><strong>Producer/consumer queue (IRQ → read())</strong></td><td>kfifo</td><td><code>linux/kfifo.h</code></td><td><code>DECLARE_KFIFO</code>, <code>kfifo_put</code>, <code>kfifo_get</code>, <code>kfifo_to_user</code></td></tr>
+      <tr><td><strong>Dense boolean flags, resource tracking</strong></td><td>Bitmap</td><td><code>linux/bitmap.h</code></td><td><code>set_bit</code>, <code>find_first_zero_bit</code>, <code>for_each_set_bit</code>, <code>bitmap_weight</code></td></tr>
+      <tr><td><strong>CPU affinity masks</strong></td><td>cpumask</td><td><code>linux/cpumask.h</code></td><td><code>cpumask_set_cpu</code>, <code>for_each_cpu</code>, <code>cpumask_of</code></td></tr>
+    </table>
+  </div>
+
+<!-- ══════════════════ SECTION 11 — Summary ══════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">11</div>
+    <h2>Day 5 Summary &amp; Tomorrow's Preview</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>✅ What You Mastered Today</h3>
+      <ul class="checklist">
+        <li><span class="chk">☑</span> container_of() — the math, the type check, why it works</li>
+        <li><span class="chk">☑</span> Linked list — embed, add, iterate, safe-delete</li>
+        <li><span class="chk">☑</span> Hash table — buckets, hlist_node, hash_for_each_possible</li>
+        <li><span class="chk">☑</span> Red-black tree — insert with rebalance, search, in-order traverse</li>
+        <li><span class="chk">☑</span> XArray — store/load/alloc/iterate, replaces IDR+radix_tree</li>
+        <li><span class="chk">☑</span> IDR — unique integer ID allocation for device objects</li>
+        <li><span class="chk">☑</span> kfifo — lock-free SPSC ring buffer, IRQ→read() pattern</li>
+        <li><span class="chk">☑</span> Bitmap — find_first_zero_bit, test_and_set_bit, for_each_set_bit</li>
+        <li><span class="chk">☑</span> When to use each data structure — decision guide</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🔜 Day 6 Preview — Processes, Threads &amp; task_struct</h3>
+        <ul class="checklist">
+          <li><span class="chk-no">○</span> struct task_struct — the process descriptor</li>
+          <li><span class="chk-no">○</span> current pointer — who is running now?</li>
+          <li><span class="chk-no">○</span> Process states and transitions</li>
+          <li><span class="chk-no">○</span> Kernel threads — kthread_create, kthread_run</li>
+          <li><span class="chk-no">○</span> Workqueues — schedule_work, delayed_work</li>
+          <li><span class="chk-no">○</span> Completions — wait_for_completion</li>
+          <li><span class="chk-no">○</span> msleep, mdelay, udelay — kernel timing</li>
+        </ul>
+      </div>
+      <div class="info-box tip" style="margin-top:16px">
+        <span class="icon">📚</span>
+        <div class="content"><strong>Tonight's Reading</strong><code>include/linux/list.h</code> — read the actual kernel header. It's beautifully commented and short. Then <code>lib/list_sort.c</code> — see how the kernel implements merge sort on list_head. Real kernel code is the best teacher.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote">
+    "The container_of macro is the single most elegant piece of C programming in the kernel codebase. Once you truly understand it — the pointer arithmetic, the type check, the zero-cost abstraction — you'll see it everywhere: in every driver, every subsystem, every core algorithm. It is the idiom that makes intrusive data structures work in C, and it is the idiom that distinguishes kernel programmers from everyone else."
+    <strong>— Day 5 Complete ✓ — You now think in kernel data structures.</strong>
+  </div>
+
+</div>
+
+<div class="footer">
+  Day 5 of 30 · Linux Device Driver Roadmap · Week 1: Kernel Foundations
+</div>
+</body>
+</html>

@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 1 — Linux Kernel Architecture & Setup</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1629;
+    --bg3: #141c35;
+    --card: #111827;
+    --border: #1e2d4d;
+    --accent: #3b82f6;
+    --accent2: #60a5fa;
+    --green: #10b981;
+    --green2: #34d399;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --purple: #8b5cf6;
+    --cyan: #06b6d4;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #0a0e1a 0%, #0f1e3d 50%, #0a0e1a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 40px 50px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: 200px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(59,130,246,0.3);
+    color: var(--accent2);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    margin-bottom: 20px;
+  }
+  .badge .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+  .hero h1 {
+    font-family: var(--display);
+    font-size: clamp(28px, 4vw, 46px);
+    font-weight: 800;
+    line-height: 1.15;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+  .hero h1 span { color: var(--accent2); }
+  .hero .sub {
+    color: var(--text2);
+    font-size: 16px;
+    max-width: 620px;
+    margin-bottom: 28px;
+  }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 980px; margin: 0 auto; padding: 40px 24px; }
+
+  /* ── SECTION HEADERS ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 48px 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .section-num.green { background: var(--green); }
+  .section-num.yellow { background: var(--yellow); color: #000; }
+  .section-num.purple { background: var(--purple); }
+  .section-num.cyan { background: var(--cyan); color: #000; }
+  .section-num.red { background: var(--red); }
+
+  .section-header h2 {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h3 {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent2);
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card p { color: var(--text2); margin-bottom: 10px; font-size: 14.5px; }
+  .card p:last-child { margin-bottom: 0; }
+  .card ul { padding-left: 20px; }
+  .card ul li { color: var(--text2); margin-bottom: 6px; font-size: 14.5px; }
+  .card ul li strong { color: var(--text); }
+
+  /* ── CODE BLOCKS ── */
+  .code-block {
+    background: #060b14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #0c1220;
+    border-bottom: 1px solid var(--border);
+  }
+  .code-lang {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .code-dots { display: flex; gap: 6px; }
+  .code-dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .code-dots span:nth-child(1) { background: #ef4444; }
+  .code-dots span:nth-child(2) { background: #f59e0b; }
+  .code-dots span:nth-child(3) { background: #10b981; }
+  .code-block pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    color: #cdd6f4;
+  }
+  /* Syntax highlight classes */
+  .kw { color: #cba6f7; } /* keywords */
+  .fn { color: #89b4fa; } /* functions */
+  .st { color: #a6e3a1; } /* strings */
+  .cm { color: #585b70; font-style: italic; } /* comments */
+  .nm { color: #fab387; } /* numbers/constants */
+  .tp { color: #89dceb; } /* types */
+  .pp { color: #f38ba8; } /* preprocessor */
+  .op { color: #94e2d5; } /* operators */
+
+  /* ── DIAGRAM ── */
+  .diagram {
+    background: #060b14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 16px 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.9;
+    overflow-x: auto;
+    white-space: pre;
+    color: #cdd6f4;
+  }
+
+  /* ── INFO BOXES ── */
+  .info-box {
+    display: flex;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 10px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .info-box.note { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
+  .info-box.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+  .info-box.tip  { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+  .info-box.danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+  .info-box .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .info-box .content { color: var(--text2); }
+  .info-box .content strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+  /* ── COMPARISON TABLE ── */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  th {
+    background: var(--bg3);
+    color: var(--accent2);
+    font-family: var(--display);
+    font-weight: 600;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(30,45,77,0.5);
+    color: var(--text2);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+  td strong { color: var(--text); }
+  td code {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    color: var(--accent2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  /* ── TWO COLUMN ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  @media(max-width:640px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── STEP FLOW ── */
+  .steps { display: flex; flex-direction: column; gap: 0; margin: 16px 0; }
+  .step {
+    display: flex;
+    gap: 16px;
+    position: relative;
+    padding-bottom: 24px;
+  }
+  .step:last-child { padding-bottom: 0; }
+  .step-left { display: flex; flex-direction: column; align-items: center; }
+  .step-num {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .step-line {
+    width: 2px;
+    flex: 1;
+    background: var(--border);
+    margin-top: 6px;
+  }
+  .step:last-child .step-line { display: none; }
+  .step-content { padding-top: 4px; flex: 1; }
+  .step-content h4 {
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 6px;
+    font-family: var(--display);
+  }
+  .step-content p { color: var(--text2); font-size: 14px; }
+
+  /* ── INLINE CODE ── */
+  code {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    color: var(--accent2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+
+  /* ── GRID CARDS ── */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0; }
+  @media(max-width:700px) { .grid-3 { grid-template-columns: 1fr; } }
+  .mini-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .mini-card .mc-icon { font-size: 22px; margin-bottom: 10px; }
+  .mini-card h4 { color: #fff; font-weight: 600; font-size: 14px; margin-bottom: 6px; font-family: var(--display); }
+  .mini-card p { color: var(--text2); font-size: 13px; line-height: 1.6; }
+
+  /* ── CHECKLIST ── */
+  .checklist { list-style: none; padding: 0; margin: 12px 0; }
+  .checklist li {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(30,45,77,0.4);
+    color: var(--text2);
+    font-size: 14px;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li .check {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 5px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .checklist li .check.done { background: var(--green); border-color: var(--green); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; color: var(--text2); }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 18px; }
+  .progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--cyan)); }
+
+  /* ── NAV ── */
+  .nav-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 40px;
+    display: flex; align-items: center; gap: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-bar .crumb { color: var(--text2); }
+  .nav-bar .sep { color: var(--border); }
+  .nav-bar .current { color: var(--accent2); }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 60px;
+    padding: 30px 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--text3);
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+
+  /* ── QUOTE ── */
+  .quote {
+    border-left: 3px solid var(--accent);
+    padding: 12px 20px;
+    margin: 16px 0;
+    background: rgba(59,130,246,0.04);
+    border-radius: 0 8px 8px 0;
+    color: var(--text2);
+    font-style: italic;
+    font-size: 14px;
+  }
+  .quote strong { color: var(--accent2); font-style: normal; display: block; margin-top: 6px; font-size: 12px; }
+
+  /* ── FILE TREE ── */
+  .file-tree {
+    background: #060b14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 2;
+  }
+  .file-tree .dir { color: var(--accent2); font-weight: 700; }
+  .file-tree .file { color: #cdd6f4; }
+  .file-tree .comment { color: var(--text3); font-style: italic; }
+
+  .highlight-line { background: rgba(59,130,246,0.07); display: block; margin: 0 -20px; padding: 0 20px; }
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 1: Kernel Foundations</span>
+  <span class="sep">›</span>
+  <span class="current">Day 1 — Linux Kernel Architecture & Setup</span>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 1 · Day 1 of 30</div>
+  <h1>Linux Kernel Architecture<br><span>&amp; Environment Setup</span></h1>
+  <p class="sub">Master the core concepts: what the kernel is, how it's structured, how user programs talk to hardware, and build your own kernel from source.</p>
+  <div class="hero-tags">
+    <span class="tag">Kernel Architecture</span>
+    <span class="tag">Privilege Rings</span>
+    <span class="tag">Syscall Mechanism</span>
+    <span class="tag">Kernel Build System</span>
+    <span class="tag">QEMU Setup</span>
+    <span class="tag">Source Tree Tour</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- PROGRESS -->
+  <div style="margin:8px 0 32px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 1 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:3.3%"></div></div>
+    <div class="progress-header"><span>Week 1 Progress</span><span>Day 1 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:14.3%; background: linear-gradient(90deg,#10b981,#34d399)"></div></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 1 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>What is the Linux Kernel? Core Concepts</h2>
+  </div>
+
+  <div class="card">
+    <h3>🧠 The Kernel in One Sentence</h3>
+    <p>The Linux kernel is the <strong>privileged software that runs closest to hardware</strong>. It mediates every interaction between user programs and physical resources — CPU time, RAM, storage, network, peripherals — and enforces security and isolation between them.</p>
+    <p>Think of it this way: your C program runs in a <strong>sandbox</strong>. When it needs anything real — a file, the screen, a socket — it asks the kernel. The kernel either does it (if allowed) or rejects the request.</p>
+  </div>
+
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>Kernel Architecture Types</h2>
+  </div>
+
+  <div class="info-box note">
+    <span class="icon">📖</span>
+    <div class="content"><strong>Why This Matters for Driver Devs</strong>The architecture determines where drivers run. In Linux (monolithic), drivers run <em>inside</em> the kernel — one bug in your driver can crash the whole system. Understanding this is fundamental to everything you will do.</div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>Architecture</th>
+        <th>How it Works</th>
+        <th>Drivers Run In</th>
+        <th>Example OS</th>
+        <th>Crash Impact</th>
+      </tr>
+      <tr>
+        <td><strong>Monolithic</strong></td>
+        <td>All OS services (FS, network, drivers, scheduler) run in a single privileged address space</td>
+        <td>Kernel space</td>
+        <td><strong>Linux</strong>, FreeBSD</td>
+        <td>One bug = kernel panic, whole system dies</td>
+      </tr>
+      <tr>
+        <td><strong>Microkernel</strong></td>
+        <td>Only minimal core (scheduling, IPC) in kernel. Drivers, FS, etc. run as user-space servers</td>
+        <td>User space (as servers)</td>
+        <td>Minix, QNX, seL4</td>
+        <td>Driver crash → just that server dies, system survives</td>
+      </tr>
+      <tr>
+        <td><strong>Hybrid</strong></td>
+        <td>Microkernel base but some services moved to kernel for performance</td>
+        <td>Mix</td>
+        <td>Windows NT, macOS (XNU)</td>
+        <td>Depends on what's in kernel</td>
+      </tr>
+      <tr>
+        <td><strong>Exokernel</strong></td>
+        <td>Kernel only manages hardware multiplexing. All abstractions in user-space libraries</td>
+        <td>User-space libs</td>
+        <td>Research only</td>
+        <td>Minimal kernel surface</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>🐧 Why Linux is Monolithic — with Loadable Modules</h3>
+    <p>Linux is fundamentally monolithic: all kernel code shares a <strong>single address space</strong> and can call each other's functions directly (no IPC overhead). This is why Linux is blazing fast.</p>
+    <p>But Linux adds a key feature: <strong>Loadable Kernel Modules (LKMs)</strong>. You can write a driver as a separate <code>.ko</code> file and load it at runtime with <code>insmod</code>. This gives the <em>flexibility</em> of a microkernel without the <em>performance penalty</em>. As a driver developer, you will write LKMs every single day.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 2 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num green">3</div>
+    <h2>Kernel Space vs User Space — The Most Critical Concept</h2>
+  </div>
+
+  <div class="info-box warn">
+    <span class="icon">⚠️</span>
+    <div class="content"><strong>Interview Alert</strong>Interviewers ALWAYS ask about this. You must be able to explain the separation, why it exists, what enforces it, and what happens when you cross it.</div>
+  </div>
+
+  <div class="diagram">┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           VIRTUAL ADDRESS SPACE (64-bit Linux)                  │
+│                                                                                 │
+│  0x0000000000000000 ─────────────────────────────────── 0x00007FFFFFFFFFFF      │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                        USER SPACE (128 TB)                              │    │
+│  │                                                                         │    │
+│  │   [Stack]   [libs/mmap area]   [heap]   [BSS/Data]   [Text (code)]     │    │
+│  │                                                                         │    │
+│  │   Your programs run here. Ring 3 (CPL=3) — lowest privilege            │    │
+│  │   Cannot access hardware directly. Cannot access kernel memory.        │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+│                                                                                 │
+│  ──────────── SYSCALL BOUNDARY (enforced by CPU hardware) ──────────────        │
+│                                                                                 │
+│  0xFFFF800000000000 ─────────────────────────────────── 0xFFFFFFFFFFFFFFFF      │
+│  ┌─────────────────────────────────────────────────────────────────────────┐    │
+│  │                       KERNEL SPACE (128 TB)                             │    │
+│  │                                                                         │    │
+│  │   Kernel code, kernel data, drivers, page tables, percpu data          │    │
+│  │                                                                         │    │
+│  │   Ring 0 (CPL=0) — highest privilege                                   │    │
+│  │   Can access ALL memory. Can execute privileged CPU instructions.      │    │
+│  │   Can talk to hardware registers directly.                             │    │
+│  └─────────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────────┘</div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>🔵 User Space</h3>
+      <ul>
+        <li><strong>Privilege:</strong> Ring 3 (x86 CPL=3). Lowest privilege level.</li>
+        <li><strong>Memory:</strong> Only sees its own virtual address space. Cannot see other processes or kernel memory.</li>
+        <li><strong>Hardware:</strong> Cannot directly access ports, IRQs, DMA, MMIO registers.</li>
+        <li><strong>Crash impact:</strong> Only that process dies. OS survives.</li>
+        <li><strong>Examples:</strong> bash, nginx, your C application</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🔴 Kernel Space</h3>
+      <ul>
+        <li><strong>Privilege:</strong> Ring 0 (x86 CPL=0). Highest privilege level.</li>
+        <li><strong>Memory:</strong> Can map and access any physical memory address.</li>
+        <li><strong>Hardware:</strong> Can execute privileged instructions: <code>cli</code>, <code>sti</code>, <code>in</code>, <code>out</code>, load CR3, etc.</li>
+        <li><strong>Crash impact:</strong> Kernel oops or panic. Whole system may freeze.</li>
+        <li><strong>Examples:</strong> Scheduler, drivers, network stack, VFS</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🔒 What Actually Enforces the Separation?</h3>
+    <p>The separation is NOT just software — it is enforced by <strong>CPU hardware</strong> through two mechanisms working together:</p>
+    <ul>
+      <li><strong>Privilege Rings (x86) / Exception Levels (ARM):</strong> The CPU tracks the current privilege level in a hardware register (CS register on x86, bits[1:0] are CPL). When code runs at CPL=3, executing a privileged instruction like <code>cli</code> causes a <em>General Protection Fault (#GP)</em>. The OS handles this by killing the process.</li>
+      <li><strong>Page Tables + MMU:</strong> Every page in the page table has a User/Supervisor bit. Pages mapped with Supervisor bit set (kernel pages) are inaccessible to Ring 3 code. Even if user code tries to read a kernel address, the MMU raises a <em>Page Fault (#PF)</em> — the kernel handles this with a SIGSEGV to the process.</li>
+      <li><strong>SMEP (Supervisor Mode Execution Prevention):</strong> Prevents the CPU from executing userspace pages while in Ring 0. Stops kernel exploits that redirect execution to shellcode in userspace.</li>
+      <li><strong>SMAP (Supervisor Mode Access Prevention):</strong> Prevents Ring 0 from reading/writing userspace pages accidentally. This is why your driver MUST use <code>copy_to_user()</code>/<code>copy_from_user()</code> — these temporarily disable SMAP via <code>stac</code>/<code>clac</code> instructions while doing the copy safely.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 3 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num yellow">4</div>
+    <h2>The Syscall Mechanism — How User Space Talks to Kernel</h2>
+  </div>
+
+  <div class="card">
+    <h3>📞 What is a System Call?</h3>
+    <p>A <strong>syscall</strong> is the controlled, hardware-enforced gateway from Ring 3 to Ring 0. It's the ONLY legitimate way for userspace to request kernel services. There are ~400 syscalls in Linux (read, write, open, socket, mmap, etc.).</p>
+  </div>
+
+  <div class="diagram">User Process (Ring 3)                          Kernel (Ring 0)
+─────────────────────────────────────────────────────────────────────
+
+int main() {                           ┌─────────────────────────────┐
+    write(1, "hi\n", 3);              │  sys_write() handler        │
+      │                               │                             │
+      │  1. Put args in registers     │  4. Validate args           │
+      │     rax = 1  (syscall #1)     │  5. Write to fd 1 (stdout)  │
+      │     rdi = 1  (fd)             │  6. Return result in rax    │
+      │     rsi = "hi\n" (buf)       │                             │
+      │     rdx = 3  (len)            └─────────────────────────────┘
+      │                                             ▲
+      │  2. Execute SYSCALL instruction             │
+      ├─────────────────────────────────────────────┤
+      │     CPU switches to Ring 0                  │
+      │     Saves user RIP, RSP to TSS              │
+      │     Loads kernel RSP                        │
+      │     Jumps to kernel entry point             │
+      │     (entry_SYSCALL_64 in entry_64.S)        │
+      │                                             │
+      │  3. Kernel looks up syscall table           │
+      │     sys_call_table[rax] → sys_write         │
+      └─────────────────────────────────────────────┘
+      
+      │  7. SYSRET instruction
+      │     CPU switches back to Ring 3
+      │     Restores user RIP, RSP
+      │     Returns result from rax to user code
+      ▼
+    result = 3 (bytes written)
+}
+</div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>Trace Any Program's Syscalls</strong>Run <code>strace ./your_program</code> to see every syscall it makes. This is essential for debugging driver interactions from userspace. Try <code>strace ls</code> right now and observe all the <code>openat</code>, <code>read</code>, <code>close</code> calls.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — How the C Library Wraps Syscalls (conceptual)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">// What glibc's write() actually does internally:</span>
+<span class="tp">ssize_t</span> <span class="fn">write</span>(<span class="kw">int</span> fd, <span class="kw">const void</span> *buf, <span class="tp">size_t</span> count) {
+    <span class="tp">long</span> result;
+    <span class="cm">// Inline assembly: set up registers and invoke SYSCALL instruction</span>
+    <span class="fn">asm volatile</span>(
+        <span class="st">"syscall"</span>
+        : <span class="st">"=a"</span>(result)
+        : <span class="st">"0"</span>(<span class="nm">__NR_write</span>), <span class="cm">/* rax = 1 (syscall number) */</span>
+          <span class="st">"D"</span>(fd),       <span class="cm">/* rdi = fd */</span>
+          <span class="st">"S"</span>(buf),      <span class="cm">/* rsi = buf pointer */</span>
+          <span class="st">"d"</span>(count)     <span class="cm">/* rdx = count */</span>
+        : <span class="st">"rcx"</span>, <span class="st">"r11"</span>, <span class="st">"memory"</span>
+    );
+    <span class="kw">return</span> result;
+}
+
+<span class="cm">// __NR_write is defined in &lt;asm/unistd.h&gt;:
+// #define __NR_write 1
+
+// Kernel receives it at entry_SYSCALL_64 (arch/x86/entry/entry_64.S)
+// Then dispatches to sys_call_table[1] = sys_write()
+// Defined in: fs/read_write.c → SYSCALL_DEFINE3(write, ...)</span></pre>
+  </div>
+
+  <div class="card">
+    <h3>⚡ Why Syscalls Are "Expensive"</h3>
+    <p>Every syscall involves: saving registers, switching privilege level, potentially flushing TLB (if KPTI is enabled — Meltdown mitigation), running kernel code, then reversing all that. A single syscall can cost <strong>50–1000 nanoseconds</strong> depending on the system and what it does.</p>
+    <p>As a driver developer, you design interfaces to minimize unnecessary syscalls — for example, using <code>mmap</code> to give userspace direct access to a device's memory buffer rather than doing thousands of small <code>read()</code> calls.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 4 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num purple">5</div>
+    <h2>Linux Kernel Source Tree — Know Your Way Around</h2>
+  </div>
+
+  <div class="file-tree">
+<span class="dir">linux/</span>                         <span class="comment">← Root of the kernel source tree</span>
+├── <span class="dir">arch/</span>                       <span class="comment">← CPU architecture-specific code</span>
+│   ├── <span class="dir">x86/</span>                    <span class="comment">← x86/x86_64 (your PC)</span>
+│   ├── <span class="dir">arm64/</span>                  <span class="comment">← 64-bit ARM (phones, Raspberry Pi 4+)</span>
+│   ├── <span class="dir">arm/</span>                    <span class="comment">← 32-bit ARM (older embedded)</span>
+│   └── <span class="dir">riscv/</span>                  <span class="comment">← RISC-V (growing fast)</span>
+│
+├── <span class="dir">drivers/</span>                    <span class="comment">← ★ WHERE YOU WILL LIVE ★</span>
+│   ├── <span class="dir">char/</span>                   <span class="comment">← Character device drivers</span>
+│   ├── <span class="dir">block/</span>                  <span class="comment">← Block device drivers (brd.c = ramdisk)</span>
+│   ├── <span class="dir">net/</span>                    <span class="comment">← NIC drivers (e1000e, r8169, etc.)</span>
+│   ├── <span class="dir">i2c/</span>                    <span class="comment">← I2C bus drivers and devices</span>
+│   ├── <span class="dir">spi/</span>                    <span class="comment">← SPI bus drivers</span>
+│   ├── <span class="dir">gpio/</span>                   <span class="comment">← GPIO controllers</span>
+│   ├── <span class="dir">usb/</span>                    <span class="comment">← USB host/device/gadget</span>
+│   ├── <span class="dir">pci/</span>                    <span class="comment">← PCIe infrastructure</span>
+│   ├── <span class="dir">platform/</span>              <span class="comment">← Platform device drivers</span>
+│   ├── <span class="dir">dma/</span>                    <span class="comment">← DMA engine drivers</span>
+│   └── <span class="dir">iio/</span>                    <span class="comment">← Industrial I/O (sensors, ADCs, DACs)</span>
+│
+├── <span class="dir">kernel/</span>                     <span class="comment">← Core kernel: scheduler, signals, timers</span>
+├── <span class="dir">mm/</span>                         <span class="comment">← Memory management: page allocator, SLUB, vmalloc</span>
+├── <span class="dir">fs/</span>                         <span class="comment">← Filesystems: ext4, vfs, proc, sysfs, debugfs</span>
+├── <span class="dir">net/</span>                         <span class="comment">← Networking stack: TCP/IP, socket layer</span>
+├── <span class="dir">include/</span>                    <span class="comment">← Kernel headers</span>
+│   ├── <span class="dir">linux/</span>                  <span class="comment">← Main kernel headers (&lt;linux/module.h&gt; etc.)</span>
+│   └── <span class="dir">uapi/linux/</span>            <span class="comment">← Headers shared with userspace</span>
+├── <span class="dir">init/</span>                       <span class="comment">← Kernel startup: main.c (start_kernel)</span>
+├── <span class="dir">lib/</span>                        <span class="comment">← Common library functions used by kernel</span>
+├── <span class="dir">Documentation/</span>             <span class="comment">← ★ READ THIS ★ Best kernel docs</span>
+│   ├── <span class="dir">driver-api/</span>            <span class="comment">← Driver subsystem docs</span>
+│   ├── <span class="dir">devicetree/</span>            <span class="comment">← Device Tree bindings</span>
+│   └── <span class="dir">process/</span>               <span class="comment">← How to contribute, coding style</span>
+├── <span class="file">Makefile</span>                    <span class="comment">← Top-level build system</span>
+├── <span class="file">Kconfig</span>                     <span class="comment">← Top-level configuration options</span>
+└── <span class="file">.config</span>                     <span class="comment">← Your current kernel configuration (generated)</span>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>Browse Kernel Source Online</strong>Use <strong>elixir.bootlin.com</strong> — it's the best cross-referenced kernel source browser. Click any function or struct to jump to its definition. Faster than grep when learning.</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 5 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num cyan">6</div>
+    <h2>Kernel Build System — Kconfig, Makefiles, .config</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔧 The Three Key Build System Files</h3>
+    <ul>
+      <li><strong>Kconfig:</strong> Defines available configuration <em>options</em> and their dependencies. Written in a special Kconfig language. This is what <code>make menuconfig</code> reads to show you options.</li>
+      <li><strong>.config:</strong> The actual configuration for <em>your</em> build — generated by running menuconfig or other config tools. Contains thousands of <code>CONFIG_FOO=y/m/n</code> entries.</li>
+      <li><strong>Makefile:</strong> Every directory has one. Tells the build system which <code>.c</code> files to compile and under what conditions. Uses the <code>obj-y</code> (built-in) and <code>obj-m</code> (module) variables.</li>
+    </ul>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Kconfig — Driver Option Example</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+        <pre><span class="cm"># drivers/char/Kconfig</span>
+
+<span class="kw">config</span> MY_SENSOR_DRIVER
+    <span class="fn">tristate</span> <span class="st">"My Sensor Driver"</span>
+    <span class="fn">depends on</span> I2C
+    <span class="fn">select</span> REGMAP_I2C
+    <span class="fn">help</span>
+      Say Y to build this driver into the kernel,
+      M to build as a loadable module,
+      N to skip it entirely.
+
+      If unsure, say M.</pre>
+      </div>
+    </div>
+    <div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">Makefile — Driver Build Rule</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+        <pre><span class="cm"># drivers/char/Makefile</span>
+
+<span class="cm"># obj-y  = always built into kernel</span>
+<span class="cm"># obj-m  = built as loadable module</span>
+<span class="cm"># obj-n  = not built (or just omit)</span>
+
+<span class="pp">obj-$(CONFIG_MY_SENSOR_DRIVER)</span> += my_sensor.o
+
+<span class="cm"># If driver has multiple source files:</span>
+my_sensor-objs := my_sensor_core.o \
+                  my_sensor_i2c.o \
+                  my_sensor_spi.o</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">.config — Generated Configuration (excerpt)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">#
+# Linux/x86 6.x.y Kernel Configuration
+#</span>
+<span class="pp">CONFIG_X86=y</span>
+<span class="pp">CONFIG_64BIT=y</span>
+<span class="pp">CONFIG_SMP=y</span>                 <span class="cm"># Symmetric Multi-Processing</span>
+<span class="pp">CONFIG_MODULES=y</span>             <span class="cm"># Enable loadable module support</span>
+<span class="pp">CONFIG_MODULE_UNLOAD=y</span>       <span class="cm"># Allow unloading modules</span>
+<span class="pp">CONFIG_I2C=m</span>                 <span class="cm"># I2C as a module</span>
+<span class="pp">CONFIG_MY_SENSOR_DRIVER=m</span>    <span class="cm"># Our driver as a module</span>
+<span class="cm"># CONFIG_STAGING is not set   # Disabled options look like this</span></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 6 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num red">7</div>
+    <h2>Environment Setup — Step by Step</h2>
+  </div>
+
+  <div class="info-box note">
+    <span class="icon">📌</span>
+    <div class="content"><strong>Use QEMU for Driver Development</strong>Do NOT use your main machine to test drivers while learning. A buggy driver causes kernel panics. Use <strong>QEMU</strong> — a virtual machine where crashes are harmless. You can reboot it in 2 seconds and try again.</div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Install Build Dependencies (Ubuntu/Debian)</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre>sudo apt update && sudo apt install -y \
+    build-essential gcc make bc \
+    libssl-dev libelf-dev \
+    flex bison \
+    libncurses-dev \
+    git wget curl \
+    qemu-system-x86 \
+    debootstrap \
+    cpio gzip
+    
+<span class="cm"># Verify gcc version (should be >= 11 for kernel 6.x)</span>
+gcc --version</pre>
+        </div>
+        <p>Each package has a purpose: <code>flex</code>/<code>bison</code> for parsing Kconfig, <code>libncurses-dev</code> for menuconfig UI, <code>libelf-dev</code> for BTF (BPF Type Format), <code>libssl-dev</code> for module signing.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Download Kernel Source</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="cm"># Option A: Download stable tarball (recommended for learning)</span>
+wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.9.tar.xz
+tar xf linux-6.9.tar.xz
+cd linux-6.9
+
+<span class="cm"># Option B: Clone with git (needed if you'll submit patches)</span>
+git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+<span class="cm"># Warning: ~3GB download, takes time</span>
+
+<span class="cm"># Option C: Use your distro's kernel source (easiest for module building)</span>
+apt source linux-image-$(uname -r)   <span class="cm"># Ubuntu</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Configure the Kernel</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre>cd linux-6.9
+
+<span class="cm"># Option A: Start from your running kernel config (safest)</span>
+cp /boot/config-$(uname -r) .config
+make olddefconfig      <span class="cm"># Accept defaults for new options</span>
+
+<span class="cm"># Option B: Minimal config for QEMU (fastest build, ~5 min)</span>
+make defconfig         <span class="cm"># Arch-specific defaults</span>
+make kvm_guest.config  <span class="cm"># Tweak for QEMU/KVM guest</span>
+
+<span class="cm"># Option C: Interactive menuconfig (TUI)</span>
+make menuconfig        <span class="cm"># Navigate with arrow keys, Space to toggle</span>
+
+<span class="cm"># MUST enable for module development:</span>
+<span class="cm"># → Enable loadable module support = Y</span>
+<span class="cm"># → Module unloading = Y</span>
+<span class="cm"># → Kernel hacking → KASAN = Y (for memory bug detection)</span>
+<span class="cm"># → Kernel hacking → Lock debugging = Y</span>
+
+<span class="cm"># SPEED UP: disable modules you don't need</span>
+<span class="cm"># For QEMU testing, you can use a very minimal config</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">4</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Build the Kernel</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="cm"># -j$(nproc): use all CPU cores. CRITICAL for speed.</span>
+make -j$(nproc)
+
+<span class="cm"># This produces:</span>
+<span class="cm">#   arch/x86/boot/bzImage  — compressed kernel image</span>
+<span class="cm">#   vmlinux                — uncompressed kernel (for GDB debugging)</span>
+<span class="cm">#   *.ko files             — kernel modules</span>
+
+<span class="cm"># Build time:</span>
+<span class="cm">#   Full build with all modules: 30-90 minutes</span>
+<span class="cm">#   Minimal QEMU config: 5-15 minutes</span>
+<span class="cm">#   After first build, incremental: seconds</span>
+
+<span class="cm"># Build only modules (once kernel is built):</span>
+make modules -j$(nproc)
+
+<span class="cm"># Install modules to /lib/modules/&lt;version&gt;/ (your running system)</span>
+sudo make modules_install</pre>
+        </div>
+        <div class="info-box tip">
+          <span class="icon">💡</span>
+          <div class="content"><strong>Speed tip:</strong> Add <code>CONFIG_LOCALVERSION="-mykernel"</code> to <code>.config</code> so your built kernel doesn't conflict with your distro's installed kernel. Also set <code>CONFIG_DEBUG_INFO_NONE=y</code> if you don't need debugging symbols — cuts build time and size dramatically.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">5</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Create a Minimal Root Filesystem for QEMU</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="cm"># Method A: Use busybox to create a tiny rootfs</span>
+
+<span class="cm"># Download and build busybox (statically linked)</span>
+wget https://busybox.net/downloads/busybox-1.36.1.tar.bz2
+tar xf busybox-1.36.1.tar.bz2 && cd busybox-1.36.1
+make defconfig
+<span class="cm"># Enable: Settings → Build static binary (no shared libs) = Y</span>
+make menuconfig
+make -j$(nproc)
+make install   <span class="cm"># Installs to _install/</span>
+
+<span class="cm"># Create init script</span>
+mkdir -p _install/{proc,sys,dev,tmp}
+cat > _install/init &lt;&lt; 'EOF'
+#!/bin/sh
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+echo "Kernel: $(uname -r)"
+echo "Welcome to minimal Linux!"
+exec /bin/sh
+EOF
+chmod +x _install/init
+
+<span class="cm"># Pack into initramfs cpio archive</span>
+cd _install
+find . | cpio -H newc -o | gzip > ../rootfs.cpio.gz</pre>
+        </div>
+        <div class="info-box note">
+          <span class="icon">📌</span>
+          <div class="content"><strong>Faster Alternative:</strong> Use a pre-built Debian rootfs. Run: <code>debootstrap --arch=amd64 bookworm rootfs http://deb.debian.org/debian</code> then <code>tar czf rootfs.tar.gz -C rootfs .</code>. More complete environment but larger.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">6</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Boot Your Kernel in QEMU</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="cm"># Basic QEMU boot — you'll see kernel startup messages then a shell</span>
+qemu-system-x86_64 \
+    -kernel linux-6.9/arch/x86/boot/bzImage \
+    -initrd busybox-1.36.1/rootfs.cpio.gz \
+    -nographic \
+    -append "console=ttyS0 init=/init" \
+    -m 512M
+
+<span class="cm"># Better setup with KVM acceleration (much faster, needs host CPU)</span>
+qemu-system-x86_64 \
+    -enable-kvm \
+    -kernel linux-6.9/arch/x86/boot/bzImage \
+    -initrd rootfs.cpio.gz \
+    -nographic \
+    -append "console=ttyS0 init=/init nokaslr" \
+    -m 1G \
+    -smp 2 \
+    -cpu host
+
+<span class="cm"># To exit QEMU: Ctrl+A then X</span>
+
+<span class="cm"># For driver development — share a directory from host to guest:</span>
+qemu-system-x86_64 \
+    -enable-kvm \
+    -kernel bzImage \
+    -initrd rootfs.cpio.gz \
+    -nographic \
+    -append "console=ttyS0 init=/init" \
+    -m 1G \
+    -virtfs local,path=/home/user/drivers,mount_tag=drivers,security_model=none
+<span class="cm"># In guest: mount -t 9p drivers /mnt/drivers</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 7 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <h2>Kernel Startup — What Happens at Boot</h2>
+  </div>
+
+  <div class="diagram">Power On / UEFI/BIOS
+        │
+        ▼
+Bootloader (GRUB/U-Boot)
+  • Loads bzImage into RAM
+  • Sets up boot parameters (command line, initrd address)
+  • Jumps to kernel entry point
+        │
+        ▼
+arch/x86/boot/header.S → startup_32 / startup_64
+  • Decompress the kernel (it's a self-decompressing archive)
+  • Set up initial page tables (identity mapping)
+  • Switch to 64-bit mode (if not already)
+        │
+        ▼
+arch/x86/kernel/head_64.S → start_kernel()  [init/main.c]
+  • This is the first C function that runs
+  • Calls in order:
+      setup_arch()           ← detect CPU, memory map, DMI
+      build_all_zonelists()  ← set up NUMA memory zones
+      page_alloc_init()      ← initialize page allocator
+      trap_init()            ← set up IDT (interrupt descriptor table)
+      mm_init()              ← initialize memory management
+      sched_init()           ← initialize scheduler
+      workqueue_init_early() ← set up workqueues
+      init_IRQ()             ← initialize interrupt subsystem
+      softirq_init()         ← set up softirq vectors
+      timekeeping_init()     ← initialize time
+      late_time_init()       ← start hrtimers
+      calibrate_delay()      ← measure loops_per_jiffy
+      console_init()         ← initialize serial console
+      kmem_cache_init()      ← initialize SLUB allocator
+      ...
+      rest_init()            ← spawn PID 1 (init) and kthreadd
+        │
+        ▼
+PID 0: idle task (swapper) — runs when nothing else is ready
+PID 1: kernel_init() → execve("/sbin/init") — becomes your init/systemd
+PID 2: kthreadd — parent of all kernel threads (kworker, etc.)</div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>Read start_kernel() in init/main.c</strong> — it's the most educational file in the kernel tree. Every line is a fundamental subsystem being initialized. Spend 20 minutes reading it and you'll understand the kernel's structure better than 90% of people.</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 8 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num green">9</div>
+    <h2>Key Kernel Concepts Every Driver Dev Must Know</h2>
+  </div>
+
+  <div class="grid-3">
+    <div class="mini-card">
+      <div class="mc-icon">📋</div>
+      <h4>Process Context</h4>
+      <p>Code running on behalf of a user process (syscall, driver read/write). Can sleep, can access <code>current</code>, can call mutex_lock().</p>
+    </div>
+    <div class="mini-card">
+      <div class="mc-icon">⚡</div>
+      <h4>Interrupt Context</h4>
+      <p>Code running in an IRQ handler. Cannot sleep, cannot call scheduler, cannot acquire mutex. Must be FAST. Use spinlocks only.</p>
+    </div>
+    <div class="mini-card">
+      <div class="mc-icon">🔄</div>
+      <h4>Preemption</h4>
+      <p>Kernel can be preempted (CONFIG_PREEMPT). Your driver code can be interrupted at any point. Protect shared state with locks.</p>
+    </div>
+    <div class="mini-card">
+      <div class="mc-icon">🧠</div>
+      <h4>current Pointer</h4>
+      <p><code>current</code> is a per-CPU pointer to the currently running <code>task_struct</code>. Valid in process context. Meaningless in interrupt context.</p>
+    </div>
+    <div class="mini-card">
+      <div class="mc-icon">🗺️</div>
+      <h4>Physical vs Virtual</h4>
+      <p>Drivers work with virtual addresses. Hardware DMAs to physical addresses. Use <code>virt_to_phys()</code> / <code>phys_to_virt()</code> to convert.</p>
+    </div>
+    <div class="mini-card">
+      <div class="mc-icon">🔗</div>
+      <h4>Reference Counting</h4>
+      <p>Kernel objects use <code>kref</code> / <code>atomic_t</code> refcounts. Object is freed when refcount hits 0. Prevents use-after-free bugs.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 9 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num yellow">10</div>
+    <h2>Exploring Key /proc and /sys Files Today</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔍 Commands to Run Right Now and Understand</h3>
+    <p>Before writing a single line of driver code, get comfortable navigating the live kernel's data. Open a terminal and run each of these:</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">bash — Kernel Exploration Commands</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm"># ── Kernel version and build info ──────────────────────────────────</span>
+uname -a                    <span class="cm"># Full kernel version string</span>
+cat /proc/version           <span class="cm"># Kernel version + compiler used</span>
+cat /proc/cmdline           <span class="cm"># Boot parameters passed to kernel</span>
+
+<span class="cm"># ── CPU and architecture info ───────────────────────────────────────</span>
+cat /proc/cpuinfo           <span class="cm"># CPU details: flags show supported features</span>
+grep flags /proc/cpuinfo | head -1 | tr ' ' '\n' | grep -E "smep|smap|kvm"
+<span class="cm"># Look for: smep, smap, vmx (Intel VT-x), svm (AMD-V)</span>
+
+<span class="cm"># ── Memory layout ──────────────────────────────────────────────────</span>
+cat /proc/meminfo           <span class="cm"># RAM usage: total, free, cached, buffers</span>
+cat /proc/iomem             <span class="cm"># Physical memory map: RAM, MMIO regions</span>
+cat /proc/ioports           <span class="cm"># x86 I/O port assignments</span>
+cat /proc/vmstat            <span class="cm"># VM statistics: page faults, swaps, etc.</span>
+
+<span class="cm"># ── Devices and drivers ────────────────────────────────────────────</span>
+cat /proc/devices           <span class="cm"># Registered char and block devices (major numbers)</span>
+cat /proc/modules           <span class="cm"># Loaded modules (same as lsmod)</span>
+ls /sys/bus/                <span class="cm"># All registered buses: pci, usb, i2c, spi, ...</span>
+ls /sys/class/              <span class="cm"># Device classes: net, block, tty, input, ...</span>
+
+<span class="cm"># ── Interrupt information ───────────────────────────────────────────</span>
+cat /proc/interrupts        <span class="cm"># IRQ assignments and counts per CPU</span>
+cat /proc/softirqs          <span class="cm"># Softirq statistics</span>
+
+<span class="cm"># ── Live kernel messages ────────────────────────────────────────────</span>
+dmesg | tail -50            <span class="cm"># Last 50 kernel messages</span>
+dmesg -T | grep -i error    <span class="cm"># Kernel errors with timestamps</span>
+dmesg --follow              <span class="cm"># Live stream of kernel messages (Ctrl+C to stop)</span>
+
+<span class="cm"># ── Syscall tracing ─────────────────────────────────────────────────</span>
+strace -c ls /tmp           <span class="cm"># Show syscall count/time summary for ls</span>
+strace -e trace=open,read,write cat /etc/hostname  <span class="cm"># Trace specific syscalls</span>
+
+<span class="cm"># ── Kernel symbol table ─────────────────────────────────────────────</span>
+sudo cat /proc/kallsyms | head -20   <span class="cm"># All kernel symbols with addresses</span>
+sudo cat /proc/kallsyms | grep " T " | grep printk  <span class="cm"># Find printk address</span></pre>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>Important: /proc/kallsyms</strong>This file maps every kernel function and variable to its virtual address. As a driver developer, when you get an oops with a memory address, you cross-reference it against kallsyms to find which function crashed. This is step 1 of kernel debugging.</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 10 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num purple">11</div>
+    <h2>Kernel vs Userspace Programming Differences — Mental Shift</h2>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>Topic</th>
+        <th>Userspace C</th>
+        <th>Kernel C</th>
+      </tr>
+      <tr>
+        <td><strong>Standard Library</strong></td>
+        <td><code>stdio.h</code>, <code>stdlib.h</code>, <code>string.h</code>, glibc</td>
+        <td>NO libc. Use <code>linux/kernel.h</code>, <code>linux/slab.h</code>. Kernel has its own implementations.</td>
+      </tr>
+      <tr>
+        <td><strong>printf / logging</strong></td>
+        <td><code>printf()</code>, <code>fprintf()</code></td>
+        <td><code>printk(KERN_INFO "...")</code> or <code>pr_info("...")</code></td>
+      </tr>
+      <tr>
+        <td><strong>Memory allocation</strong></td>
+        <td><code>malloc()</code>, <code>calloc()</code>, <code>free()</code></td>
+        <td><code>kmalloc(size, GFP_KERNEL)</code>, <code>kfree()</code>. No virtual memory growth on fault.</td>
+      </tr>
+      <tr>
+        <td><strong>Stack size</strong></td>
+        <td>Typically 8 MB, grows on demand</td>
+        <td>FIXED 8 KB (or 16KB). Stack overflow = kernel oops. Never allocate large arrays on stack.</td>
+      </tr>
+      <tr>
+        <td><strong>Floating point</strong></td>
+        <td>Fully supported</td>
+        <td>NOT allowed in interrupt context. Only in process context after special setup. Avoid entirely.</td>
+      </tr>
+      <tr>
+        <td><strong>Error handling</strong></td>
+        <td>Return -1 and set errno</td>
+        <td>Return negative errno value: <code>-EINVAL</code>, <code>-ENOMEM</code>, <code>-EIO</code>. Use IS_ERR() / PTR_ERR().</td>
+      </tr>
+      <tr>
+        <td><strong>Crash impact</strong></td>
+        <td>Only your process dies</td>
+        <td>Kernel oops or panic — system may reboot. One NULL dereference can kill everything.</td>
+      </tr>
+      <tr>
+        <td><strong>Sleeping</strong></td>
+        <td>sleep(), usleep() anywhere</td>
+        <td>Only in process context. NEVER in interrupt context, under spinlock, or in atomic sections.</td>
+      </tr>
+      <tr>
+        <td><strong>Pointers</strong></td>
+        <td>All pointers are your virtual addresses</td>
+        <td>User pointers are DANGEROUS. Never dereference directly. Use <code>copy_from_user()</code>/<code>copy_to_user()</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>Concurrency</strong></td>
+        <td>Threads + pthreads, userspace mutexes</td>
+        <td>Spinlocks + mutexes + RCU + atomic ops. Multiple CPUs + preemption + interrupts = all can run your code simultaneously.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 11 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num red">12</div>
+    <h2>Day 1 Hands-On Practice Exercises</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Goal for Today</strong>Don't try to write a driver yet. Today is about understanding the environment. Complete these exercises in order — each builds on the last.</div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Exercise 1: Trace a System Call End-to-End</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="cm"># Step 1: Find the write syscall number</span>
+grep NR_write /usr/include/asm/unistd_64.h
+<span class="cm"># Output: #define __NR_write 1</span>
+
+<span class="cm"># Step 2: Trace write() syscalls made by cat</span>
+strace -e trace=write cat /etc/hostname
+
+<span class="cm"># Step 3: Find the kernel implementation</span>
+<span class="cm"># Go to elixir.bootlin.com → search "SYSCALL_DEFINE3(write"</span>
+<span class="cm"># You'll find it in fs/read_write.c</span>
+grep -n "SYSCALL_DEFINE3(write" linux-6.9/fs/read_write.c
+
+<span class="cm"># Step 4: Look at the syscall table to see all 400+ syscalls</span>
+cat linux-6.9/arch/x86/entry/syscalls/syscall_64.tbl | head -50</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Exercise 2: Explore the Device Model Live</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="cm"># List all PCI devices with their drivers</span>
+lspci -k | head -40
+
+<span class="cm"># Navigate sysfs to see a real device's structure</span>
+ls /sys/bus/pci/devices/          <span class="cm"># All PCI devices</span>
+
+<span class="cm"># Pick one device (e.g., first ethernet)</span>
+ls /sys/class/net/                 <span class="cm"># Network interfaces</span>
+ls /sys/class/net/eth0/            <span class="cm"># All attributes of eth0</span>
+cat /sys/class/net/eth0/operstate  <span class="cm"># "up" or "down"</span>
+cat /sys/class/net/eth0/speed      <span class="cm"># Link speed in Mbps</span>
+cat /sys/class/net/eth0/address    <span class="cm"># MAC address</span>
+
+<span class="cm"># Trace from device → driver in sysfs</span>
+readlink /sys/class/net/eth0/device/driver
+<span class="cm"># Shows which kernel driver manages this device</span>
+
+<span class="cm"># See all loaded modules and their dependencies</span>
+lsmod | sort
+<span class="cm"># Find which module handles your WiFi/Ethernet</span>
+lsmod | grep e1000  <span class="cm"># or: r8169, iwlwifi, ath9k, etc.</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Exercise 3: Read the Kernel Source — start_kernel()</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="cm"># Open init/main.c and find start_kernel()</span>
+less linux-6.9/init/main.c
+<span class="cm"># Search with /start_kernel</span>
+
+<span class="cm"># Count how many initialization functions are called</span>
+grep -c "()" linux-6.9/init/main.c
+
+<span class="cm"># Find where printk is initialized (early console)</span>
+grep -n "console_init\|early_printk" linux-6.9/init/main.c</pre>
+        </div>
+        <p>Read through <code>start_kernel()</code> and for each function call, note what subsystem it initializes. Try to understand 5 of them by searching their definitions.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Exercise 4: Build and Boot Your Kernel in QEMU (Stretch Goal)</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">bash</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre"><span class="cm"># If the full kernel build takes too long, use this shortcut:</span>
+<span class="cm"># Build just enough to test QEMU boot</span>
+
+cd linux-6.9
+
+<span class="cm"># Use the x86_64 defconfig (minimal, fast ~5-10 min build)</span>
+make x86_64_defconfig
+<span class="cm"># Enable 9p for host directory sharing:</span>
+scripts/config --enable CONFIG_NET_9P
+scripts/config --enable CONFIG_NET_9P_VIRTIO
+scripts/config --enable CONFIG_9P_FS
+make olddefconfig
+
+<span class="cm"># Build only the kernel image (no modules = much faster)</span>
+make -j$(nproc) bzImage
+
+<span class="cm"># Boot it!</span>
+qemu-system-x86_64 \
+    -kernel arch/x86/boot/bzImage \
+    -initrd /path/to/rootfs.cpio.gz \
+    -nographic \
+    -append "console=ttyS0 init=/init" \
+    -m 512M
+
+<span class="cm"># SUCCESS: You should see kernel startup messages and get a shell</span>
+<span class="cm"># Run: uname -r to confirm your kernel version</span>
+<span class="cm"># Run: cat /proc/version</span>
+<span class="cm"># Exit: Ctrl+A then X</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 12 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num">13</div>
+    <h2>Day 1 Knowledge Check — Can You Answer These?</h2>
+  </div>
+
+  <div class="card">
+    <h3>❓ Conceptual Questions</h3>
+    <ul>
+      <li>What physically prevents a user-space program from reading kernel memory? (Answer: page tables with supervisor bit + MMU)</li>
+      <li>Why can't you call <code>printf()</code> in a kernel driver? (Answer: No libc in kernel space, glibc isn't loaded)</li>
+      <li>What is the difference between a kernel built-in (<code>obj-y</code>) and a module (<code>obj-m</code>)? (Answer: built-in linked into vmlinux image, module is a separate .ko file loaded at runtime)</li>
+      <li>If your driver causes a NULL pointer dereference, what happens? (Answer: Kernel oops — CPU gets a page fault exception at address 0x0, kernel prints a backtrace to dmesg, may panic if panic_on_oops=1)</li>
+      <li>What instruction switches the CPU from Ring 3 to Ring 0 during a syscall? (Answer: <code>SYSCALL</code> instruction on x86-64; <code>SVC</code> on ARM64)</li>
+      <li>Can you use <code>malloc()</code> in a kernel driver? (Answer: NO. Use <code>kmalloc()</code>. malloc() is a glibc function that internally calls <code>brk()</code>/<code>mmap()</code> syscalls — which don't exist in kernel space.)</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════════════════════ SECTION 13 ═══════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="section-num green">14</div>
+    <h2>Day 1 Summary & Tomorrow's Preview</h2>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="card">
+        <h3>✅ What You Learned Today</h3>
+        <ul style="list-style:none;padding:0">
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Kernel vs Microkernel architecture</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ User space vs Kernel space separation</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Privilege rings (Ring 0 / Ring 3)</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Syscall mechanism step-by-step</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ SMEP/SMAP and why copy_to_user exists</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Kernel source tree layout</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Kconfig / .config / Makefile system</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Building the kernel from source</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Booting in QEMU</li>
+          <li style="padding:6px 0;color:#94a3b8">☑ Key differences: kernel vs userspace C</li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🔜 Day 2 Preview — Kernel Modules</h3>
+        <p style="color:#94a3b8;font-size:14px;margin-bottom:12px">Tomorrow you write actual kernel code. You'll understand every line.</p>
+        <ul style="list-style:none;padding:0">
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ Write your first kernel module</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ module_init() and module_exit()</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ Build with the kernel build system</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ insmod, rmmod, modprobe</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ Module parameters</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ EXPORT_SYMBOL</li>
+          <li style="padding:6px 0;color:#64748b">→ Module lifecycle internals</li>
+        </ul>
+      </div>
+
+      <div class="info-box tip" style="margin-top:16px">
+        <span class="icon">📚</span>
+        <div class="content"><strong>Read Before Tomorrow</strong>LDD3 Chapter 1 (Introduction) — free at lwn.net/Kernel/LDD3. It sets the mental model for everything coming next.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote">
+    "The kernel is not magic. It's just code — but code that runs closer to the metal, with higher stakes and more responsibility. Every concept you learn today will appear again and again throughout your career as a driver developer."
+    <strong>— Your 30-Day Roadmap, Day 1 Complete ✓</strong>
+  </div>
+
+</div>
+
+<div class="footer">
+  Day 1 of 30 · Linux Device Driver Roadmap · Week 1: Kernel Foundations
+</div>
+
+</body>
+</html>

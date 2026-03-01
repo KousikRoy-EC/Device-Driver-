@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 4 — Kernel Memory Management</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0c0a14;
+    --bg2:     #110e1e;
+    --bg3:     #161228;
+    --card:    #110f1c;
+    --border:  #2a2040;
+    --accent:  #a855f7;
+    --accent2: #c084fc;
+    --blue:    #3b82f6;
+    --blue2:   #60a5fa;
+    --green:   #10b981;
+    --green2:  #34d399;
+    --yellow:  #eab308;
+    --yellow2: #facc15;
+    --red:     #ef4444;
+    --red2:    #f87171;
+    --cyan:    #06b6d4;
+    --orange:  #f97316;
+    --teal:    #14b8a6;
+    --text:    #e2e8f0;
+    --text2:   #94a3b8;
+    --text3:   #64748b;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:15px;}
+
+  /* HERO */
+  .hero{background:linear-gradient(135deg,#0c0a14 0%,#1a0a2e 50%,#0c0a14 100%);border-bottom:1px solid var(--border);padding:60px 40px 50px;position:relative;overflow:hidden;}
+  .hero::before{content:'';position:absolute;top:-80px;right:-80px;width:500px;height:500px;background:radial-gradient(circle,rgba(168,85,247,0.10) 0%,transparent 70%);pointer-events:none;}
+  .hero::after{content:'';position:absolute;bottom:-60px;left:200px;width:350px;height:350px;background:radial-gradient(circle,rgba(6,182,212,0.06) 0%,transparent 70%);pointer-events:none;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.35);color:var(--accent2);padding:5px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;margin-bottom:20px;}
+  .badge .dot{width:6px;height:6px;background:var(--cyan);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+  .hero h1{font-family:var(--display);font-size:clamp(28px,4vw,46px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;}
+  .hero h1 span{color:var(--accent2);}
+  .hero .sub{color:var(--text2);font-size:16px;max-width:640px;margin-bottom:28px;}
+  .hero-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;font-size:12px;font-family:var(--mono);}
+
+  /* LAYOUT */
+  .container{max-width:980px;margin:0 auto;padding:40px 24px;}
+
+  /* SECTION HEADER */
+  .section-header{display:flex;align-items:center;gap:12px;margin:52px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .sn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;color:#fff;}
+  .sn.purple{background:var(--accent);}   .sn.blue{background:var(--blue);}
+  .sn.green{background:var(--green);}     .sn.yellow{background:var(--yellow);color:#000;}
+  .sn.red{background:var(--red);}         .sn.cyan{background:var(--cyan);color:#000;}
+  .sn.orange{background:var(--orange);}   .sn.teal{background:var(--teal);}
+  .section-header h2{font-family:var(--display);font-size:22px;font-weight:700;color:#fff;}
+
+  /* CARDS */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+  .card h3{font-family:var(--display);font-size:16px;font-weight:700;color:var(--accent2);margin-bottom:12px;}
+  .card p{color:var(--text2);margin-bottom:10px;font-size:14.5px;}
+  .card p:last-child{margin-bottom:0;}
+  .card ul{padding-left:20px;}
+  .card ul li{color:var(--text2);margin-bottom:7px;font-size:14.5px;}
+  .card ul li strong{color:var(--text);}
+
+  /* CODE */
+  .code-block{background:#070510;border:1px solid var(--border);border-radius:10px;margin:16px 0;overflow:hidden;}
+  .code-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0d0a18;border-bottom:1px solid var(--border);}
+  .code-lang{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
+  .code-dots{display:flex;gap:6px;}
+  .code-dots span{width:10px;height:10px;border-radius:50%;}
+  .code-dots span:nth-child(1){background:#ef4444;} .code-dots span:nth-child(2){background:#f59e0b;} .code-dots span:nth-child(3){background:#10b981;}
+  .code-block pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.85;color:#cdd6f4;}
+  .kw{color:#cba6f7;} .fn{color:#89b4fa;} .st{color:#a6e3a1;} .cm{color:#4a5568;font-style:italic;}
+  .nm{color:#fab387;} .tp{color:#89dceb;} .pp{color:#f38ba8;} .mc{color:#f9e2af;}
+  .hl    {background:rgba(168,85,247,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-ok {background:rgba(16,185,129,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--green);}
+  .hl-warn{background:rgba(234,179,8,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--yellow);}
+  .hl-red{background:rgba(239,68,68,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--red);}
+
+  /* TERMINAL */
+  .terminal{background:#050505;border:1px solid #222;border-radius:10px;overflow:hidden;margin:16px 0;}
+  .terminal-header{background:#111;padding:10px 16px;display:flex;align-items:center;gap:8px;}
+  .terminal-header span{width:12px;height:12px;border-radius:50%;}
+  .terminal-header span:nth-child(1){background:#ff5f57;} .terminal-header span:nth-child(2){background:#ffbd2e;} .terminal-header span:nth-child(3){background:#28c840;}
+  .t-title{margin-left:8px;font-family:var(--mono);font-size:12px;color:#555;}
+  .terminal pre{padding:18px 20px;font-family:var(--mono);font-size:13px;line-height:1.85;color:#d4d4d4;}
+  .t-prompt{color:#a855f7;} .t-cmd{color:#e2e8f0;} .t-out{color:#6b7280;}
+  .t-green{color:#10b981;} .t-yellow{color:#eab308;} .t-red{color:#ef4444;}
+  .t-blue{color:#60a5fa;} .t-purple{color:#c084fc;} .t-cyan{color:#06b6d4;}
+
+  /* DIAGRAM */
+  .diagram{background:#070510;border:1px solid var(--border);border-radius:10px;padding:24px;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.9;overflow-x:auto;white-space:pre;color:#cdd6f4;}
+
+  /* INFO BOXES */
+  .info-box{display:flex;gap:14px;padding:16px 20px;border-radius:10px;margin:16px 0;font-size:14px;}
+  .info-box.note  {background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);}
+  .info-box.warn  {background:rgba(234,179,8,.07); border:1px solid rgba(234,179,8,.25);}
+  .info-box.tip   {background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);}
+  .info-box.danger{background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);}
+  .info-box.teal  {background:rgba(20,184,166,.07);border:1px solid rgba(20,184,166,.2);}
+  .info-box .icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .info-box .content{color:var(--text2);}
+  .info-box .content strong{color:var(--text);display:block;margin-bottom:4px;}
+
+  /* TABLE */
+  .table-wrap{overflow-x:auto;margin:16px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{background:var(--bg3);color:var(--accent2);font-family:var(--display);font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;}
+  td{padding:11px 16px;border-bottom:1px solid rgba(42,32,64,.5);color:var(--text2);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:nth-child(even) td{background:rgba(255,255,255,.013);}
+  td strong{color:var(--text);}
+  td code{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;}
+
+  /* GRIDS */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0;}
+  @media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr;}}
+
+  /* MINI CARD */
+  .mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;}
+  .mini-card .mc-icon{font-size:22px;margin-bottom:10px;}
+  .mini-card h4{color:#fff;font-weight:600;font-size:14px;margin-bottom:6px;font-family:var(--display);}
+  .mini-card p{color:var(--text2);font-size:13px;line-height:1.6;}
+
+  /* STEPS */
+  .steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+  .step{display:flex;gap:16px;position:relative;padding-bottom:28px;}
+  .step:last-child{padding-bottom:0;}
+  .step-left{display:flex;flex-direction:column;align-items:center;}
+  .step-num{width:32px;height:32px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;z-index:1;}
+  .step-line{width:2px;flex:1;background:var(--border);margin-top:6px;}
+  .step:last-child .step-line{display:none;}
+  .step-content{padding-top:4px;flex:1;}
+  .step-content h4{color:#fff;font-weight:600;font-size:15px;margin-bottom:8px;font-family:var(--display);}
+  .step-content p{color:var(--text2);font-size:14px;margin-bottom:8px;}
+
+  code{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12.5px;}
+
+  /* NAV */
+  .nav-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:12px;color:var(--text3);position:sticky;top:0;z-index:100;}
+  .nav-bar .crumb{color:var(--text2);} .nav-bar .sep{color:var(--border);} .nav-bar .current{color:var(--accent2);}
+
+  /* PROGRESS */
+  .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;color:var(--text2);}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:18px;}
+  .progress-fill{height:100%;border-radius:3px;}
+
+  /* MEMORY MAP */
+  .mem-map{display:flex;flex-direction:column;gap:0;margin:16px 0;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .mem-row{display:grid;grid-template-columns:180px 1fr 180px;gap:0;border-bottom:1px solid var(--border);}
+  .mem-row:last-child{border-bottom:none;}
+  .mem-addr{font-family:var(--mono);font-size:12px;color:var(--text3);padding:10px 14px;background:var(--bg3);border-right:1px solid var(--border);}
+  .mem-name{padding:10px 16px;font-size:13.5px;color:var(--text2);}
+  .mem-name strong{color:var(--text);display:block;}
+  .mem-name span{font-size:12px;color:var(--text3);}
+  .mem-size{font-family:var(--mono);font-size:12px;color:var(--text3);padding:10px 14px;background:var(--bg3);border-left:1px solid var(--border);text-align:right;}
+  .mem-row.highlight .mem-name{background:rgba(168,85,247,0.06);}
+  .mem-row.highlight .mem-name strong{color:var(--accent2);}
+
+  /* ALLOCATOR COMPARE */
+  .alloc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0;}
+  @media(max-width:700px){.alloc-grid{grid-template-columns:1fr;}}
+  .alloc-card{border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+  .alloc-header{padding:14px 18px;font-family:var(--display);font-weight:700;font-size:14px;}
+  .alloc-body{background:var(--bg3);padding:14px 18px;}
+  .alloc-body p{color:var(--text2);font-size:13px;margin-bottom:8px;line-height:1.6;}
+  .alloc-body p:last-child{margin-bottom:0;}
+  .alloc-body code{font-size:11.5px;}
+  .ac-purple .alloc-header{background:rgba(168,85,247,0.15);color:var(--accent2);}
+  .ac-blue   .alloc-header{background:rgba(59,130,246,0.15);color:var(--blue2);}
+  .ac-green  .alloc-header{background:rgba(16,185,129,0.15);color:var(--green2);}
+  .ac-yellow .alloc-header{background:rgba(234,179,8,0.15);color:var(--yellow2);}
+  .ac-red    .alloc-header{background:rgba(239,68,68,0.15);color:var(--red2);}
+  .ac-cyan   .alloc-header{background:rgba(6,182,212,0.15);color:var(--cyan);}
+
+  /* GFP FLAG BOX */
+  .gfp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;}
+  @media(max-width:640px){.gfp-grid{grid-template-columns:1fr;}}
+  .gfp-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;}
+  .gfp-box h4{font-family:var(--mono);font-size:14px;font-weight:700;margin-bottom:10px;}
+  .gfp-box ul{list-style:none;padding:0;}
+  .gfp-box ul li{color:var(--text2);font-size:13px;padding:5px 0;border-bottom:1px solid rgba(42,32,64,0.4);}
+  .gfp-box ul li:last-child{border-bottom:none;}
+  .gfp-box ul li code{font-size:11.5px;}
+
+  /* QUOTE */
+  .quote{border-left:3px solid var(--accent);padding:14px 20px;margin:20px 0;background:rgba(168,85,247,0.04);border-radius:0 8px 8px 0;color:var(--text2);font-style:italic;font-size:14.5px;}
+  .quote strong{color:var(--accent2);font-style:normal;display:block;margin-top:6px;font-size:12px;}
+
+  /* FOOTER */
+  .footer{margin-top:60px;padding:30px 24px;border-top:1px solid var(--border);text-align:center;color:var(--text3);font-size:13px;font-family:var(--mono);}
+
+  /* CHECKLIST */
+  .checklist{list-style:none;padding:0;margin:12px 0;}
+  .checklist li{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(42,32,64,0.4);color:var(--text2);font-size:14px;}
+  .checklist li:last-child{border-bottom:none;}
+  .chk{color:var(--accent2);font-size:15px;flex-shrink:0;margin-top:1px;}
+  .chk-no{color:var(--text3);font-size:15px;flex-shrink:0;margin-top:1px;}
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 1: Kernel Foundations</span>
+  <span class="sep">›</span>
+  <span class="current">Day 4 — Kernel Memory Management</span>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 1 · Day 4 of 30</div>
+  <h1>Kernel Memory<br><span>Management</span></h1>
+  <p class="sub">Master the entire kernel memory subsystem — from physical pages to slab allocators to vmalloc. Learn every GFP flag, understand why wrong allocations crash your driver, and control memory like the kernel does.</p>
+  <div class="hero-tags">
+    <span class="tag">Physical vs Virtual Memory</span>
+    <span class="tag">kmalloc / kzalloc</span>
+    <span class="tag">GFP Flags</span>
+    <span class="tag">vmalloc</span>
+    <span class="tag">Page Allocator</span>
+    <span class="tag">SLUB Allocator</span>
+    <span class="tag">Memory Zones</span>
+    <span class="tag">kfree / vfree</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- PROGRESS -->
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 4 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:13.3%;background:linear-gradient(90deg,#a855f7,#c084fc)"></div></div>
+    <div class="progress-header"><span>Week 1 Progress</span><span>Day 4 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:57.1%;background:linear-gradient(90deg,#a855f7,#c084fc)"></div></div>
+  </div>
+
+<!-- ═══════════════════════ SECTION 1 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">1</div>
+    <h2>Physical vs Virtual Memory — The Foundation</h2>
+  </div>
+
+  <div class="card">
+    <h3>🧠 The Mental Model Every Driver Dev Must Have</h3>
+    <p>There are <strong>two completely separate address spaces</strong> you will deal with as a driver developer. Confusing them is one of the most common and dangerous mistakes. Every address you see in kernel code is a <em>virtual</em> address — but the hardware (DMA engines, MMIO registers) operates on <em>physical</em> addresses.</p>
+  </div>
+
+  <div class="diagram">
+PHYSICAL MEMORY (what RAM chips actually contain)
+──────────────────────────────────────────────────────────────────────────
+0x0000_0000_0000  ┌──────────────────┐
+                  │  Reserved / BIOS │  (first 1MB on x86)
+0x0000_0010_0000  ├──────────────────┤
+                  │                  │
+                  │   Available RAM  │  (your machine's actual memory sticks)
+                  │   (e.g., 8 GB)   │  DMA engines use these addresses
+                  │                  │
+0x0002_0000_0000  ├──────────────────┤  (8 GB boundary)
+                  │  MMIO Regions    │  (PCIe BAR registers, GPU VRAM aperture)
+                  │  (no RAM here)   │  read/write these to talk to hardware
+                  └──────────────────┘
+
+VIRTUAL MEMORY (what the CPU's MMU presents to software)
+──────────────────────────────────────────────────────────────────────────
+0x0000_0000_0000_0000  ┌──────────────────────────────────────┐
+                       │          USER SPACE (128 TB)         │
+                       │  Each process has its OWN mapping    │
+                       │  Process A and Process B can both    │
+                       │  have ptr=0x400000 → different RAM   │
+0x0000_7FFF_FFFF_FFFF  ├──────────────────────────────────────┤
+                       │  (CANONICAL HOLE — unmapped)          │
+0xFFFF_8000_0000_0000  ├──────────────────────────────────────┤
+                       │         KERNEL SPACE (128 TB)        │
+                       │                                      │
+  0xFFFF_8880_0000_0000│  ← PAGE_OFFSET                       │
+                       │  Direct Map: ALL physical RAM        │
+                       │  mapped here, linearly               │
+                       │  phys 0x0 → virt PAGE_OFFSET+0x0     │
+                       │  phys 0x1000 → virt PAGE_OFFSET+0x1000│
+                       │                                      │
+  0xFFFF_C900_0000_0000│  vmalloc area (vmalloc/ioremap)      │
+  0xFFFF_E000_0000_0000│  modules area  (.ko loaded here)     │
+  0xFFFF_FFFF_8000_0000│  kernel code (_text, _data, _bss)    │
+0xFFFF_FFFF_FFFF_FFFF  └──────────────────────────────────────┘
+
+KEY CONVERSION FUNCTIONS:
+  virt_to_phys(vaddr)  → physical address  (only for direct-map addresses!)
+  phys_to_virt(paddr)  → virtual address   (only for direct-mapped RAM)
+  __pa(vaddr)          → same as virt_to_phys (macro shorthand)
+  __va(paddr)          → same as phys_to_virt (macro shorthand)</div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>🗺️ The Direct Map Region</h3>
+      <p>Linux maps <strong>all physical RAM</strong> into kernel virtual space at a fixed offset (<code>PAGE_OFFSET</code>, typically <code>0xffff888000000000</code> on x86-64). This means every physical RAM byte has a kernel virtual address you can use directly.</p>
+      <p><code>kmalloc()</code> returns addresses in this region — that's why <code>virt_to_phys(kmalloc_ptr)</code> gives you a valid physical address for DMA. <strong>vmalloc addresses are NOT in the direct map</strong> — never pass them to DMA!</p>
+    </div>
+    <div class="card">
+      <h3>⚠️ Why This Matters for Drivers</h3>
+      <ul>
+        <li><strong>DMA needs physical addresses</strong> — use <code>dma_map_single()</code>, not raw pointers</li>
+        <li><strong>MMIO is not RAM</strong> — use <code>ioremap()</code> to access hardware registers</li>
+        <li><strong>Userspace pointers are virtual</strong> — different page table from kernel, never dereference directly</li>
+        <li><strong>vmalloc != kmalloc</strong> — vmalloc is virtually contiguous but scattered in physical RAM, cannot use for DMA</li>
+      </ul>
+    </div>
+  </div>
+
+<!-- ═══════════════════════ SECTION 2 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">2</div>
+    <h2>Memory Zones — Where RAM is Categorized</h2>
+  </div>
+
+  <div class="card">
+    <h3>🗂️ Why Zones Exist</h3>
+    <p>Not all RAM is equal. Legacy hardware (ISA DMA controllers) can only address the first 16MB. 32-bit devices can only address up to 4GB. The kernel divides physical RAM into <strong>zones</strong> and lets allocators request from specific zones via GFP flags.</p>
+  </div>
+
+  <div class="mem-map">
+    <div class="mem-row">
+      <div class="mem-addr">0x000000 →<br>0x00FFFF</div>
+      <div class="mem-name"><strong>ZONE_DMA</strong><span>First 16 MB of physical RAM</span></div>
+      <div class="mem-size">16 MB</div>
+    </div>
+    <div class="mem-row highlight">
+      <div class="mem-addr">0x010000 →<br>0xFFFFFFFF</div>
+      <div class="mem-name"><strong>ZONE_DMA32</strong><span>16 MB → 4 GB. For 32-bit DMA-capable devices</span></div>
+      <div class="mem-size">~4 GB</div>
+    </div>
+    <div class="mem-row">
+      <div class="mem-addr">0x1_00000000 →<br>highmem start</div>
+      <div class="mem-name"><strong>ZONE_NORMAL</strong><span>Main memory zone. kmalloc default. Direct-mapped into kernel virtual space</span></div>
+      <div class="mem-size">Most RAM</div>
+    </div>
+    <div class="mem-row">
+      <div class="mem-addr">Above direct<br>map limit</div>
+      <div class="mem-name"><strong>ZONE_HIGHMEM</strong><span>32-bit kernels only. RAM that doesn't fit in direct map. Needs kmap() to access. Rare on modern 64-bit systems.</span></div>
+      <div class="mem-size">Varies</div>
+    </div>
+    <div class="mem-row">
+      <div class="mem-addr">Movable<br>pages</div>
+      <div class="mem-name"><strong>ZONE_MOVABLE</strong><span>Pages that can be migrated (used for memory hotplug, huge pages). Allocated with GFP_HIGHUSER_MOVABLE</span></div>
+      <div class="mem-size">Configurable</div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>GFP Zone Flag</th><th>Allocates From</th><th>Use When</th></tr>
+      <tr><td><code>GFP_DMA</code></td><td>ZONE_DMA (first 16MB)</td><td>ISA DMA controllers on very old hardware. Rarely needed today.</td></tr>
+      <tr><td><code>GFP_DMA32</code></td><td>ZONE_DMA32 (below 4GB)</td><td>32-bit DMA-capable devices on a 64-bit system. More common.</td></tr>
+      <tr><td><em>(default/no zone flag)</em></td><td>ZONE_NORMAL</td><td>Most driver allocations. kmalloc default behavior.</td></tr>
+      <tr><td><code>GFP_HIGHUSER</code></td><td>Any zone including HIGHMEM</td><td>Allocating pages for user processes (memory manager use).</td></tr>
+    </table>
+  </div>
+
+<!-- ═══════════════════════ SECTION 3 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn green">3</div>
+    <h2>GFP Flags — The Most Important Parameter in Kernel Allocation</h2>
+  </div>
+
+  <div class="card">
+    <h3>🚩 GFP = Get Free Pages — Allocation Behavior Flags</h3>
+    <p>Every kernel allocation call takes a <code>gfp_t</code> flags argument. These flags control <em>how</em> the allocator behaves when memory is tight — can it sleep and wait? Can it trigger memory reclaim? Can it use emergency reserves? Getting this wrong either crashes your driver or deadlocks the kernel.</p>
+  </div>
+
+  <div class="gfp-grid">
+    <div class="gfp-box" style="border-color:rgba(16,185,129,0.3)">
+      <h4 style="color:var(--green2)">✅ GFP_KERNEL</h4>
+      <ul>
+        <li>Use in: <strong>Process context only</strong></li>
+        <li>Can sleep: <strong>YES</strong></li>
+        <li>Can trigger reclaim: <strong>YES</strong></li>
+        <li>Can call OOM killer: <strong>YES</strong></li>
+        <li><strong>Default for drivers</strong> — use this in probe(), init(), ioctl() handlers. The allocator will wait for memory to become available.</li>
+      </ul>
+    </div>
+    <div class="gfp-box" style="border-color:rgba(239,68,68,0.3)">
+      <h4 style="color:var(--red2)">⚡ GFP_ATOMIC</h4>
+      <ul>
+        <li>Use in: <strong>Interrupt context, spinlock held</strong></li>
+        <li>Can sleep: <strong>NO — never</strong></li>
+        <li>Can trigger reclaim: <strong>NO</strong></li>
+        <li>Uses emergency reserves: <strong>YES</strong></li>
+        <li><strong>IRQ handlers, tasklets, timer callbacks</strong>. Will fail (return NULL) instead of waiting. Always check return value!</li>
+      </ul>
+    </div>
+    <div class="gfp-box" style="border-color:rgba(234,179,8,0.3)">
+      <h4 style="color:var(--yellow2)">🔒 GFP_NOWAIT</h4>
+      <ul>
+        <li>Use in: Process context but can't sleep</li>
+        <li>Can sleep: <strong>NO</strong></li>
+        <li>Can trigger reclaim: <strong>NO</strong></li>
+        <li>Uses emergency reserves: <strong>NO</strong></li>
+        <li>Like GFP_ATOMIC but doesn't touch reserves. More likely to fail. Rarely needed in drivers.</li>
+      </ul>
+    </div>
+    <div class="gfp-box" style="border-color:rgba(6,182,212,0.3)">
+      <h4 style="color:var(--cyan)">🧹 GFP_NOIO / GFP_NOFS</h4>
+      <ul>
+        <li>GFP_NOIO: Cannot start any I/O during reclaim</li>
+        <li>GFP_NOFS: Cannot call filesystem code</li>
+        <li>Used in: <strong>Storage/filesystem drivers</strong></li>
+        <li>Prevents deadlocks where reclaim tries to do I/O which needs memory which triggers reclaim...</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — GFP Flag Composition — How Flags Combine</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/* GFP flags are bit masks that combine zone + behavior flags.
+ * GFP_KERNEL is actually a combination of multiple flags:
+ *
+ * #define GFP_KERNEL  (__GFP_RECLAIM | __GFP_IO | __GFP_FS)
+ * #define GFP_ATOMIC  (__GFP_HIGH | __GFP_ATOMIC | __GFP_KSWAPD_RECLAIM)
+ *
+ * You can compose flags yourself for specific needs: */</span>
+
+<span class="cm">/* Allocate from DMA zone, can sleep */</span>
+buf = <span class="fn">kmalloc</span>(size, <span class="nm">GFP_KERNEL</span> | <span class="nm">GFP_DMA</span>);
+
+<span class="cm">/* Allocate zeroed memory that can be used for DMA32 */</span>
+buf = <span class="fn">kzalloc</span>(size, <span class="nm">GFP_KERNEL</span> | <span class="nm">GFP_DMA32</span>);
+
+<span class="cm">/* Atomic allocation without touching emergency reserves */</span>
+buf = <span class="fn">kmalloc</span>(size, <span class="nm">GFP_NOWAIT</span>);
+
+<span class="cm">/* __GFP_ZERO: zero the memory (kzalloc is kmalloc + this flag) */</span>
+buf = <span class="fn">kmalloc</span>(size, <span class="nm">GFP_KERNEL</span> | <span class="nm">__GFP_ZERO</span>);
+<span class="cm">/* Equivalent to kzalloc(size, GFP_KERNEL) */</span>
+
+<span class="cm">/* __GFP_NOFAIL: keep trying until successful (rarely appropriate) */</span>
+buf = <span class="fn">kmalloc</span>(size, <span class="nm">GFP_KERNEL</span> | <span class="nm">__GFP_NOFAIL</span>);
+<span class="cm">/* WARNING: This will loop forever if memory never becomes available.
+ * Only use when you CANNOT handle allocation failure. Very rare. */</span>
+
+<span class="cm">/* __GFP_ACCOUNT: charge to memory cgroup (for user-facing allocations) */</span>
+buf = <span class="fn">kmalloc</span>(size, <span class="nm">GFP_KERNEL</span> | <span class="nm">__GFP_ACCOUNT</span>);</pre>
+  </div>
+
+  <div class="info-box danger">
+    <span class="icon">🚨</span>
+    <div class="content"><strong>The Cardinal Sin: GFP_KERNEL in Atomic Context</strong>Using <code>GFP_KERNEL</code> while holding a spinlock or in an interrupt handler causes a <strong>BUG: sleeping function called from invalid context</strong> kernel oops. The allocator tries to sleep, but sleeping is impossible. This is one of the most common bugs in new drivers. If you're in doubt whether you can sleep — call <code>might_sleep()</code> at the top of your function to get a warning during development.</div>
+  </div>
+
+<!-- ═══════════════════════ SECTION 4 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn yellow">4</div>
+    <h2>kmalloc / kzalloc — The SLUB Allocator</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔧 kmalloc — Your Primary Allocation Tool</h3>
+    <p><code>kmalloc()</code> is backed by the <strong>SLUB allocator</strong> (Slab allocator with fewer queues). SLUB maintains pre-allocated caches of fixed-size objects (32B, 64B, 128B, 256B... up to a few KB). When you call <code>kmalloc(100, GFP_KERNEL)</code>, SLUB gives you a slot from the 128-byte cache. This makes small allocations extremely fast — no page-boundary alignment searching needed.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — kmalloc / kzalloc / kcalloc / krealloc — Complete Reference</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/slab.h&gt;</span>   <span class="cm">/* ALL slab allocator functions live here */</span>
+
+<span class="cm">/* ── kmalloc: allocate size bytes, physically contiguous, fast ─────── */</span>
+<span class="kw">void</span> *<span class="fn">kmalloc</span>(<span class="tp">size_t</span> size, <span class="tp">gfp_t</span> flags);
+
+<span class="kw">char</span> *buf = <span class="fn">kmalloc</span>(<span class="nm">256</span>, <span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (!buf)                   <span class="cm">/* ALWAYS check for NULL */</span>
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+<span class="cm">/* WARNING: Contents are UNINITIALIZED — could contain old data */</span>
+<span class="fn">kfree</span>(buf);                 <span class="cm">/* Release when done */</span>
+
+<span class="cm">/* ── kzalloc: kmalloc + zero initialisation (PREFER THIS) ─────────── */</span>
+<span class="kw">void</span> *<span class="fn">kzalloc</span>(<span class="tp">size_t</span> size, <span class="tp">gfp_t</span> flags);
+
+<span class="kw">struct</span> <span class="tp">my_device</span> *dev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*dev), <span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (!dev)
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+<span class="cm">/* dev is zeroed: dev->id=0, dev->ptr=NULL, dev->flags=0 etc. */</span>
+<span class="cm">/* Use kzalloc for structs — prevents info leaks, catches missing init */</span>
+<span class="fn">kfree</span>(dev);
+
+<span class="cm">/* ── kcalloc: allocate array of n elements, each size bytes, zeroed ── */</span>
+<span class="kw">void</span> *<span class="fn">kcalloc</span>(<span class="tp">size_t</span> n, <span class="tp">size_t</span> size, <span class="tp">gfp_t</span> flags);
+
+<span class="kw">int</span> *array = <span class="fn">kcalloc</span>(<span class="nm">100</span>, <span class="kw">sizeof</span>(<span class="kw">int</span>), <span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (!array)
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+<span class="cm">/* kcalloc checks for overflow in n*size — safer than kmalloc(n*size) */</span>
+<span class="fn">kfree</span>(array);
+
+<span class="cm">/* ── krealloc: resize an existing allocation ──────────────────────── */</span>
+<span class="kw">void</span> *<span class="fn">krealloc</span>(<span class="kw">const void</span> *p, <span class="tp">size_t</span> new_size, <span class="tp">gfp_t</span> flags);
+
+buf = <span class="fn">krealloc</span>(buf, <span class="nm">512</span>, <span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (!buf)  <span class="cm">/* original buf was freed if krealloc fails! save pointer! */</span>
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+<span class="cm">/* ── kfree_sensitive: zero before freeing (for secrets/keys) ──────── */</span>
+<span class="kw">void</span> <span class="fn">kfree_sensitive</span>(<span class="kw">const void</span> *objp);
+<span class="fn">kfree_sensitive</span>(crypto_key);  <span class="cm">/* zeros memory before returning to slab */</span>
+
+<span class="cm">/* ── SIZE LIMITS for kmalloc ─────────────────────────────────────── */</span>
+<span class="cm">/* kmalloc works best up to: KMALLOC_MAX_SIZE (usually 4MB on 64-bit)
+ * Practical sweet spot: < 4 KB (one page). For larger: use vmalloc.
+ * kmalloc is physically CONTIGUOUS → scarce resource for large sizes
+ * Check: cat /proc/slabinfo to see slab cache usage */</span></pre>
+  </div>
+
+  <div class="card">
+    <h3>⚙️ How SLUB Works Internally</h3>
+    <p>SLUB maintains a set of <strong>size-class caches</strong> — one cache for each power-of-2 size (and some intermediate sizes): <code>kmalloc-8</code>, <code>kmalloc-16</code>, <code>kmalloc-32</code>, ..., <code>kmalloc-4096</code>. When you call <code>kmalloc(100, ...)</code>, it rounds up to 128 and grabs from <code>kmalloc-128</code>.</p>
+    <p>Each cache maintains a per-CPU cache of free objects (the "freelist"). Allocations from the per-CPU cache are <strong>lock-free and nearly instant</strong>. Only when the per-CPU cache runs dry does SLUB go to the node-level list, which needs a lock.</p>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash — Observing the SLUB Allocator</div></div>
+    <pre>
+<span class="cm"># See all slab caches, their object size and counts</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo cat /proc/slabinfo | head -20</span>
+<span class="t-out"># name            &lt;active_objs&gt; &lt;num_objs&gt; &lt;objsize&gt; &lt;objperslab&gt; &lt;pagesperslab&gt;
+kmalloc-8192           234        256      8192            4            8
+kmalloc-4096           891        896      4096            8            8
+kmalloc-2048          1203       1280      2048           16            8
+kmalloc-1024          2891       3072      1024           16            4
+kmalloc-512           5621       6144       512           16            2
+kmalloc-256          12453      13312       256           16            1
+kmalloc-128          24901      25600       128           32            1
+kmalloc-64           89234      90112        64           64            1</span>
+
+<span class="cm"># See SLUB debug info for a specific cache</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo cat /sys/kernel/slab/kmalloc-256/objects</span>
+<span class="t-out">13312</span>
+
+<span class="cm"># See how much memory is consumed by slabs</span>
+<span class="t-prompt">$</span> <span class="t-cmd">grep -E "^Slab|^SReclaimable|^SUnreclaim" /proc/meminfo</span>
+<span class="t-out">Slab:            189440 kB    ← total slab memory
+SReclaimable:    145024 kB    ← can be reclaimed under pressure
+SUnreclaim:       44416 kB    ← cannot be reclaimed (active objects)</span>
+
+<span class="cm"># Create a CUSTOM slab cache for your driver's frequently-allocated struct</span>
+<span class="cm"># (Advanced — covered more in future days)</span>
+<span class="cm"># struct kmem_cache *my_cache = kmem_cache_create("my_obj", sizeof(struct my_obj),</span>
+<span class="cm">#     __alignof__(struct my_obj), SLAB_HWCACHE_ALIGN, NULL);</span></pre>
+  </div>
+
+<!-- ═══════════════════════ SECTION 5 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">5</div>
+    <h2>vmalloc / vfree — Large Virtually Contiguous Allocations</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔀 When kmalloc Isn't Enough</h3>
+    <p><code>vmalloc()</code> allocates memory that is <strong>contiguous in virtual address space</strong> but may be <strong>scattered in physical memory</strong>. This is the key difference — it can satisfy large allocations that kmalloc would fail on because it doesn't need physically contiguous pages.</p>
+    <p>The trade-off: <code>vmalloc</code> is <strong>slower</strong> (needs to set up individual page table entries), vmalloc regions are <strong>not in the direct map</strong>, and vmalloc memory <strong>cannot be used for DMA</strong>.</p>
+  </div>
+
+  <div class="diagram">
+KMALLOC — physically AND virtually contiguous:
+  Virtual:   [  page 0   ][  page 1   ][  page 2   ]   contiguous
+  Physical:  [  page 0   ][  page 1   ][  page 2   ]   contiguous
+             ↑ These physical pages are sequential → OK for DMA
+
+VMALLOC — virtually contiguous, physically scattered:
+  Virtual:   [  page 0   ][  page 1   ][  page 2   ]   contiguous ← addresses sequential
+  Physical:  [  page 41  ] [ page 892 ] [ page 12  ]   scattered  ← DMA cannot use this!
+
+  vmalloc must set up 3 separate PTEs (page table entries) to map the scattered
+  physical pages into a contiguous virtual address range.
+  Each page boundary access = potential TLB miss → slower than kmalloc</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — vmalloc API Complete Reference</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/vmalloc.h&gt;</span>
+
+<span class="cm">/* ── vmalloc: virtually contiguous, may sleep ──────────────────────── */</span>
+<span class="kw">void</span> *<span class="fn">vmalloc</span>(<span class="tp">unsigned long</span> size);
+
+<span class="kw">char</span> *large_buf = <span class="fn">vmalloc</span>(<span class="nm">8</span> * <span class="nm">1024</span> * <span class="nm">1024</span>);  <span class="cm">/* 8 MB — easy for vmalloc */</span>
+<span class="kw">if</span> (!large_buf)
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+<span class="cm">/* Contents are UNINITIALIZED */</span>
+<span class="fn">vfree</span>(large_buf);    <span class="cm">/* use vfree, NOT kfree! Wrong function = oops */</span>
+
+<span class="cm">/* ── vzalloc: vmalloc + zero initialised ──────────────────────────── */</span>
+<span class="kw">void</span> *<span class="fn">vzalloc</span>(<span class="tp">unsigned long</span> size);
+
+<span class="kw">char</span> *zbuf = <span class="fn">vzalloc</span>(<span class="nm">4</span> * <span class="nm">1024</span> * <span class="nm">1024</span>);  <span class="cm">/* 4 MB, zeroed */</span>
+<span class="kw">if</span> (!zbuf)
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+<span class="fn">vfree</span>(zbuf);
+
+<span class="cm">/* ── vmalloc_to_page: convert vmalloc address → struct page * ──────── */</span>
+<span class="kw">struct</span> <span class="tp">page</span> *pg = <span class="fn">vmalloc_to_page</span>(large_buf + <span class="nm">4096</span>);
+<span class="cm">/* Needed when you want to use vmalloc'd pages for user-space mapping
+ * via vm_insert_page() — since the physical pages aren't contiguous */</span>
+
+<span class="cm">/* ── is_vmalloc_addr: check if an address is from vmalloc ─────────── */</span>
+<span class="kw">if</span> (<span class="fn">is_vmalloc_addr</span>(ptr)) {
+    <span class="fn">vfree</span>(ptr);      <span class="cm">/* vmalloc memory */</span>
+} <span class="kw">else</span> {
+    <span class="fn">kfree</span>(ptr);      <span class="cm">/* kmalloc memory */</span>
+}
+
+<span class="cm">/* ── CRITICAL RULES ─────────────────────────────────────────────────
+ * 1. NEVER pass vmalloc memory to DMA (physically discontiguous)
+ * 2. NEVER call vfree() from interrupt context (may sleep)
+ * 3. NEVER use kfree() on vmalloc memory → crash
+ * 4. vmalloc() implies GFP_KERNEL — can only call from process context
+ * 5. vmalloc is slower than kmalloc — don't use for small allocations */</span></pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Property</th><th>kmalloc / kzalloc</th><th>vmalloc / vzalloc</th></tr>
+      <tr><td><strong>Virtual contiguous</strong></td><td>✅ Yes</td><td>✅ Yes</td></tr>
+      <tr><td><strong>Physical contiguous</strong></td><td>✅ Yes</td><td>❌ No (scattered pages)</td></tr>
+      <tr><td><strong>DMA safe</strong></td><td>✅ Yes (with dma_map)</td><td>❌ No</td></tr>
+      <tr><td><strong>Max size (practical)</strong></td><td>~4 MB (limited by physical contiguity)</td><td>Hundreds of MB (limited by virtual space)</td></tr>
+      <tr><td><strong>Speed</strong></td><td>⚡ Fast (slab cache, per-CPU)</td><td>🐢 Slower (page table setup, TLB pressure)</td></tr>
+      <tr><td><strong>Can sleep</strong></td><td>Depends on GFP flag</td><td>Always (GFP_KERNEL internally)</td></tr>
+      <tr><td><strong>Free function</strong></td><td><code>kfree()</code></td><td><code>vfree()</code></td></tr>
+      <tr><td><strong>Best use case</strong></td><td>Driver structs, small buffers, DMA buffers</td><td>Large firmware images, big ring buffers, module data</td></tr>
+    </table>
+  </div>
+
+<!-- ═══════════════════════ SECTION 6 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">6</div>
+    <h2>Page Allocator — Direct Page-Level Allocation</h2>
+  </div>
+
+  <div class="card">
+    <h3>📄 Working Directly with Pages</h3>
+    <p>Below kmalloc is the <strong>page allocator</strong> (buddy allocator). It allocates in powers of 2 pages. kmalloc itself calls the page allocator for large requests. As a driver developer, you rarely call the page allocator directly — but you need to understand it because DMA operations, frame buffers, and mmap() implementations use it.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Page Allocator API</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/gfp.h&gt;</span>     <span class="cm">/* GFP flags, alloc_page */</span>
+<span class="pp">#include &lt;linux/highmem.h&gt;</span> <span class="cm">/* kmap, kunmap for HIGHMEM */</span>
+
+<span class="cm">/* ── Allocate a SINGLE page ──────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">page</span> *pg = <span class="fn">alloc_page</span>(<span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (!pg)
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+<span class="kw">void</span> *vaddr = <span class="fn">page_address</span>(pg);   <span class="cm">/* get kernel virtual address of the page */</span>
+<span class="fn">memset</span>(vaddr, <span class="nm">0</span>, <span class="nm">PAGE_SIZE</span>);      <span class="cm">/* PAGE_SIZE = 4096 on most architectures */</span>
+<span class="fn">__free_page</span>(pg);                   <span class="cm">/* free the single page */</span>
+
+<span class="cm">/* ── Allocate 2^order CONTIGUOUS pages ──────────────────────────── */</span>
+<span class="cm">/* order=0 → 1 page (4KB), order=1 → 2 pages (8KB), order=10 → 4MB */</span>
+<span class="kw">unsigned int</span> order = <span class="fn">get_order</span>(<span class="nm">65536</span>);  <span class="cm">/* calc order for 64KB = order 4 */</span>
+<span class="kw">struct</span> <span class="tp">page</span> *pages = <span class="fn">alloc_pages</span>(<span class="nm">GFP_KERNEL</span>, order);
+<span class="kw">if</span> (!pages)
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+<span class="kw">void</span> *buf = <span class="fn">page_address</span>(pages);   <span class="cm">/* contiguous virtual range */</span>
+<span class="fn">free_pages</span>((<span class="tp">unsigned long</span>)buf, order);  <span class="cm">/* free by address */</span>
+
+<span class="cm">/* ── Alternative: get address directly ──────────────────────────── */</span>
+<span class="tp">unsigned long</span> addr = <span class="fn">__get_free_pages</span>(<span class="nm">GFP_KERNEL</span>, order);
+<span class="cm">/* addr is directly usable as a pointer — equivalent to page_address() */</span>
+<span class="fn">free_pages</span>(addr, order);           <span class="cm">/* free using the address form */</span>
+
+<span class="cm">/* ── Get zeroed pages ────────────────────────────────────────────── */</span>
+<span class="tp">unsigned long</span> zaddr = <span class="fn">get_zeroed_page</span>(<span class="nm">GFP_KERNEL</span>);
+<span class="cm">/* single zeroed page — used for user-mappable pages that must be clean */</span>
+<span class="fn">free_page</span>(zaddr);                  <span class="cm">/* free single zeroed page */</span>
+
+<span class="cm">/* ── IMPORTANT: PAGE_SIZE vs PAGE_SHIFT ─────────────────────────── */</span>
+<span class="cm">/* PAGE_SIZE  = 4096 (0x1000) on x86/ARM — bytes per page
+ * PAGE_SHIFT = 12          — bits to shift: 1 << PAGE_SHIFT == PAGE_SIZE
+ * PAGE_MASK  = ~(PAGE_SIZE-1) — mask for page-aligning an address
+ *
+ * Page-align a size:  ALIGN(size, PAGE_SIZE)
+ * Page-align an addr: addr & PAGE_MASK
+ * Address → page number: addr >> PAGE_SHIFT  */</span></pre>
+  </div>
+
+<!-- ═══════════════════════ SECTION 7 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn orange">7</div>
+    <h2>Memory Pools — Guaranteed Allocations in Emergency Paths</h2>
+  </div>
+
+  <div class="card">
+    <h3>🏊 What is a Memory Pool?</h3>
+    <p>A <strong>memory pool</strong> (<code>mempool_t</code>) pre-allocates a set of objects and holds them in reserve. When the system is under memory pressure and normal allocation would fail, the memory pool can still serve requests from its reserve. This is critical for drivers that <strong>must</strong> allocate memory in error-handling or recovery paths — if the allocation fails there, the situation gets even worse.</p>
+    <p>Block device drivers use mempools extensively — they need to allocate <code>struct bio</code> in I/O completion paths where sleeping isn't always safe and allocation failure is unacceptable.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — mempool API</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/mempool.h&gt;</span>
+
+<span class="kw">static</span> <span class="tp">mempool_t</span> *my_pool;
+
+<span class="cm">/* ── Create pool: reserve 16 pre-allocated objects ──────────────── */</span>
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">driver_init</span>(<span class="kw">void</span>)
+{
+    <span class="cm">/* mempool_create(min_nr, alloc_fn, free_fn, pool_data)
+     * The pool keeps at least min_nr elements reserved.
+     * When pool is empty and normal alloc fails, uses reserves. */</span>
+    my_pool = <span class="fn">mempool_create_kmalloc_pool</span>(<span class="nm">16</span>, <span class="kw">sizeof</span>(<span class="kw">struct</span> <span class="tp">my_request</span>));
+    <span class="kw">if</span> (!my_pool)
+        <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── Allocate from pool (can sleep if GFP_KERNEL, won't fail if reserves) */</span>
+<span class="kw">struct</span> <span class="tp">my_request</span> *req = <span class="fn">mempool_alloc</span>(my_pool, <span class="nm">GFP_ATOMIC</span>);
+<span class="cm">/* With GFP_ATOMIC: tries normal alloc first, falls back to reserves.
+ * mempool_alloc with GFP_KERNEL can sleep but WILL NOT return NULL
+ * as long as reserves are available. */</span>
+
+<span class="cm">/* ── Free back to pool ───────────────────────────────────────────── */</span>
+<span class="fn">mempool_free</span>(req, my_pool);
+<span class="cm">/* Returns object to reserves first if pool is depleted, else to slab */</span>
+
+<span class="cm">/* ── Destroy pool on cleanup ─────────────────────────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">driver_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">mempool_destroy</span>(my_pool);
+}</pre>
+  </div>
+
+<!-- ═══════════════════════ SECTION 8 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn red">8</div>
+    <h2>The Kernel Stack — Why It's Tiny and What to Do About It</h2>
+  </div>
+
+  <div class="card">
+    <h3>📚 8KB Stack — Non-Negotiable Limit</h3>
+    <p>Every kernel thread and every syscall has a stack of <strong>exactly 8KB</strong> (16KB with <code>CONFIG_VMAP_STACK</code> and KASAN). This is fixed — it cannot grow. Exceed it and you get a silent stack overflow that corrupts adjacent kernel memory — one of the nastiest kernel bugs to debug.</p>
+    <p>The kernel can detect stack overflows with <code>CONFIG_STACK_TRACER</code> and <code>CONFIG_VMAP_STACK</code> — but only if you've enabled them. In production, a stack overflow typically causes corruption that manifests as a crash far from the actual overflow.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Stack Usage Rules and Patterns</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/* ── WRONG: Large arrays on stack — WILL OVERFLOW ──────────────── */</span>
+<span class="kw">static int</span> <span class="fn">bad_function</span>(<span class="kw">void</span>)
+{
+    <span class="hl-red"><span class="kw">char</span> buffer[<span class="nm">4096</span>];        <span class="cm">/* BAD! 4KB on stack = half your stack gone */</span></span>
+    <span class="hl-red"><span class="kw">int</span>  array[<span class="nm">1024</span>];         <span class="cm">/* BAD! 4KB more = stack overflow */</span></span>
+    <span class="kw">struct</span> <span class="tp">big_struct</span> bs;    <span class="cm">/* BAD if sizeof(big_struct) > ~256 bytes */</span>
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── CORRECT: Allocate large buffers on heap ─────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">good_function</span>(<span class="kw">void</span>)
+{
+    <span class="hl-ok"><span class="kw">char</span> *buffer = <span class="fn">kmalloc</span>(<span class="nm">4096</span>, <span class="nm">GFP_KERNEL</span>);</span>
+    <span class="kw">if</span> (!buffer)
+        <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+    <span class="cm">/* use buffer... */</span>
+
+    <span class="fn">kfree</span>(buffer);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── RULE OF THUMB ─────────────────────────────────────────────────
+ * Keep individual stack frames under 200 bytes.
+ * Stack depth in kernel can be 10-20 frames deep.
+ * 20 frames × 200 bytes = 4KB consumed from nested calls alone.
+ *
+ * CHECK your stack usage with:
+ *   make C=1 CF=-fstack-usage   (during build)
+ *   scripts/stackdelta           (compare two builds)
+ *
+ * The kernel build warns about functions using >1024 bytes of stack:
+ *   arch/x86/kernel/foo.c:42: warning: 'bar' uses too much stack */</span>
+
+<span class="cm">/* ── CHECKING CURRENT STACK USAGE ─────────────────────────────────── */</span>
+<span class="kw">void</span> <span class="fn">check_stack</span>(<span class="kw">void</span>)
+{
+    <span class="cm">/* dump_stack() prints current stack trace to dmesg — for debugging */</span>
+    <span class="fn">dump_stack</span>();
+
+    <span class="cm">/* How much stack is left? (rough estimate) */</span>
+    <span class="tp">unsigned long</span> sp;
+    <span class="fn">asm</span>(<span class="st">"mov %%rsp, %0"</span> : <span class="st">"=r"</span>(sp));
+    <span class="fn">pr_info</span>(<span class="st">"Stack remaining: ~%lu bytes\n"</span>,
+            sp - (<span class="tp">unsigned long</span>)<span class="fn">task_stack_page</span>(<span class="mc">current</span>));
+}</pre>
+  </div>
+
+<!-- ═══════════════════════ SECTION 9 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn teal">9</div>
+    <h2>devm_ APIs — Automatic Resource Management</h2>
+  </div>
+
+  <div class="card">
+    <h3>🧹 Device-Managed Resources — The Modern Way</h3>
+    <p>The <code>devm_</code> (device-managed) family of functions automatically frees resources when the device is removed or probe fails. This eliminates entire categories of resource-leak bugs. You should use <code>devm_</code> functions in every platform/I2C/SPI driver you write — they are the modern, preferred API.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — devm_ Memory Allocation vs Manual Allocation</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/device.h&gt;</span>   <span class="cm">/* devm_kmalloc, devm_kzalloc */</span>
+
+<span class="cm">/* ── OLD WAY: Manual allocation + goto cleanup ───────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">old_probe</span>(<span class="kw">struct</span> <span class="tp">platform_device</span> *pdev)
+{
+    <span class="kw">struct</span> <span class="tp">my_dev</span> *dev;
+    <span class="kw">int</span> irq, ret;
+
+    dev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*dev), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!dev) { ret = -<span class="nm">ENOMEM</span>; <span class="kw">goto</span> <span class="fn">err_alloc</span>; }
+
+    irq = <span class="fn">platform_get_irq</span>(pdev, <span class="nm">0</span>);
+    ret = <span class="fn">request_irq</span>(irq, <span class="fn">my_handler</span>, <span class="nm">0</span>, <span class="st">"mydev"</span>, dev);
+    <span class="kw">if</span> (ret) <span class="kw">goto</span> <span class="fn">err_irq</span>;
+
+    <span class="kw">return</span> <span class="nm">0</span>;
+
+<span class="fn">err_irq</span>:    <span class="fn">kfree</span>(dev);
+<span class="fn">err_alloc</span>:  <span class="kw">return</span> ret;
+}
+
+<span class="kw">static int</span> <span class="fn">old_remove</span>(<span class="kw">struct</span> <span class="tp">platform_device</span> *pdev)
+{
+    <span class="kw">struct</span> <span class="tp">my_dev</span> *dev = <span class="fn">platform_get_drvdata</span>(pdev);
+    <span class="fn">free_irq</span>(irq, dev);
+    <span class="fn">kfree</span>(dev);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── NEW WAY: devm_ automatically frees everything ───────────────── */</span>
+<span class="kw">static int</span> <span class="fn">new_probe</span>(<span class="kw">struct</span> <span class="tp">platform_device</span> *pdev)
+{
+    <span class="kw">struct</span> <span class="tp">my_dev</span> *dev;
+    <span class="kw">int</span> irq, ret;
+
+    <span class="hl-ok">dev = <span class="fn">devm_kzalloc</span>(&amp;pdev-&gt;dev, <span class="kw">sizeof</span>(*dev), <span class="nm">GFP_KERNEL</span>);</span>
+    <span class="kw">if</span> (!dev)
+        <span class="kw">return</span> -<span class="nm">ENOMEM</span>;   <span class="cm">/* no goto needed — nothing to clean up yet */</span>
+
+    irq = <span class="fn">platform_get_irq</span>(pdev, <span class="nm">0</span>);
+    <span class="hl-ok">ret = <span class="fn">devm_request_irq</span>(&amp;pdev-&gt;dev, irq, <span class="fn">my_handler</span>, <span class="nm">0</span>, <span class="st">"mydev"</span>, dev);</span>
+    <span class="kw">if</span> (ret)
+        <span class="kw">return</span> ret;        <span class="cm">/* dev is auto-freed by devm system */</span>
+
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+<span class="cm">/* remove() not needed for devm_ resources — they're freed automatically
+ * when the device is unbound. No manual cleanup required. */</span>
+
+<span class="cm">/* ── OTHER devm_ FUNCTIONS YOU'LL USE DAILY ─────────────────────── */</span>
+<span class="cm">/* devm_kzalloc(dev, size, GFP_KERNEL)    — like kzalloc, auto-freed */</span>
+<span class="cm">/* devm_kmalloc(dev, size, GFP_KERNEL)    — like kmalloc, auto-freed */</span>
+<span class="cm">/* devm_kstrdup(dev, str, GFP_KERNEL)     — duplicate a string */</span>
+<span class="cm">/* devm_request_irq(dev, irq, ...)        — auto free_irq on remove */</span>
+<span class="cm">/* devm_ioremap(dev, phys, size)          — auto iounmap on remove */</span>
+<span class="cm">/* devm_gpiod_get(dev, name, flags)       — auto gpiod_put on remove */</span>
+<span class="cm">/* devm_clk_get(dev, name)               — auto clk_put on remove */</span>
+<span class="cm">/* devm_regulator_get(dev, supply)        — auto regulator_put */</span></pre>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>When NOT to Use devm_</strong>Don't use <code>devm_</code> if the resource lifetime doesn't match device lifetime. For example, if you allocate a buffer in your <code>.read()</code> file operation and free it after the read completes, that's a per-operation allocation — use plain <code>kmalloc()</code>/<code>kfree()</code>. <code>devm_</code> is specifically for resources that should live as long as the device is bound to the driver.</div>
+  </div>
+
+<!-- ═══════════════════════ SECTION 10 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn green">10</div>
+    <h2>Observing Memory — /proc/meminfo and Useful Commands</h2>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash — Memory Inspection Commands Every Driver Dev Needs</div></div>
+    <pre>
+<span class="cm"># ── Overall system memory usage ───────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/meminfo</span>
+<span class="t-out">MemTotal:       16384000 kB   ← total physical RAM
+MemFree:         8192000 kB   ← immediately available
+MemAvailable:   10240000 kB   ← available + reclaimable (more useful than MemFree)
+Buffers:          524288 kB   ← raw disk cache
+Cached:          3145728 kB   ← page cache (file data)
+SwapTotal:       2097152 kB
+SwapFree:        2097152 kB
+Slab:             786432 kB   ← total slab memory (kmalloc + custom caches)
+SReclaimable:     589824 kB   ← slab that can be freed under pressure
+SUnreclaim:       196608 kB   ← slab that cannot be freed
+VmallocTotal:   34359738367 kB  ← vmalloc virtual space (huge on 64-bit)
+VmallocUsed:       524288 kB  ← actually used vmalloc virtual space
+VmallocChunk:           0 kB  ← largest free vmalloc block (0=non-contiguous)</span>
+
+<span class="cm"># ── Per-NUMA-node memory info ──────────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/zoneinfo | grep -A5 "zone  Normal"</span>
+
+<span class="cm"># ── Virtual memory statistics ──────────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/vmstat | grep -E "pgalloc|pgfree|slabs"</span>
+<span class="t-out">pgalloc_dma32          12345   ← pages allocated from DMA32 zone
+pgalloc_normal       5678901   ← pages allocated from NORMAL zone
+pgfree              5677854    ← pages freed
+nr_slab_reclaimable   147456   ← reclaimable slab objects</span>
+
+<span class="cm"># ── slab cache details ─────────────────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo slabtop -o</span>
+<span class="t-out"> Active / Total Objects (% used)    : 892345 / 934567 (95.5%)
+ Active / Total Slabs (% used)      : 23456 / 23789 (98.6%)
+  OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME
+213504 213504 100%    0.19K   4448       48    17792K dentry
+ 89344  89344 100%    0.57K   1396       64    22336K inode_cache
+ 65536  65536 100%    1.94K   1024       64    16384K kmalloc-2048</span>
+
+<span class="cm"># ── Check your module's memory allocation with kmemleak ───────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo scan > /sys/kernel/debug/kmemleak'</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo cat /sys/kernel/debug/kmemleak</span>
+<span class="t-out">unreferenced object 0xffff88810c3a4000 (size 256):
+  comm "insmod", pid 1234, jiffies 4295012345
+  backtrace:
+    kmalloc_trace+0x2b/0x70
+    hello_init+0x45/0x80 [hello]   ← YOUR MODULE leaked this!</span>
+
+<span class="cm"># ── Enable kmemleak (needs CONFIG_DEBUG_KMEMLEAK=y in kernel) ──────</span>
+<span class="cm"># Add to kernel cmdline: kmemleak=on</span>
+<span class="cm"># Or at runtime if enabled:</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo clear > /sys/kernel/debug/kmemleak'</span>  <span class="cm"># clear old leaks</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod my_driver.ko</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod my_driver</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo scan > /sys/kernel/debug/kmemleak'</span>   <span class="cm"># scan now</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo cat /sys/kernel/debug/kmemleak</span>  <span class="cm"># if empty, no leaks!</span></pre>
+  </div>
+
+<!-- ═══════════════════════ SECTION 11 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn yellow">11</div>
+    <h2>Day 4 Practice Project — Memory Exploration Module</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Today's Goal</strong>Build a module that exercises every allocator — kmalloc, kzalloc, kcalloc, vmalloc, and pages — checks returned memory, compares performance, and deliberately tests error paths. Then use /proc/slabinfo and kmemleak to verify no leaks.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — memory_practice.c — Full Practice Module</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * memory_practice.c — Day 4: Kernel Memory Allocators
+ * Tests kmalloc, kzalloc, vmalloc, page allocator
+ * Run: sudo insmod memory_practice.ko
+ *      sudo insmod memory_practice.ko size=8192 verbose=1
+ */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="pp">#include &lt;linux/slab.h&gt;</span>      <span class="cm">/* kmalloc, kzalloc, kfree */</span>
+<span class="pp">#include &lt;linux/vmalloc.h&gt;</span>   <span class="cm">/* vmalloc, vfree */</span>
+<span class="pp">#include &lt;linux/gfp.h&gt;</span>       <span class="cm">/* GFP flags */</span>
+<span class="pp">#include &lt;linux/mm.h&gt;</span>        <span class="cm">/* PAGE_SIZE, alloc_pages */</span>
+<span class="pp">#include &lt;linux/highmem.h&gt;</span>   <span class="cm">/* page_address */</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Day 4 Memory Management Practice"</span>);
+
+<span class="kw">static int</span>  size = <span class="nm">256</span>;
+<span class="kw">static bool</span> verbose = <span class="nm">false</span>;
+<span class="mc">module_param</span>(size, int, <span class="nm">0444</span>);
+<span class="mc">module_param</span>(verbose, bool, <span class="nm">0444</span>);
+<span class="mc">MODULE_PARM_DESC</span>(size, <span class="st">"Allocation size for kmalloc tests (default: 256)"</span>);
+<span class="mc">MODULE_PARM_DESC</span>(verbose, <span class="st">"Print detailed allocation info"</span>);
+
+<span class="cm">/* Helper: print allocation details if verbose */</span>
+<span class="kw">static void</span> <span class="fn">show_alloc</span>(<span class="kw">const char</span> *name, <span class="kw">void</span> *ptr, <span class="tp">size_t</span> sz)
+{
+    <span class="kw">if</span> (!verbose)
+        <span class="kw">return</span>;
+    <span class="kw">if</span> (ptr)
+        <span class="fn">pr_info</span>(<span class="st">"  %-20s ptr=%px  phys=%llx  size=%zu  vmalloc=%d\n"</span>,
+                name, ptr,
+                (<span class="tp">unsigned long long</span>)<span class="fn">virt_to_phys</span>(ptr),
+                sz, <span class="fn">is_vmalloc_addr</span>(ptr));
+    <span class="kw">else</span>
+        <span class="fn">pr_err</span>(<span class="st">"  %-20s FAILED!\n"</span>, name);
+}
+
+<span class="kw">static int</span> <span class="fn">test_kmalloc</span>(<span class="kw">void</span>)
+{
+    <span class="kw">void</span> *p1, *p2, *p3;
+
+    <span class="fn">pr_info</span>(<span class="st">"--- kmalloc / kzalloc / kcalloc tests ---\n"</span>);
+
+    <span class="cm">/* Test 1: basic kmalloc */</span>
+    p1 = <span class="fn">kmalloc</span>(size, <span class="nm">GFP_KERNEL</span>);
+    <span class="fn">show_alloc</span>(<span class="st">"kmalloc"</span>, p1, size);
+    <span class="kw">if</span> (!p1) <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+    <span class="cm">/* Test 2: kzalloc — must be zero */</span>
+    p2 = <span class="fn">kzalloc</span>(size, <span class="nm">GFP_KERNEL</span>);
+    <span class="fn">show_alloc</span>(<span class="st">"kzalloc"</span>, p2, size);
+    <span class="kw">if</span> (!p2) { <span class="fn">kfree</span>(p1); <span class="kw">return</span> -<span class="nm">ENOMEM</span>; }
+
+    <span class="cm">/* Verify kzalloc really zeroed it */</span>
+    <span class="kw">if</span> (<span class="fn">memchr_inv</span>(p2, <span class="nm">0</span>, size) != <span class="nm">NULL</span>)
+        <span class="fn">pr_err</span>(<span class="st">"kzalloc returned non-zero memory!\n"</span>);
+    <span class="kw">else</span>
+        <span class="fn">pr_info</span>(<span class="st">"  kzalloc: memory is properly zeroed ✓\n"</span>);
+
+    <span class="cm">/* Test 3: kcalloc — array of 32 ints */</span>
+    p3 = <span class="fn">kcalloc</span>(<span class="nm">32</span>, <span class="kw">sizeof</span>(<span class="kw">int</span>), <span class="nm">GFP_KERNEL</span>);
+    <span class="fn">show_alloc</span>(<span class="st">"kcalloc(32,int)"</span>, p3, <span class="nm">32</span> * <span class="kw">sizeof</span>(<span class="kw">int</span>));
+    <span class="kw">if</span> (!p3) { <span class="fn">kfree</span>(p1); <span class="fn">kfree</span>(p2); <span class="kw">return</span> -<span class="nm">ENOMEM</span>; }
+
+    <span class="cm">/* Show slab cache used (ksize returns actual allocation size) */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  ksize(p1)=%zu  ksize(p2)=%zu (rounded up by slab)\n"</span>,
+            <span class="fn">ksize</span>(p1), <span class="fn">ksize</span>(p2));
+
+    <span class="fn">kfree</span>(p1); <span class="fn">kfree</span>(p2); <span class="fn">kfree</span>(p3);
+    <span class="fn">pr_info</span>(<span class="st">"  All kmalloc memory freed ✓\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static int</span> <span class="fn">test_vmalloc</span>(<span class="kw">void</span>)
+{
+    <span class="kw">void</span> *vp;
+    <span class="tp">size_t</span> big = <span class="nm">2</span> * <span class="nm">1024</span> * <span class="nm">1024</span>;  <span class="cm">/* 2MB */</span>
+
+    <span class="fn">pr_info</span>(<span class="st">"--- vmalloc tests ---\n"</span>);
+
+    vp = <span class="fn">vmalloc</span>(big);
+    <span class="kw">if</span> (!vp) { <span class="fn">pr_err</span>(<span class="st">"vmalloc(2MB) failed\n"</span>); <span class="kw">return</span> -<span class="nm">ENOMEM</span>; }
+
+    <span class="fn">pr_info</span>(<span class="st">"  vmalloc(2MB)=%px  is_vmalloc=%d\n"</span>,
+            vp, <span class="fn">is_vmalloc_addr</span>(vp));
+
+    <span class="cm">/* vmalloc is NOT in the direct map — virt_to_phys does NOT work */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  virt_to_phys on vmalloc is wrong: %llx (don't trust this)\n"</span>,
+            (<span class="tp">unsigned long long</span>)<span class="fn">virt_to_phys</span>(vp));
+
+    <span class="cm">/* Write to it to verify it's actually accessible */</span>
+    <span class="fn">memset</span>(vp, <span class="nm">0xAB</span>, big);
+    <span class="fn">pr_info</span>(<span class="st">"  vmalloc memory is accessible (wrote 2MB) ✓\n"</span>);
+
+    <span class="fn">vfree</span>(vp);
+    <span class="fn">pr_info</span>(<span class="st">"  vmalloc memory freed ✓\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static int</span> <span class="fn">test_pages</span>(<span class="kw">void</span>)
+{
+    <span class="kw">struct</span> <span class="tp">page</span> *pg;
+    <span class="kw">void</span> *vaddr;
+    <span class="tp">unsigned long</span> phys;
+
+    <span class="fn">pr_info</span>(<span class="st">"--- page allocator tests ---\n"</span>);
+
+    pg = <span class="fn">alloc_page</span>(<span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!pg) { <span class="fn">pr_err</span>(<span class="st">"alloc_page failed\n"</span>); <span class="kw">return</span> -<span class="nm">ENOMEM</span>; }
+
+    vaddr = <span class="fn">page_address</span>(pg);
+    phys = <span class="fn">page_to_phys</span>(pg);      <span class="cm">/* struct page → physical address */</span>
+
+    <span class="fn">pr_info</span>(<span class="st">"  page=%px  vaddr=%px  phys=%lx  size=%lu\n"</span>,
+            pg, vaddr, phys, <span class="nm">PAGE_SIZE</span>);
+
+    <span class="cm">/* Verify: virt_to_phys(page_address(pg)) == page_to_phys(pg) */</span>
+    <span class="kw">if</span> (<span class="fn">virt_to_phys</span>(vaddr) == phys)
+        <span class="fn">pr_info</span>(<span class="st">"  virt_to_phys == page_to_phys ✓ (direct map verified)\n"</span>);
+
+    <span class="fn">__free_page</span>(pg);
+    <span class="fn">pr_info</span>(<span class="st">"  Page freed ✓\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">memory_practice_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> ret;
+
+    <span class="fn">pr_info</span>(<span class="st">"=== Day 4: Memory Management Practice ===\n"</span>);
+    <span class="fn">pr_info</span>(<span class="st">"PAGE_SIZE=%lu  sizeof(void*)=%zu\n"</span>,
+            <span class="nm">PAGE_SIZE</span>, <span class="kw">sizeof</span>(<span class="kw">void</span> *));
+
+    ret = <span class="fn">test_kmalloc</span>();
+    <span class="kw">if</span> (ret) <span class="kw">return</span> ret;
+
+    ret = <span class="fn">test_vmalloc</span>();
+    <span class="kw">if</span> (ret) <span class="kw">return</span> ret;
+
+    ret = <span class="fn">test_pages</span>();
+    <span class="kw">if</span> (ret) <span class="kw">return</span> ret;
+
+    <span class="fn">pr_info</span>(<span class="st">"=== All memory tests passed! ===\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">memory_practice_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"memory_practice: unloaded\n"</span>);
+}
+
+<span class="mc">module_init</span>(<span class="fn">memory_practice_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">memory_practice_exit</span>);</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">Makefile</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre>obj-m += memory_practice.o
+KDIR ?= /lib/modules/$(shell uname -r)/build
+ccflags-y += -g
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean</pre>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Build and Run Basic Test</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make && sudo insmod memory_practice.ko verbose=1</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | grep "memory_practice\|kmalloc\|vmalloc\|page"</span></pre>
+        </div>
+        <p>Observe the virtual addresses, physical addresses, and whether <code>is_vmalloc_addr()</code> correctly identifies vmalloc vs kmalloc memory.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Test Large Allocations</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod memory_practice</span>
+<span class="cm"># Try sizes to find where kmalloc starts failing</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod memory_practice.ko size=4096 verbose=1</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod memory_practice</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod memory_practice.ko size=1048576 verbose=1</span>
+<span class="cm"># 1MB kmalloc — observe if it succeeds or fails</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -10</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Observe /proc/slabinfo Before and After</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod memory_practice 2>/dev/null; true</span>
+<span class="t-prompt">$</span> <span class="t-cmd">grep "kmalloc-256" /proc/slabinfo</span>
+<span class="t-out">kmalloc-256    12453  13312    256  ...</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod memory_practice.ko size=200</span>
+<span class="t-prompt">$</span> <span class="t-cmd">grep "kmalloc-256" /proc/slabinfo</span>
+<span class="t-out">kmalloc-256    12454  13312    256  ...</span>
+<span class="cm"># Active count went up by 1 — our allocation is visible!</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod memory_practice</span>
+<span class="t-prompt">$</span> <span class="t-cmd">grep "kmalloc-256" /proc/slabinfo</span>
+<span class="cm"># Count goes back down — confirmed freed</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Deliberately Introduce a Leak — Catch it with kmemleak</h4>
+        <p>Add <code>kmalloc(64, GFP_KERNEL);</code> without a matching <code>kfree()</code> to <code>test_kmalloc()</code> (just the alloc, store in a local variable that goes out of scope). Then use kmemleak to find it.</p>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo clear > /sys/kernel/debug/kmemleak'</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod memory_practice.ko</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod memory_practice</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo scan > /sys/kernel/debug/kmemleak'</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo cat /sys/kernel/debug/kmemleak</span>
+<span class="cm"># You should see the leaked allocation with a backtrace pointing to your code</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ═══════════════════════ SECTION 12 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">12</div>
+    <h2>Quick Reference — Choosing the Right Allocator</h2>
+  </div>
+
+  <div class="diagram">DECISION TREE: Which Allocator to Use?
+
+Need to allocate memory in a driver?
+│
+├── Are you in INTERRUPT CONTEXT or holding a SPINLOCK?
+│   │
+│   ├── YES → Use GFP_ATOMIC flag with kmalloc
+│   │         kmalloc(size, GFP_ATOMIC)
+│   │         ⚠ May fail! Always check NULL return.
+│   │         ⚠ Max size: stay small (< 64KB)
+│   │
+│   └── NO (process context) → Continue below ↓
+│
+├── Is size SMALL (< ~128KB) and you need it for DMA?
+│   │
+│   ├── YES → kmalloc / kzalloc + dma_map_single()
+│   │         kzalloc(size, GFP_KERNEL)        [for structs/buffers]
+│   │         OR
+│   │         dma_alloc_coherent()              [for DMA buffers, Day 19]
+│   │
+│   └── NO → Continue below ↓
+│
+├── Is size LARGE (> 128KB) and no DMA needed?
+│   │
+│   └── YES → vmalloc / vzalloc
+│             vzalloc(size)                    [virtually contiguous]
+│
+├── Need EXACTLY N pages (e.g., for mmap to userspace)?
+│   │
+│   └── YES → Page allocator
+│             alloc_pages(GFP_KERNEL, order)   [2^order pages]
+│
+├── Is this a DEVICE DRIVER with struct device *dev?
+│   │
+│   └── YES → Prefer devm_ variants
+│             devm_kzalloc(&dev, size, GFP_KERNEL)  [auto-freed on unbind]
+│
+└── Need GUARANTEED allocation (can't fail, error recovery path)?
+    │
+    └── YES → Memory pool
+              mempool_alloc(pool, GFP_ATOMIC)  [uses reserves]</div>
+
+<!-- ═══════════════════════ SECTION 13 ═══════════════════════ -->
+  <div class="section-header">
+    <div class="sn green">13</div>
+    <h2>Day 4 Summary &amp; Tomorrow's Preview</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>✅ What You Mastered Today</h3>
+      <ul class="checklist">
+        <li><span class="chk">☑</span> Physical vs virtual address space — the mental model</li>
+        <li><span class="chk">☑</span> Memory zones (DMA, DMA32, NORMAL, HIGHMEM)</li>
+        <li><span class="chk">☑</span> All GFP flags — GFP_KERNEL vs GFP_ATOMIC and why</li>
+        <li><span class="chk">☑</span> kmalloc / kzalloc / kcalloc / krealloc with SLUB internals</li>
+        <li><span class="chk">☑</span> vmalloc — when, why, and why NOT for DMA</li>
+        <li><span class="chk">☑</span> Page allocator — alloc_pages, page_address, page_to_phys</li>
+        <li><span class="chk">☑</span> Memory pools for guaranteed allocations</li>
+        <li><span class="chk">☑</span> Kernel stack — 8KB limit and what to never put on it</li>
+        <li><span class="chk">☑</span> devm_ APIs — automatic resource management</li>
+        <li><span class="chk">☑</span> kmemleak, /proc/slabinfo — observing allocations</li>
+        <li><span class="chk">☑</span> Allocator decision tree — choosing the right one</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🔜 Day 5 Preview — Kernel Data Structures</h3>
+        <ul class="checklist">
+          <li><span class="chk-no">○</span> Linked lists — struct list_head, list_for_each_entry</li>
+          <li><span class="chk-no">○</span> container_of() — the heart of kernel OOP</li>
+          <li><span class="chk-no">○</span> Hash tables — DECLARE_HASHTABLE</li>
+          <li><span class="chk-no">○</span> Red-black trees — struct rb_root</li>
+          <li><span class="chk-no">○</span> XArray — modern radix tree replacement</li>
+          <li><span class="chk-no">○</span> IDR — integer ID allocator</li>
+          <li><span class="chk-no">○</span> kfifo — lock-free circular buffer</li>
+          <li><span class="chk-no">○</span> Bitmaps — find_first_zero_bit etc.</li>
+        </ul>
+      </div>
+      <div class="info-box tip" style="margin-top:16px">
+        <span class="icon">📚</span>
+        <div class="content"><strong>Tonight's Reading</strong>LDD3 Chapter 8 — "Allocating Memory". Also read <code>Documentation/core-api/memory-allocation.rst</code> in the kernel tree for the authoritative modern guidance on GFP flags and allocator choice.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote">
+    "Memory management bugs are the most dangerous in kernel programming — a use-after-free at Ring 0 can corrupt any data structure in the kernel, leading to crashes that manifest far from the original bug. Developing the discipline to choose the right allocator, always check for NULL, and always free in the right context will save you from days of debugging. Make it a habit from day one."
+    <strong>— Day 4 Complete ✓ — You now understand how the kernel owns memory. Everything else builds on this.</strong>
+  </div>
+
+</div>
+
+<div class="footer">
+  Day 4 of 30 · Linux Device Driver Roadmap · Week 1: Kernel Foundations
+</div>
+</body>
+</html>

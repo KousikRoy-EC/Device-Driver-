@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 6 — Processes, Threads & task_struct</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0b0e0c;
+    --bg2:     #0f1410;
+    --bg3:     #141a15;
+    --card:    #0f1410;
+    --border:  #1c2e1e;
+    --accent:  #22c55e;
+    --accent2: #4ade80;
+    --blue:    #3b82f6;
+    --blue2:   #60a5fa;
+    --yellow:  #eab308;
+    --yellow2: #facc15;
+    --red:     #ef4444;
+    --red2:    #f87171;
+    --purple:  #a855f7;
+    --purple2: #c084fc;
+    --orange:  #f97316;
+    --cyan:    #06b6d4;
+    --teal:    #14b8a6;
+    --text:    #e2e8f0;
+    --text2:   #94a3b8;
+    --text3:   #64748b;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:15px;}
+
+  /* HERO */
+  .hero{background:linear-gradient(135deg,#0b0e0c 0%,#0a1a0e 50%,#0b0e0c 100%);border-bottom:1px solid var(--border);padding:60px 40px 50px;position:relative;overflow:hidden;}
+  .hero::before{content:'';position:absolute;top:-80px;right:-60px;width:500px;height:500px;background:radial-gradient(circle,rgba(34,197,94,0.10) 0%,transparent 70%);pointer-events:none;}
+  .hero::after{content:'';position:absolute;bottom:-60px;left:150px;width:400px;height:400px;background:radial-gradient(circle,rgba(234,179,8,0.06) 0%,transparent 70%);pointer-events:none;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);color:var(--accent2);padding:5px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;margin-bottom:20px;}
+  .badge .dot{width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+  .hero h1{font-family:var(--display);font-size:clamp(28px,4vw,46px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;}
+  .hero h1 span{color:var(--accent2);}
+  .hero .sub{color:var(--text2);font-size:16px;max-width:640px;margin-bottom:28px;}
+  .hero-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;font-size:12px;font-family:var(--mono);}
+
+  .container{max-width:980px;margin:0 auto;padding:40px 24px;}
+
+  .section-header{display:flex;align-items:center;gap:12px;margin:52px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .sn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;color:#fff;}
+  .sn.green{background:var(--accent);}    .sn.blue{background:var(--blue);}
+  .sn.yellow{background:var(--yellow);color:#000;} .sn.red{background:var(--red);}
+  .sn.purple{background:var(--purple);}   .sn.cyan{background:var(--cyan);color:#000;}
+  .sn.orange{background:var(--orange);}   .sn.teal{background:var(--teal);}
+  .section-header h2{font-family:var(--display);font-size:22px;font-weight:700;color:#fff;}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+  .card h3{font-family:var(--display);font-size:16px;font-weight:700;color:var(--accent2);margin-bottom:12px;}
+  .card p{color:var(--text2);margin-bottom:10px;font-size:14.5px;}
+  .card p:last-child{margin-bottom:0;}
+  .card ul{padding-left:20px;}
+  .card ul li{color:var(--text2);margin-bottom:7px;font-size:14.5px;}
+  .card ul li strong{color:var(--text);}
+
+  .code-block{background:#060a07;border:1px solid var(--border);border-radius:10px;margin:16px 0;overflow:hidden;}
+  .code-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0a100b;border-bottom:1px solid var(--border);}
+  .code-lang{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
+  .code-dots{display:flex;gap:6px;}
+  .code-dots span{width:10px;height:10px;border-radius:50%;}
+  .code-dots span:nth-child(1){background:#ef4444;}.code-dots span:nth-child(2){background:#f59e0b;}.code-dots span:nth-child(3){background:#22c55e;}
+  .code-block pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.85;color:#cdd6f4;}
+  .kw{color:#cba6f7;}.fn{color:#89b4fa;}.st{color:#a6e3a1;}.cm{color:#4a5568;font-style:italic;}
+  .nm{color:#fab387;}.tp{color:#89dceb;}.pp{color:#f38ba8;}.mc{color:#f9e2af;}
+  .hl    {background:rgba(34,197,94,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-ok {background:rgba(34,197,94,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-warn{background:rgba(234,179,8,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--yellow);}
+  .hl-red{background:rgba(239,68,68,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--red);}
+
+  .terminal{background:#050505;border:1px solid #1c2e1e;border-radius:10px;overflow:hidden;margin:16px 0;}
+  .terminal-header{background:#0a0a0a;padding:10px 16px;display:flex;align-items:center;gap:8px;}
+  .terminal-header span{width:12px;height:12px;border-radius:50%;}
+  .terminal-header span:nth-child(1){background:#ff5f57;}.terminal-header span:nth-child(2){background:#ffbd2e;}.terminal-header span:nth-child(3){background:#28c840;}
+  .t-title{margin-left:8px;font-family:var(--mono);font-size:12px;color:#444;}
+  .terminal pre{padding:18px 20px;font-family:var(--mono);font-size:13px;line-height:1.85;color:#d4d4d4;}
+  .t-prompt{color:#22c55e;}.t-cmd{color:#e2e8f0;}.t-out{color:#6b7280;}
+  .t-green{color:#22c55e;}.t-yellow{color:#eab308;}.t-red{color:#ef4444;}.t-cyan{color:#22d3ee;}
+  .t-blue{color:#60a5fa;}.t-purple{color:#c084fc;}
+
+  .diagram{background:#060a07;border:1px solid var(--border);border-radius:10px;padding:24px;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.9;overflow-x:auto;white-space:pre;color:#cdd6f4;}
+
+  .info-box{display:flex;gap:14px;padding:16px 20px;border-radius:10px;margin:16px 0;font-size:14px;}
+  .info-box.note  {background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);}
+  .info-box.warn  {background:rgba(234,179,8,.07); border:1px solid rgba(234,179,8,.25);}
+  .info-box.tip   {background:rgba(34,197,94,.07); border:1px solid rgba(34,197,94,.2);}
+  .info-box.danger{background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);}
+  .info-box .icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .info-box .content{color:var(--text2);}
+  .info-box .content strong{color:var(--text);display:block;margin-bottom:4px;}
+
+  .table-wrap{overflow-x:auto;margin:16px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{background:var(--bg3);color:var(--accent2);font-family:var(--display);font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;}
+  td{padding:11px 16px;border-bottom:1px solid rgba(28,46,30,.5);color:var(--text2);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:nth-child(even) td{background:rgba(255,255,255,.013);}
+  td strong{color:var(--text);}
+  td code{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0;}
+  @media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr;}}
+
+  .mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;}
+  .mini-card h4{color:#fff;font-weight:600;font-size:14px;margin-bottom:6px;font-family:var(--display);}
+  .mini-card p{color:var(--text2);font-size:13px;line-height:1.6;}
+
+  .steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+  .step{display:flex;gap:16px;position:relative;padding-bottom:28px;}
+  .step:last-child{padding-bottom:0;}
+  .step-left{display:flex;flex-direction:column;align-items:center;}
+  .step-num{width:32px;height:32px;background:var(--accent);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;z-index:1;}
+  .step-line{width:2px;flex:1;background:var(--border);margin-top:6px;}
+  .step:last-child .step-line{display:none;}
+  .step-content{padding-top:4px;flex:1;}
+  .step-content h4{color:#fff;font-weight:600;font-size:15px;margin-bottom:8px;font-family:var(--display);}
+  .step-content p{color:var(--text2);font-size:14px;margin-bottom:8px;}
+
+  code{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12.5px;}
+
+  .nav-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:12px;color:var(--text3);position:sticky;top:0;z-index:100;}
+  .nav-bar .crumb{color:var(--text2);}.nav-bar .sep{color:var(--border);}.nav-bar .current{color:var(--accent2);}
+
+  .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;color:var(--text2);}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:18px;}
+  .progress-fill{height:100%;border-radius:3px;}
+
+  .quote{border-left:3px solid var(--accent);padding:14px 20px;margin:20px 0;background:rgba(34,197,94,0.04);border-radius:0 8px 8px 0;color:var(--text2);font-style:italic;font-size:14.5px;}
+  .quote strong{color:var(--accent2);font-style:normal;display:block;margin-top:6px;font-size:12px;}
+
+  .footer{margin-top:60px;padding:30px 24px;border-top:1px solid var(--border);text-align:center;color:var(--text3);font-size:13px;font-family:var(--mono);}
+
+  .checklist{list-style:none;padding:0;margin:12px 0;}
+  .checklist li{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(28,46,30,.4);color:var(--text2);font-size:14px;}
+  .checklist li:last-child{border-bottom:none;}
+  .chk{color:var(--accent2);font-size:15px;flex-shrink:0;margin-top:1px;}
+  .chk-no{color:var(--text3);font-size:15px;flex-shrink:0;margin-top:1px;}
+
+  /* state machine */
+  .state-machine{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin:20px 0;}
+  .state-box{background:var(--bg3);border:2px solid var(--border);border-radius:10px;padding:14px 20px;text-align:center;min-width:130px;}
+  .state-box.active{border-color:var(--accent);background:rgba(34,197,94,0.08);}
+  .state-box.sleep{border-color:var(--blue);background:rgba(59,130,246,0.08);}
+  .state-box.stop{border-color:var(--yellow);background:rgba(234,179,8,0.08);}
+  .state-box.zombie{border-color:var(--red);background:rgba(239,68,68,0.08);}
+  .state-box .st-name{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;margin-bottom:4px;}
+  .state-box .st-val{font-family:var(--mono);font-size:11px;color:var(--text3);}
+  .state-box .st-desc{font-size:12px;color:var(--text2);margin-top:5px;}
+  .state-arrow{color:var(--text3);font-size:22px;display:flex;align-items:center;padding:0 4px;}
+
+  /* task_struct field grid */
+  .field-grid{display:grid;grid-template-columns:200px 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:16px 0;}
+  .fg-row{display:contents;}
+  .fg-key{font-family:var(--mono);font-size:12.5px;color:var(--accent2);background:var(--bg3);padding:10px 14px;border-bottom:1px solid var(--border);}
+  .fg-val{font-size:13.5px;color:var(--text2);padding:10px 16px;border-bottom:1px solid rgba(28,46,30,.4);}
+  .fg-val strong{color:var(--text);}
+  .fg-key:last-of-type,.fg-val:last-of-type{border-bottom:none;}
+
+  /* workqueue visual */
+  .wq-visual{display:flex;flex-direction:column;gap:10px;margin:16px 0;}
+  .wq-row{display:flex;align-items:center;gap:12px;}
+  .wq-label{font-family:var(--mono);font-size:12px;color:var(--text3);min-width:100px;text-align:right;}
+  .wq-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-family:var(--mono);font-size:12px;color:#cdd6f4;}
+  .wq-arrow{color:var(--text3);font-size:18px;}
+  .wq-worker{background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:var(--accent2);}
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 1: Kernel Foundations</span>
+  <span class="sep">›</span>
+  <span class="current">Day 6 — Processes, Threads &amp; task_struct</span>
+</nav>
+
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 1 · Day 6 of 30</div>
+  <h1>Processes, Threads<br><span>&amp; task_struct</span></h1>
+  <p class="sub">Understand how the kernel represents and manages every running entity — processes, threads, kernel threads, and workqueues. Learn to use the <code>current</code> pointer, spawn kernel threads, defer work safely, and time operations correctly.</p>
+  <div class="hero-tags">
+    <span class="tag">task_struct</span>
+    <span class="tag">current pointer</span>
+    <span class="tag">Process States</span>
+    <span class="tag">kthread_run</span>
+    <span class="tag">Workqueues</span>
+    <span class="tag">Completions</span>
+    <span class="tag">msleep / udelay</span>
+    <span class="tag">wait_event</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 6 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:20%;background:linear-gradient(90deg,#22c55e,#4ade80)"></div></div>
+    <div class="progress-header"><span>Week 1 Progress</span><span>Day 6 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:85.7%;background:linear-gradient(90deg,#22c55e,#4ade80)"></div></div>
+  </div>
+
+<!-- ════════════════ SECTION 1 — task_struct ════════════════ -->
+  <div class="section-header">
+    <div class="sn green">1</div>
+    <h2>struct task_struct — The Process Descriptor</h2>
+  </div>
+
+  <div class="card">
+    <h3>🧬 Every Runnable Entity is a task_struct</h3>
+    <p>In Linux, <em>processes</em> and <em>threads</em> are both represented by <code>struct task_struct</code> — the difference is just which resources they share. A process has its own memory space (mm_struct), file table, and signal table. Threads within the same process share all of these. Even <strong>kernel threads</strong> are task_structs, but they have <code>mm = NULL</code> (no user address space).</p>
+    <p><code>task_struct</code> is defined in <code>include/linux/sched.h</code> and is one of the largest structs in the kernel — over 700 fields across hundreds of lines. You'll interact with a carefully chosen subset as a driver developer.</p>
+  </div>
+
+  <div class="diagram">struct task_struct — Fields Relevant to Driver Developers
+──────────────────────────────────────────────────────────────────────────────
+include/linux/sched.h
+
+  Identity:
+    pid_t           pid;          ← Process ID (unique per thread)
+    pid_t           tgid;         ← Thread Group ID (= pid of main thread)
+    char            comm[16];     ← Command name (truncated to 15 chars)
+    struct task_struct *parent;   ← Parent process
+    struct task_struct *real_parent;
+
+  State:
+    unsigned int    __state;      ← Current execution state (TASK_RUNNING etc.)
+    int             exit_state;   ← ZOMBIE, DEAD
+    int             exit_code;    ← exit() argument / signal number
+
+  Scheduling:
+    int             prio;         ← Dynamic priority (modified by scheduler)
+    int             static_prio;  ← Base priority (from nice value)
+    int             rt_priority;  ← Realtime priority (0 for normal tasks)
+    unsigned int    policy;       ← SCHED_NORMAL, SCHED_FIFO, SCHED_RR
+    struct sched_entity se;       ← CFS scheduler entity (vruntime lives here)
+
+  Memory:
+    struct mm_struct *mm;         ← User address space (NULL for kernel threads)
+    struct mm_struct *active_mm;  ← Active mm (borrowed for kernel threads)
+
+  Files & I/O:
+    struct files_struct *files;   ← Open file table
+    struct fs_struct    *fs;      ← Filesystem context (cwd, root)
+
+  Signals:
+    struct signal_struct  *signal;
+    struct sighand_struct *sighand;
+    sigset_t              blocked;   ← Blocked signal mask
+
+  Credentials:
+    const struct cred *cred;      ← UID, GID, capabilities
+    const struct cred *real_cred;
+
+  Waiting / synchronisation:
+    wait_queue_head_t    *io_wait; ← Waiting for I/O
+    struct completion    *vfork_done;
+
+  Tracing / debugging:
+    unsigned long        ptrace;   ← ptrace flags
+    struct thread_struct thread;   ← CPU-specific state (registers, FPU)</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Reading task_struct Fields from a Module</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/sched.h&gt;</span>       <span class="cm">/* task_struct, current */</span>
+<span class="pp">#include &lt;linux/cred.h&gt;</span>        <span class="cm">/* current_uid(), current_euid() */</span>
+<span class="pp">#include &lt;linux/mm.h&gt;</span>          <span class="cm">/* mm_struct */</span>
+<span class="pp">#include &lt;linux/pid.h&gt;</span>         <span class="cm">/* task_pid_nr() */</span>
+
+<span class="kw">static void</span> <span class="fn">print_current_task_info</span>(<span class="kw">void</span>)
+{
+    <span class="cm">/* 'current' is a per-CPU pointer to the running task_struct.
+     * It is ONLY valid in process context (syscall, ioctl, etc.)
+     * NEVER dereference current in interrupt context — it's meaningless there. */</span>
+    <span class="kw">struct</span> <span class="tp">task_struct</span> *task = <span class="mc">current</span>;
+
+    <span class="fn">pr_info</span>(<span class="st">"=== Current Task Info ===\n"</span>);
+    <span class="fn">pr_info</span>(<span class="st">"  comm    = %s\n"</span>,  task-&gt;comm);         <span class="cm">/* process name */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  pid     = %d\n"</span>,  task-&gt;pid);          <span class="cm">/* thread ID */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  tgid    = %d\n"</span>,  task-&gt;tgid);         <span class="cm">/* process ID */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  state   = %u\n"</span>,  task-&gt;__state);      <span class="cm">/* TASK_RUNNING etc. */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  prio    = %d\n"</span>,  task-&gt;prio);         <span class="cm">/* scheduler priority */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  policy  = %u\n"</span>,  task-&gt;policy);       <span class="cm">/* sched policy */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  has mm  = %s\n"</span>,  task-&gt;mm ? <span class="st">"yes (user)"</span> : <span class="st">"no (kernel thread)"</span>);
+
+    <span class="cm">/* Safe helpers for credentials (never access cred fields directly) */</span>
+    <span class="fn">pr_info</span>(<span class="st">"  uid     = %u\n"</span>,  <span class="fn">from_kuid</span>(&amp;init_user_ns, <span class="fn">current_uid</span>()));
+    <span class="fn">pr_info</span>(<span class="st">"  euid    = %u\n"</span>,  <span class="fn">from_kuid</span>(&amp;init_user_ns, <span class="fn">current_euid</span>()));
+
+    <span class="cm">/* Is caller privileged? (important for security-sensitive ioctls) */</span>
+    <span class="kw">if</span> (<span class="fn">capable</span>(<span class="nm">CAP_SYS_ADMIN</span>))
+        <span class="fn">pr_info</span>(<span class="st">"  caller has CAP_SYS_ADMIN\n"</span>);
+
+    <span class="cm">/* Walk parent chain */</span>
+    <span class="kw">struct</span> <span class="tp">task_struct</span> *p = <span class="mc">current</span>;
+    <span class="fn">pr_info</span>(<span class="st">"  Parent chain: "</span>);
+    <span class="kw">while</span> (p-&gt;pid != <span class="nm">0</span>) {
+        <span class="fn">pr_cont</span>(<span class="st">"%s(%d) → "</span>, p-&gt;comm, p-&gt;pid);
+        p = p-&gt;real_parent;
+    }
+    <span class="fn">pr_cont</span>(<span class="st">"[idle]\n"</span>);
+}</pre>
+  </div>
+
+  <div class="info-box warn">
+    <span class="icon">⚠️</span>
+    <div class="content"><strong>current is Only Valid in Process Context</strong>The <code>current</code> macro reads a per-CPU variable pointing to the currently executing task. In <strong>interrupt context</strong> (IRQ handlers, softirqs, tasklets), <code>current</code> points to whatever task happened to be running when the interrupt fired — it has nothing to do with your driver's user. Accessing <code>current</code> in interrupt context leads to subtle, hard-to-reproduce bugs.</div>
+  </div>
+
+<!-- ════════════════ SECTION 2 — Process States ════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">2</div>
+    <h2>Process States &amp; Transitions</h2>
+  </div>
+
+  <div class="card">
+    <h3>📊 Every State a Task Can Be In</h3>
+    <p>The <code>__state</code> field of <code>task_struct</code> tracks the task's current lifecycle state. As a driver developer, you directly control state transitions when you put tasks to sleep waiting for hardware events and wake them when the hardware responds.</p>
+  </div>
+
+  <div class="state-machine">
+    <div class="state-box active">
+      <div class="st-name">RUNNING</div>
+      <div class="st-val">0x0000</div>
+      <div class="st-desc">On CPU or on run queue, ready to run</div>
+    </div>
+    <div class="state-arrow">⇄</div>
+    <div class="state-box sleep">
+      <div class="st-name">INTERRUPTIBLE</div>
+      <div class="st-val">0x0001</div>
+      <div class="st-desc">Sleeping, wakes on signal or event</div>
+    </div>
+    <div class="state-arrow">⇄</div>
+    <div class="state-box sleep">
+      <div class="st-name">UNINTERRUPTIBLE</div>
+      <div class="st-val">0x0002</div>
+      <div class="st-desc">Deep sleep, only event wakes it (D state)</div>
+    </div>
+    <div class="state-arrow">→</div>
+    <div class="state-box zombie">
+      <div class="st-name">ZOMBIE</div>
+      <div class="st-val">EXIT_ZOMBIE</div>
+      <div class="st-desc">Exited, waiting for parent wait()</div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>State Constant</th><th>Value</th><th>Meaning</th><th>Driver Relevance</th></tr>
+      <tr>
+        <td><code>TASK_RUNNING</code></td><td>0x0000</td>
+        <td>On CPU right now or on the run queue waiting for a CPU</td>
+        <td>Your ioctl() handler runs in this state. <code>current-&gt;__state == TASK_RUNNING</code> while inside your driver code.</td>
+      </tr>
+      <tr>
+        <td><code>TASK_INTERRUPTIBLE</code></td><td>0x0001</td>
+        <td>Sleeping, waiting for an event. Will be woken by <code>wake_up_interruptible()</code> OR by any signal.</td>
+        <td><strong>Most common sleep state in drivers.</strong> Used by <code>wait_event_interruptible()</code>. If the user Ctrl+C's, the task wakes with <code>-ERESTARTSYS</code>.</td>
+      </tr>
+      <tr>
+        <td><code>TASK_UNINTERRUPTIBLE</code></td><td>0x0002</td>
+        <td>Deep sleep — only woken by the specific event, <em>not</em> by signals. Appears as "D" in <code>ps</code>.</td>
+        <td>Used for critical waits that must not be interrupted (disk I/O, NFS). Dangerous if the event never comes — process becomes unkillable.</td>
+      </tr>
+      <tr>
+        <td><code>TASK_KILLABLE</code></td><td>0x0102</td>
+        <td>Like UNINTERRUPTIBLE but can be killed by fatal signals (SIGKILL).</td>
+        <td>Preferred over TASK_UNINTERRUPTIBLE for most driver waits. Use <code>wait_event_killable()</code>.</td>
+      </tr>
+      <tr>
+        <td><code>TASK_STOPPED</code></td><td>0x0004</td>
+        <td>Stopped by SIGSTOP or SIGTSTP. Resumed by SIGCONT.</td>
+        <td>Handled by signal infrastructure, not by drivers directly.</td>
+      </tr>
+      <tr>
+        <td><code>TASK_TRACED</code></td><td>0x0008</td>
+        <td>Being traced by ptrace (gdb, strace).</td>
+        <td>Transparent to drivers. Your code runs normally; ptrace intercepts syscall boundaries.</td>
+      </tr>
+    </table>
+  </div>
+
+<!-- ════════════════ SECTION 3 — Kernel Threads ════════════════ -->
+  <div class="section-header">
+    <div class="sn yellow">3</div>
+    <h2>Kernel Threads — kthread API</h2>
+  </div>
+
+  <div class="card">
+    <h3>🧵 Running Background Work in Kernel Space</h3>
+    <p>A <strong>kernel thread</strong> is a task that runs entirely in kernel space — it has no user address space (<code>mm == NULL</code>), no file descriptors, no signal handlers. Kernel threads are used for background tasks like polling hardware, flushing write-back cache, managing devices, and running periodic maintenance tasks.</p>
+    <p>Common examples you've seen: <code>kworker/0:0</code> (workqueue), <code>ksoftirqd/0</code> (softirq), <code>kswapd0</code> (memory reclaim), <code>jbd2/sda1-8</code> (journaling). You'll create your own for devices that need continuous polling or background I/O.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Kernel Thread Lifecycle — Full Pattern</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/kthread.h&gt;</span>     <span class="cm">/* kthread_run, kthread_stop, kthread_should_stop */</span>
+<span class="pp">#include &lt;linux/delay.h&gt;</span>       <span class="cm">/* msleep */</span>
+<span class="pp">#include &lt;linux/sched.h&gt;</span>
+
+<span class="cm">/* Thread handle — save this to stop the thread later */</span>
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">task_struct</span> *poll_thread;
+
+<span class="cm">/* ── STEP 1: Write the thread function ────────────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">sensor_poll_thread</span>(<span class="kw">void</span> *data)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = (<span class="kw">struct</span> <span class="tp">my_device</span> *)data;
+
+    <span class="fn">pr_info</span>(<span class="st">"sensor_poll_thread: started, polling every 100ms\n"</span>);
+
+    <span class="cm">/* kthread_should_stop() returns true when kthread_stop() is called.
+     * Your thread MUST check this and return when it's true.
+     * Failure to do so: kthread_stop() will hang forever. */</span>
+    <span class="kw">while</span> (!<span class="fn">kthread_should_stop</span>()) {
+        <span class="kw">int</span> value;
+
+        <span class="cm">/* Do the real work */</span>
+        value = <span class="fn">read_sensor_register</span>(dev);
+        <span class="fn">pr_debug</span>(<span class="st">"sensor value: %d\n"</span>, value);
+
+        <span class="kw">if</span> (value &gt; <span class="nm">90</span>)
+            <span class="fn">pr_warn</span>(<span class="st">"sensor: temperature critical: %d°C!\n"</span>, value);
+
+        <span class="cm">/* msleep_interruptible: sleep for 100ms.
+         * Returns 0 on normal wakeup, remaining ms if a signal arrived.
+         * This allows the thread to respond to kthread_stop() promptly. */</span>
+        <span class="fn">msleep_interruptible</span>(<span class="nm">100</span>);
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"sensor_poll_thread: exiting\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;   <span class="cm">/* thread exit value — retrievable via kthread_stop() */</span>
+}
+
+<span class="cm">/* ── STEP 2: Start the thread in probe/init ───────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">driver_init</span>(<span class="kw">void</span>)
+{
+    <span class="cm">/* kthread_run(fn, data, namefmt, ...)
+     *   fn      = thread function
+     *   data    = void* passed to fn (your device struct)
+     *   namefmt = printf-style name (shown in ps, top)
+     * Returns: task_struct* on success, ERR_PTR on failure */</span>
+    poll_thread = <span class="fn">kthread_run</span>(<span class="fn">sensor_poll_thread</span>, dev, <span class="st">"sensor_poll/%d"</span>, dev-&gt;id);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(poll_thread)) {
+        <span class="fn">pr_err</span>(<span class="st">"Failed to create poll thread: %ld\n"</span>, <span class="fn">PTR_ERR</span>(poll_thread));
+        poll_thread = <span class="nm">NULL</span>;
+        <span class="kw">return</span> <span class="fn">PTR_ERR</span>(poll_thread);
+    }
+    <span class="fn">pr_info</span>(<span class="st">"Poll thread started: pid=%d\n"</span>, poll_thread-&gt;pid);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── STEP 3: Stop the thread in remove/exit ───────────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">driver_exit</span>(<span class="kw">void</span>)
+{
+    <span class="kw">if</span> (poll_thread) {
+        <span class="cm">/* kthread_stop() signals the thread to stop (sets a flag that
+         * kthread_should_stop() returns true), then WAITS for the thread
+         * to actually exit and return. Returns the thread's return value.
+         * Never call kthread_stop() after the thread has already exited! */</span>
+        <span class="kw">int</span> ret = <span class="fn">kthread_stop</span>(poll_thread);
+        <span class="fn">pr_info</span>(<span class="st">"Poll thread stopped, return value: %d\n"</span>, ret);
+    }
+}
+
+<span class="cm">/* ── ADVANCED: Create without immediately running ─────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">task_struct</span> *t = <span class="fn">kthread_create</span>(<span class="fn">my_thread_fn</span>, data, <span class="st">"mythread"</span>);
+<span class="kw">if</span> (<span class="fn">IS_ERR</span>(t)) <span class="kw">return</span> <span class="fn">PTR_ERR</span>(t);
+
+<span class="cm">/* Set scheduling policy before starting */</span>
+<span class="kw">struct</span> <span class="tp">sched_param</span> param = { .sched_priority = <span class="nm">50</span> };
+<span class="fn">sched_setscheduler</span>(t, <span class="nm">SCHED_FIFO</span>, &amp;param);   <span class="cm">/* realtime! */</span>
+
+<span class="cm">/* Pin thread to specific CPU */</span>
+<span class="fn">kthread_bind</span>(t, <span class="nm">0</span>);   <span class="cm">/* bind to CPU 0 */</span>
+
+<span class="fn">wake_up_process</span>(t);    <span class="cm">/* now start it */</span></pre>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>kthread_run vs kthread_create</strong>Use <code>kthread_run()</code> when you want to create and immediately start a thread (99% of cases). Use <code>kthread_create()</code> when you need to configure the thread (CPU affinity, scheduling policy) before it starts running. <code>kthread_run(fn, data, name)</code> is just <code>kthread_create()</code> + <code>wake_up_process()</code>.</div>
+  </div>
+
+<!-- ════════════════ SECTION 4 — Workqueues ════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">4</div>
+    <h2>Workqueues — Deferring Work to Process Context</h2>
+  </div>
+
+  <div class="card">
+    <h3>⚙️ The #1 Way to Defer Work from Interrupt Context</h3>
+    <p>A <strong>workqueue</strong> is a kernel mechanism that lets you schedule a function to be called later, in <em>process context</em> (a kernel thread). This is the standard solution for the classic driver problem: your interrupt handler fires (atomic context — can't sleep, can't do I/O), but the work you need to do requires sleeping or calling kernel APIs that can sleep.</p>
+    <p>The pattern is: IRQ handler does minimal work (read hardware, clear interrupt), queues a work item, returns. The kernel's worker thread picks up the work item and runs it at a safe time in process context.</p>
+  </div>
+
+  <div class="wq-visual">
+    <div class="wq-row">
+      <div class="wq-label">IRQ fires</div>
+      <div class="wq-arrow">→</div>
+      <div class="wq-box">irq_handler() — atomic context<br>Read HW reg, clear IRQ, copy data</div>
+      <div class="wq-arrow">→</div>
+      <div class="wq-box">schedule_work(&amp;dev-&gt;work)<br>Queue the work item</div>
+    </div>
+    <div class="wq-row">
+      <div class="wq-label">Later...</div>
+      <div class="wq-arrow">→</div>
+      <div class="wq-box wq-worker">kworker/0:1 — process context<br>Runs my_work_fn(), can sleep</div>
+      <div class="wq-arrow">→</div>
+      <div class="wq-box">I2C read, wake_up(), notify userspace</div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Workqueue API — Three Patterns</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/workqueue.h&gt;</span>
+
+<span class="cm">/* ═══════════════════════════════════════════════════════════
+ * PATTERN 1: System Workqueue (simplest — use for most drivers)
+ * The kernel provides a shared workqueue. Schedule work onto it.
+ * ═══════════════════════════════════════════════════════════ */</span>
+
+<span class="kw">struct</span> <span class="tp">my_device</span> {
+    <span class="kw">struct</span> <span class="tp">work_struct</span>  work;      <span class="cm">/* embed work_struct in your device struct */</span>
+    <span class="kw">struct</span> <span class="tp">work_struct</span>  work2;
+    <span class="kw">struct</span> <span class="tp">delayed_work</span> dwork;     <span class="cm">/* for delayed scheduling */</span>
+    <span class="kw">u32</span>                 last_value;
+};
+
+<span class="cm">/* Work function — runs in process context (kworker thread) */</span>
+<span class="kw">static void</span> <span class="fn">my_work_fn</span>(<span class="kw">struct</span> <span class="tp">work_struct</span> *work)
+{
+    <span class="cm">/* container_of to get back to your device struct */</span>
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = <span class="fn">container_of</span>(work, <span class="kw">struct</span> <span class="tp">my_device</span>, work);
+
+    <span class="fn">pr_info</span>(<span class="st">"Work running in: %s (pid %d)\n"</span>, <span class="mc">current</span>-&gt;comm, <span class="mc">current</span>-&gt;pid);
+    <span class="cm">/* We're in process context — CAN sleep, do I2C, allocate with GFP_KERNEL */</span>
+
+    <span class="fn">do_slow_i2c_operation</span>(dev);       <span class="cm">/* safe: can sleep */</span>
+    <span class="fn">wake_up</span>(&amp;dev-&gt;wait_queue);        <span class="cm">/* wake any waiting readers */</span>
+}
+
+<span class="cm">/* Delayed work function — same signature, runs after a delay */</span>
+<span class="kw">static void</span> <span class="fn">my_delayed_work_fn</span>(<span class="kw">struct</span> <span class="tp">work_struct</span> *work)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev =
+        <span class="fn">container_of</span>(<span class="fn">to_delayed_work</span>(work), <span class="kw">struct</span> <span class="tp">my_device</span>, dwork);
+    <span class="fn">pr_info</span>(<span class="st">"Delayed work fired!\n"</span>);
+    <span class="cm">/* Re-schedule itself for periodic work: */</span>
+    <span class="fn">schedule_delayed_work</span>(&amp;dev-&gt;dwork, <span class="fn">msecs_to_jiffies</span>(<span class="nm">1000</span>));
+}
+
+<span class="cm">/* In your probe/init: initialise the work items */</span>
+<span class="fn">INIT_WORK</span>(&amp;dev-&gt;work, <span class="fn">my_work_fn</span>);               <span class="cm">/* bind function to work item */</span>
+<span class="fn">INIT_DELAYED_WORK</span>(&amp;dev-&gt;dwork, <span class="fn">my_delayed_work_fn</span>);
+
+<span class="cm">/* In your IRQ handler (atomic context) — queue the work: */</span>
+<span class="fn">schedule_work</span>(&amp;dev-&gt;work);                        <span class="cm">/* queue on system_wq */</span>
+<span class="fn">schedule_delayed_work</span>(&amp;dev-&gt;dwork,
+                       <span class="fn">msecs_to_jiffies</span>(<span class="nm">500</span>));    <span class="cm">/* run 500ms from now */</span>
+
+<span class="cm">/* In your remove/exit: cancel pending work before freeing device */</span>
+<span class="fn">cancel_work_sync</span>(&amp;dev-&gt;work);      <span class="cm">/* cancel + wait for completion if running */</span>
+<span class="fn">cancel_delayed_work_sync</span>(&amp;dev-&gt;dwork);
+
+<span class="cm">/* ═══════════════════════════════════════════════════════════
+ * PATTERN 2: Dedicated Workqueue (for work that needs isolation)
+ * ═══════════════════════════════════════════════════════════ */</span>
+
+<span class="cm">/* Create a dedicated single-threaded workqueue for your driver */</span>
+<span class="kw">struct</span> <span class="tp">workqueue_struct</span> *my_wq = <span class="fn">alloc_ordered_workqueue</span>(<span class="st">"my_driver_wq"</span>, <span class="nm">0</span>);
+<span class="cm">/* alloc_ordered_workqueue: single thread, work items run sequentially
+ * alloc_workqueue: multi-thread, work may run concurrently              */</span>
+
+<span class="cm">/* Queue work onto YOUR workqueue (not the system one) */</span>
+<span class="fn">queue_work</span>(my_wq, &amp;dev-&gt;work);
+<span class="fn">queue_delayed_work</span>(my_wq, &amp;dev-&gt;dwork, <span class="fn">msecs_to_jiffies</span>(<span class="nm">100</span>));
+
+<span class="cm">/* In exit: flush (wait for all pending work to finish) then destroy */</span>
+<span class="fn">flush_workqueue</span>(my_wq);    <span class="cm">/* wait for ALL pending items to complete */</span>
+<span class="fn">destroy_workqueue</span>(my_wq);
+
+<span class="cm">/* ═══════════════════════════════════════════════════════════
+ * PATTERN 3: Check if work is pending / running
+ * ═══════════════════════════════════════════════════════════ */</span>
+<span class="kw">if</span> (<span class="fn">work_pending</span>(&amp;dev-&gt;work))
+    <span class="fn">pr_info</span>(<span class="st">"Work is queued but hasn't run yet\n"</span>);
+
+<span class="kw">if</span> (<span class="fn">work_busy</span>(&amp;dev-&gt;work))
+    <span class="fn">pr_info</span>(<span class="st">"Work is queued or currently running\n"</span>);</pre>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>📋 System Workqueues</h3>
+      <p>The kernel provides pre-made workqueues for common use. <code>schedule_work()</code> uses <code>system_wq</code> by default. Others:</p>
+      <ul>
+        <li><strong>system_wq</strong> — general purpose, concurrent</li>
+        <li><strong>system_highpri_wq</strong> — high priority work</li>
+        <li><strong>system_long_wq</strong> — long-running work (won't starve others)</li>
+        <li><strong>system_freezable_wq</strong> — frozen during suspend</li>
+        <li><strong>system_power_efficient_wq</strong> — batches work for power saving</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>⚡ Tasklets vs Workqueues</h3>
+      <p>Tasklets (an older mechanism) run in <strong>softirq / atomic context</strong> — no sleeping allowed. Workqueues run in <strong>process context</strong> — sleeping allowed.</p>
+      <ul>
+        <li><strong>Need to sleep?</strong> → Workqueue</li>
+        <li><strong>Need lowest latency, no sleep?</strong> → Tasklet (being deprecated)</li>
+        <li><strong>Modern drivers:</strong> use workqueues for almost everything</li>
+        <li>Tasklets are marked <strong>deprecated</strong> in kernel 5.17+ — new drivers should use workqueues or threaded IRQs instead</li>
+      </ul>
+    </div>
+  </div>
+
+<!-- ════════════════ SECTION 5 — Wait Queues ════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">5</div>
+    <h2>Wait Queues — Sleeping Until an Event Occurs</h2>
+  </div>
+
+  <div class="card">
+    <h3>😴 The Core Sleep/Wake Mechanism in Drivers</h3>
+    <p>Wait queues are how drivers implement blocking I/O. When a user process calls <code>read()</code> on your device and no data is available, you put it to sleep on a wait queue. When hardware generates an interrupt and data arrives, your IRQ handler wakes the wait queue. The sleeping process is then scheduled to run again and completes the read.</p>
+    <p>This is the foundation of every blocking device driver read, write, poll, and select operation. Get this right and the rest of blocking I/O falls into place.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Wait Queue — Complete Sleep/Wake Pattern</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/wait.h&gt;</span>
+<span class="pp">#include &lt;linux/sched.h&gt;</span>
+
+<span class="kw">struct</span> <span class="tp">my_device</span> {
+    <span class="hl"><span class="kw">wait_queue_head_t</span> read_wq;    <span class="cm">/* processes waiting to read */</span></span>
+    <span class="kw">bool</span>              data_ready; <span class="cm">/* the condition they're waiting for */</span>
+    <span class="kw">u8</span>                data[<span class="nm">64</span>];
+    <span class="kw">int</span>               data_len;
+};
+
+<span class="cm">/* ── INIT: in probe() ─────────────────────────────────────────────── */</span>
+<span class="fn">init_waitqueue_head</span>(&amp;dev-&gt;read_wq);    <span class="cm">/* dynamic init */</span>
+<span class="cm">/* OR static:  DECLARE_WAIT_QUEUE_HEAD(my_wq); */</span>
+
+<span class="cm">/* ── CONSUMER: read() syscall handler — process context ──────────── */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">my_read</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="kw">char __user</span> *buf,
+                        <span class="tp">size_t</span> count, <span class="tp">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = filp-&gt;private_data;
+    <span class="kw">int</span> ret;
+
+    <span class="cm">/* wait_event_interruptible(wq, condition):
+     *   Puts this task to SLEEP (TASK_INTERRUPTIBLE) until:
+     *     1. condition becomes TRUE  → wakes normally, returns 0
+     *     2. A signal arrives        → wakes, returns -ERESTARTSYS
+     *
+     * The condition is evaluated ATOMICALLY before sleeping —
+     * no missed-wakeup race with the IRQ handler. */</span>
+    <span class="hl">ret = <span class="fn">wait_event_interruptible</span>(dev-&gt;read_wq, dev-&gt;data_ready);</span>
+    <span class="kw">if</span> (ret == -<span class="nm">ERESTARTSYS</span>)
+        <span class="kw">return</span> -<span class="nm">EINTR</span>;   <span class="cm">/* user pressed Ctrl+C — interrupted by signal */</span>
+
+    <span class="cm">/* Data is ready — copy to userspace */</span>
+    <span class="kw">int</span> to_copy = <span class="fn">min</span>((<span class="tp">size_t</span>)dev-&gt;data_len, count);
+    <span class="kw">if</span> (<span class="fn">copy_to_user</span>(buf, dev-&gt;data, to_copy))
+        <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+
+    dev-&gt;data_ready = <span class="nm">false</span>;   <span class="cm">/* reset for next read */</span>
+    <span class="kw">return</span> to_copy;
+}
+
+<span class="cm">/* ── PRODUCER: IRQ handler — atomic context ─────────────────────── */</span>
+<span class="kw">static</span> <span class="tp">irqreturn_t</span> <span class="fn">my_irq_handler</span>(<span class="kw">int</span> irq, <span class="kw">void</span> *dev_id)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = dev_id;
+
+    <span class="cm">/* Read data from hardware into buffer */</span>
+    dev-&gt;data_len = <span class="fn">read_hw_fifo</span>(dev-&gt;data, <span class="kw">sizeof</span>(dev-&gt;data));
+
+    <span class="cm">/* Set the condition TRUE before waking — order matters! */</span>
+    dev-&gt;data_ready = <span class="nm">true</span>;
+
+    <span class="cm">/* wake_up_interruptible: wake one task waiting on read_wq
+     * The task's wait_event_interruptible() will recheck the condition. */</span>
+    <span class="hl"><span class="fn">wake_up_interruptible</span>(&amp;dev-&gt;read_wq);</span>
+
+    <span class="kw">return</span> <span class="nm">IRQ_HANDLED</span>;
+}
+
+<span class="cm">/* ── ALL wait_event VARIANTS ─────────────────────────────────────── */</span>
+<span class="cm">/*
+ * wait_event(wq, cond)
+ *   Uninterruptible. Bad: process becomes unkillable if cond never true.
+ *
+ * wait_event_interruptible(wq, cond)             returns -ERESTARTSYS on signal
+ *   Most common. Woken by signal or event.
+ *
+ * wait_event_killable(wq, cond)                  returns -ERESTARTSYS on SIGKILL
+ *   Like interruptible but only SIGKILL wakes it.
+ *
+ * wait_event_timeout(wq, cond, timeout)          returns remaining jiffies or 0
+ *   Give up after timeout jiffies even if cond not true.
+ *
+ * wait_event_interruptible_timeout(wq, cond, timeout)
+ *   Timeout + interruptible. Returns 0=timeout, >0=ok, -ERESTARTSYS=signal.
+ *   This is the one to use for most device reads with a timeout.
+ *
+ * wait_event_lock_irq(wq, cond, lock)
+ *   Releases a spinlock while sleeping, reacquires before returning.
+ */</span></pre>
+  </div>
+
+  <div class="info-box danger">
+    <span class="icon">🚨</span>
+    <div class="content"><strong>The Missed Wakeup Race — Why Conditions Matter</strong>Never write: <code>if (!data_ready) { sleep_on(&amp;wq); }</code> — there's a race: the IRQ could fire between the check and the sleep, and you'd sleep forever. <code>wait_event_interruptible(wq, cond)</code> solves this by atomically checking the condition and going to sleep, ensuring no wakeup can be missed. Always use the <code>wait_event*</code> family — never <code>sleep_on()</code> (deprecated).</div>
+  </div>
+
+<!-- ════════════════ SECTION 6 — Completions ════════════════ -->
+  <div class="section-header">
+    <div class="sn red">6</div>
+    <h2>Completions — One-Shot Synchronisation</h2>
+  </div>
+
+  <div class="card">
+    <h3>✅ Simpler than Wait Queues for "Done" Signalling</h3>
+    <p>A <code>completion</code> is a lightweight, one-shot version of a wait queue. Where wait queues are general-purpose (multiple waiters, re-usable condition), a completion is specifically designed for the pattern: <em>"Thread A does some work, then signals Thread B that the work is done."</em> Completions are simpler to use correctly and are used throughout the kernel for initialisation sequences, device I/O completion, and thread synchronisation.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Completions — Declare, Wait, Complete</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/completion.h&gt;</span>
+
+<span class="cm">/* ── DECLARE &amp; INIT ───────────────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="mc">DECLARE_COMPLETION</span>(firmware_loaded);   <span class="cm">/* static — starts "not done" */</span>
+
+<span class="cm">/* Dynamic: */</span>
+<span class="kw">struct</span> <span class="tp">completion</span> cmd_done;
+<span class="fn">init_completion</span>(&amp;cmd_done);   <span class="cm">/* runtime init — also "not done" */</span>
+
+<span class="cm">/* ── WAIT for completion (blocks the calling thread) ────────────────── */</span>
+<span class="fn">wait_for_completion</span>(&amp;firmware_loaded);
+<span class="cm">/* Blocks until complete() is called. Uninterruptible. */</span>
+
+<span class="fn">wait_for_completion_interruptible</span>(&amp;firmware_loaded);
+<span class="cm">/* Like above but returns -ERESTARTSYS if a signal arrives */</span>
+
+<span class="kw">unsigned long</span> ret = <span class="fn">wait_for_completion_timeout</span>(&amp;cmd_done,
+                        <span class="fn">msecs_to_jiffies</span>(<span class="nm">5000</span>));
+<span class="kw">if</span> (ret == <span class="nm">0</span>) {
+    <span class="fn">pr_err</span>(<span class="st">"Command timed out after 5 seconds!\n"</span>);
+    <span class="kw">return</span> -<span class="nm">ETIMEDOUT</span>;
+}
+<span class="cm">/* ret > 0: completed in time (ret = remaining jiffies) */</span>
+
+<span class="cm">/* ── SIGNAL completion (wakes the waiter) ─────────────────────────── */</span>
+<span class="fn">complete</span>(&amp;cmd_done);          <span class="cm">/* wake ONE waiter */</span>
+<span class="fn">complete_all</span>(&amp;cmd_done);      <span class="cm">/* wake ALL waiters (permanently done) */</span>
+
+<span class="cm">/* ── REAL EXAMPLE: Command/response pattern ──────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_cmd</span> {
+    <span class="kw">u8</span>                 opcode;
+    <span class="kw">u8</span>                 result;
+    <span class="kw">struct</span> <span class="tp">completion</span> done;     <span class="cm">/* per-command completion */</span>
+};
+
+<span class="kw">static int</span> <span class="fn">send_command</span>(<span class="kw">struct</span> <span class="tp">my_device</span> *dev, <span class="kw">u8</span> opcode)
+{
+    <span class="kw">struct</span> <span class="tp">my_cmd</span> cmd = {};
+    cmd.opcode = opcode;
+    <span class="fn">init_completion</span>(&amp;cmd.done);
+
+    <span class="cm">/* Send command to hardware */</span>
+    dev-&gt;pending_cmd = &amp;cmd;
+    <span class="fn">write_hw_register</span>(dev, <span class="nm">REG_CMD</span>, opcode);
+
+    <span class="cm">/* Wait up to 1 second for hardware to respond */</span>
+    <span class="kw">if</span> (!<span class="fn">wait_for_completion_timeout</span>(&amp;cmd.done, <span class="fn">msecs_to_jiffies</span>(<span class="nm">1000</span>)))
+        <span class="kw">return</span> -<span class="nm">ETIMEDOUT</span>;
+
+    <span class="kw">return</span> (cmd.result == <span class="nm">0</span>) ? <span class="nm">0</span> : -<span class="nm">EIO</span>;
+}
+
+<span class="cm">/* IRQ handler — called when hardware sends response */</span>
+<span class="kw">static</span> <span class="tp">irqreturn_t</span> <span class="fn">cmd_irq_handler</span>(<span class="kw">int</span> irq, <span class="kw">void</span> *dev_id)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = dev_id;
+    dev-&gt;pending_cmd-&gt;result = <span class="fn">read_hw_register</span>(dev, <span class="nm">REG_RESULT</span>);
+    <span class="fn">complete</span>(&amp;dev-&gt;pending_cmd-&gt;done);    <span class="cm">/* wake the send_command() caller */</span>
+    <span class="kw">return</span> <span class="nm">IRQ_HANDLED</span>;
+}</pre>
+  </div>
+
+<!-- ════════════════ SECTION 7 — Timing ════════════════ -->
+  <div class="section-header">
+    <div class="sn orange">7</div>
+    <h2>Kernel Timing — Delays, Sleeps &amp; Jiffies</h2>
+  </div>
+
+  <div class="card">
+    <h3>⏱️ Timing in the Kernel — Every Option Explained</h3>
+    <p>The kernel provides multiple timing mechanisms, and choosing the wrong one is a very common mistake. The core issue: <strong>busy-wait delays burn CPU cycles</strong> (nothing else runs), while <strong>sleep-based delays yield the CPU</strong> but have minimum latency overhead. Know when to use each.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Function</th><th>Range</th><th>Accuracy</th><th>Blocks CPU?</th><th>Context</th><th>Use When</th></tr>
+      <tr>
+        <td><code>ndelay(ns)</code></td>
+        <td>1–1000 ns</td>
+        <td>Hardware dependent</td>
+        <td><strong>YES — busy-wait</strong></td>
+        <td>Any (incl. IRQ)</td>
+        <td>Tiny hardware timing gaps (register write delays). Very short only.</td>
+      </tr>
+      <tr>
+        <td><code>udelay(us)</code></td>
+        <td>1–1000 µs</td>
+        <td>Hardware dependent</td>
+        <td><strong>YES — busy-wait</strong></td>
+        <td>Any (incl. IRQ)</td>
+        <td>Hardware setup/hold times, SPI bit-bang delays. Keep &lt;100µs.</td>
+      </tr>
+      <tr>
+        <td><code>mdelay(ms)</code></td>
+        <td>1–∞ ms</td>
+        <td>Exact (busy-wait)</td>
+        <td><strong>YES — busy-wait</strong></td>
+        <td>Any (incl. IRQ)</td>
+        <td>Avoid — use msleep() instead. Only justified in atomic context.</td>
+      </tr>
+      <tr>
+        <td><code>msleep(ms)</code></td>
+        <td>≥1 ms</td>
+        <td>±1 jiffy (~10ms)</td>
+        <td>No — yields CPU</td>
+        <td>Process only</td>
+        <td><strong>Most common for driver delays.</strong> Hardware power-on waits, probe delays.</td>
+      </tr>
+      <tr>
+        <td><code>msleep_interruptible(ms)</code></td>
+        <td>≥1 ms</td>
+        <td>±1 jiffy</td>
+        <td>No — yields CPU</td>
+        <td>Process only</td>
+        <td>Sleep that can be cut short by signals. Use in kthread loops.</td>
+      </tr>
+      <tr>
+        <td><code>usleep_range(min,max)</code></td>
+        <td>10–20000 µs</td>
+        <td>min–max range</td>
+        <td>No — yields CPU</td>
+        <td>Process only</td>
+        <td>Sub-millisecond sleeps where hrtimer is acceptable. Batches wakeups for power efficiency.</td>
+      </tr>
+      <tr>
+        <td><code>schedule_timeout(j)</code></td>
+        <td>Any jiffies</td>
+        <td>±1 jiffy</td>
+        <td>No — yields CPU</td>
+        <td>Process only</td>
+        <td>When you need to yield for a number of jiffies and handle task state yourself.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Timing Conversions &amp; Jiffies</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/delay.h&gt;</span>       <span class="cm">/* udelay, msleep, usleep_range */</span>
+<span class="pp">#include &lt;linux/jiffies.h&gt;</span>     <span class="cm">/* jiffies, HZ, time_after */</span>
+<span class="pp">#include &lt;linux/ktime.h&gt;</span>       <span class="cm">/* ktime_get, ktime_to_ns */</span>
+
+<span class="cm">/* ── JIFFIES — the kernel's clock tick counter ───────────────────── */</span>
+<span class="cm">/* HZ = ticks per second. Typically 100, 250, or 1000 Hz.
+ * jiffies = unsigned long counter, wraps around. Never compare directly! */</span>
+
+<span class="cm">/* Convert between jiffies and time units: */</span>
+<span class="kw">unsigned long</span> j = <span class="fn">msecs_to_jiffies</span>(<span class="nm">500</span>);    <span class="cm">/* 500ms → jiffies */</span>
+<span class="kw">unsigned long</span> m = <span class="fn">jiffies_to_msecs</span>(j);       <span class="cm">/* jiffies → ms */</span>
+<span class="kw">unsigned long</span> u = <span class="fn">usecs_to_jiffies</span>(<span class="nm">10000</span>);  <span class="cm">/* 10000µs → jiffies */</span>
+<span class="kw">unsigned long</span> s = <span class="fn">secs_to_jiffies</span>(<span class="nm">5</span>);       <span class="cm">/* 5s → jiffies */</span>
+
+<span class="cm">/* CORRECT jiffy comparison (handles wrap-around): */</span>
+<span class="kw">unsigned long</span> deadline = jiffies + <span class="fn">msecs_to_jiffies</span>(<span class="nm">5000</span>);
+<span class="kw">if</span> (<span class="fn">time_after</span>(jiffies, deadline))
+    <span class="fn">pr_warn</span>(<span class="st">"Deadline passed!\n"</span>);
+
+<span class="cm">/* Other time comparisons: */</span>
+<span class="cm">/* time_after(a, b)       = true if a is after  b (a > b, wrap-safe) */</span>
+<span class="cm">/* time_before(a, b)      = true if a is before b (a < b, wrap-safe) */</span>
+<span class="cm">/* time_after_eq(a, b)    = true if a >= b                            */</span>
+<span class="cm">/* time_in_range(a, b, c) = true if b <= a <= c                       */</span>
+
+<span class="cm">/* ── HIGH-RESOLUTION TIMING (nanosecond precision) ──────────────── */</span>
+<span class="kw">ktime_t</span> start = <span class="fn">ktime_get</span>();          <span class="cm">/* read monotonic clock (ns since boot) */</span>
+<span class="fn">do_some_work</span>();
+<span class="kw">ktime_t</span> end = <span class="fn">ktime_get</span>();
+<span class="kw">s64</span> elapsed_ns = <span class="fn">ktime_to_ns</span>(<span class="fn">ktime_sub</span>(end, start));
+<span class="fn">pr_info</span>(<span class="st">"Operation took %lld ns\n"</span>, elapsed_ns);
+
+<span class="cm">/* ktime_get_real(): wall clock (UTC). ktime_get(): monotonic (better for deltas) */</span>
+
+<span class="cm">/* ── USAGE EXAMPLES ──────────────────────────────────────────────── */</span>
+
+<span class="cm">/* Hardware power-on: chip needs 10ms after reset before responding */</span>
+<span class="fn">gpio_set_value</span>(dev-&gt;reset_gpio, <span class="nm">1</span>);  <span class="cm">/* deassert reset */</span>
+<span class="fn">msleep</span>(<span class="nm">10</span>);                           <span class="cm">/* wait 10ms for chip to start up */</span>
+
+<span class="cm">/* SPI chip-select hold time: 50ns between CS assert and first clock */</span>
+<span class="fn">gpio_set_value</span>(dev-&gt;cs_gpio, <span class="nm">0</span>);     <span class="cm">/* assert CS */</span>
+<span class="fn">ndelay</span>(<span class="nm">50</span>);                           <span class="cm">/* 50ns setup time (from datasheet) */</span>
+
+<span class="cm">/* Polling hardware register with a timeout */</span>
+<span class="kw">int</span> <span class="fn">wait_for_ready</span>(<span class="kw">struct</span> <span class="tp">my_device</span> *dev)
+{
+    <span class="kw">unsigned long</span> timeout = jiffies + <span class="fn">msecs_to_jiffies</span>(<span class="nm">100</span>);
+    <span class="kw">while</span> (!(<span class="fn">read_hw_status</span>(dev) &amp; STATUS_READY)) {
+        <span class="kw">if</span> (<span class="fn">time_after</span>(jiffies, timeout))
+            <span class="kw">return</span> -<span class="nm">ETIMEDOUT</span>;
+        <span class="fn">usleep_range</span>(<span class="nm">100</span>, <span class="nm">200</span>);  <span class="cm">/* yield CPU between polls */</span>
+    }
+    <span class="kw">return</span> <span class="nm">0</span>;
+}</pre>
+  </div>
+
+<!-- ════════════════ SECTION 8 — Iterating Tasks ════════════════ -->
+  <div class="section-header">
+    <div class="sn teal">8</div>
+    <h2>Iterating All Processes — for_each_process</h2>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Walking the Process Table</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/sched.h&gt;</span>
+<span class="pp">#include &lt;linux/sched/signal.h&gt;</span>   <span class="cm">/* for_each_process */</span>
+<span class="pp">#include &lt;linux/rcupdate.h&gt;</span>       <span class="cm">/* rcu_read_lock */</span>
+
+<span class="cm">/* ── Walk ALL processes (thread group leaders) ────────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">list_all_processes</span>(<span class="kw">void</span>)
+{
+    <span class="kw">struct</span> <span class="tp">task_struct</span> *task;
+
+    <span class="cm">/* MUST hold RCU read lock while iterating — prevents tasks from
+     * being freed while we're looking at them. */</span>
+    <span class="fn">rcu_read_lock</span>();
+
+    <span class="fn">for_each_process</span>(task) {
+        <span class="cm">/* task → thread group leader (one per process) */</span>
+        <span class="fn">pr_info</span>(<span class="st">"pid=%5d tgid=%5d state=%u  %s\n"</span>,
+                task-&gt;pid, task-&gt;tgid,
+                task-&gt;__state, task-&gt;comm);
+    }
+
+    <span class="fn">rcu_read_unlock</span>();
+}
+
+<span class="cm">/* ── Walk ALL threads in ALL processes ───────────────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">list_all_threads</span>(<span class="kw">void</span>)
+{
+    <span class="kw">struct</span> <span class="tp">task_struct</span> *process, *thread;
+
+    <span class="fn">rcu_read_lock</span>();
+
+    <span class="fn">for_each_process</span>(process) {           <span class="cm">/* outer: each process */</span>
+        <span class="fn">for_each_thread</span>(process, thread) { <span class="cm">/* inner: each thread in process */</span>
+            <span class="fn">pr_info</span>(<span class="st">"  tid=%d (%s) in process %d (%s)\n"</span>,
+                    thread-&gt;pid, thread-&gt;comm,
+                    process-&gt;pid, process-&gt;comm);
+        }
+    }
+
+    <span class="fn">rcu_read_unlock</span>();
+}
+
+<span class="cm">/* ── Find a process by PID ────────────────────────────────────────── */</span>
+<span class="kw">static struct</span> <span class="tp">task_struct</span> *<span class="fn">find_task_by_pid</span>(<span class="tp">pid_t</span> target_pid)
+{
+    <span class="kw">struct</span> <span class="tp">task_struct</span> *task, *found = <span class="nm">NULL</span>;
+
+    <span class="fn">rcu_read_lock</span>();
+    <span class="cm">/* More efficient than for_each_process for single lookup: */</span>
+    task = <span class="fn">pid_task</span>(<span class="fn">find_vpid</span>(target_pid), <span class="nm">PIDTYPE_PID</span>);
+    <span class="kw">if</span> (task)
+        <span class="fn">pr_info</span>(<span class="st">"Found pid %d: %s\n"</span>, target_pid, task-&gt;comm);
+    <span class="fn">rcu_read_unlock</span>();
+
+    <span class="kw">return</span> task;  <span class="cm">/* WARNING: may be freed after rcu_read_unlock! */</span>
+    <span class="cm">/* Use get_task_struct(task) inside the lock to hold a reference */</span>
+}</pre>
+  </div>
+
+<!-- ════════════════ SECTION 9 — Practice Project ════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">9</div>
+    <h2>Day 6 Practice Project — Full Kernel Thread + Work Deferral</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Today's Goal</strong>Build a module with: (1) a kthread that polls a counter every second, (2) a workqueue handler triggered from the thread, (3) a completion used to signal when the module is ready, and (4) a wait queue that a simulated read() can sleep on. This combines all the concurrency tools from today into one module that behaves like a real device driver's background machinery.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — threads_practice.c — Complete Practice Module</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * threads_practice.c — Day 6: Processes, Threads & task_struct
+ *
+ * Demonstrates:
+ *   - kthread with kthread_should_stop() loop
+ *   - workqueue item scheduled from the thread
+ *   - completion for init signalling
+ *   - wait queue for data-ready notification
+ *   - task_struct inspection via 'current'
+ *
+ * Build: make
+ * Load:  sudo insmod threads_practice.ko
+ *        sudo insmod threads_practice.ko interval_ms=500 iterations=10
+ */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="pp">#include &lt;linux/kthread.h&gt;</span>
+<span class="pp">#include &lt;linux/workqueue.h&gt;</span>
+<span class="pp">#include &lt;linux/completion.h&gt;</span>
+<span class="pp">#include &lt;linux/wait.h&gt;</span>
+<span class="pp">#include &lt;linux/delay.h&gt;</span>
+<span class="pp">#include &lt;linux/jiffies.h&gt;</span>
+<span class="pp">#include &lt;linux/sched.h&gt;</span>
+<span class="pp">#include &lt;linux/atomic.h&gt;</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Day 6: Threads & Work Deferral Practice"</span>);
+
+<span class="kw">static int</span>  interval_ms = <span class="nm">1000</span>;
+<span class="kw">static int</span>  iterations  = <span class="nm">5</span>;
+<span class="mc">module_param</span>(interval_ms, int, <span class="nm">0444</span>);
+<span class="mc">module_param</span>(iterations,  int, <span class="nm">0444</span>);
+<span class="mc">MODULE_PARM_DESC</span>(interval_ms, <span class="st">"Poll interval in ms (default: 1000)"</span>);
+<span class="mc">MODULE_PARM_DESC</span>(iterations,  <span class="st">"Number of iterations before stopping (default: 5)"</span>);
+
+<span class="cm">/* ── Device state ─────────────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">practice_dev</span> {
+    <span class="kw">struct</span> <span class="tp">task_struct</span>  *poll_thread;
+    <span class="kw">struct</span> <span class="tp">work_struct</span>   process_work;
+    <span class="kw">struct</span> <span class="tp">completion</span>    init_done;     <span class="cm">/* signals when ready */</span>
+    <span class="kw">wait_queue_head_t</span>    data_wq;       <span class="cm">/* for simulated read() */</span>
+    <span class="tp">atomic_t</span>             counter;       <span class="cm">/* the "sensor" value */</span>
+    <span class="kw">bool</span>                 data_ready;
+    <span class="kw">int</span>                  last_value;
+};
+
+<span class="kw">static struct</span> <span class="tp">practice_dev</span> pdev;
+
+<span class="cm">/* ── Work handler — runs in kworker process context ──────────────── */</span>
+<span class="kw">static void</span> <span class="fn">process_work_fn</span>(<span class="kw">struct</span> <span class="tp">work_struct</span> *work)
+{
+    <span class="kw">struct</span> <span class="tp">practice_dev</span> *dev =
+        <span class="fn">container_of</span>(work, <span class="kw">struct</span> <span class="tp">practice_dev</span>, process_work);
+
+    <span class="fn">pr_info</span>(<span class="st">"  [work_fn] running in '%s' (pid=%d), value=%d\n"</span>,
+            <span class="mc">current</span>-&gt;comm, <span class="mc">current</span>-&gt;pid, dev-&gt;last_value);
+
+    <span class="cm">/* Simulate slow processing (we can sleep here!) */</span>
+    <span class="fn">msleep</span>(<span class="nm">50</span>);
+    <span class="fn">pr_info</span>(<span class="st">"  [work_fn] processing complete\n"</span>);
+
+    <span class="cm">/* Signal waiting readers */</span>
+    dev-&gt;data_ready = <span class="nm">true</span>;
+    <span class="fn">wake_up_interruptible</span>(&amp;dev-&gt;data_wq);
+}
+
+<span class="cm">/* ── Poll thread — periodically "reads hardware" ─────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">poll_thread_fn</span>(<span class="kw">void</span> *data)
+{
+    <span class="kw">struct</span> <span class="tp">practice_dev</span> *dev = data;
+    <span class="kw">int</span> count = <span class="nm">0</span>;
+
+    <span class="fn">pr_info</span>(<span class="st">"[poll_thread] started: '%s' (pid=%d)\n"</span>,
+            <span class="mc">current</span>-&gt;comm, <span class="mc">current</span>-&gt;pid);
+
+    <span class="cm">/* Signal that init is complete */</span>
+    <span class="fn">complete</span>(&amp;dev-&gt;init_done);
+
+    <span class="kw">while</span> (!<span class="fn">kthread_should_stop</span>()) {
+        <span class="kw">int</span> val;
+
+        <span class="cm">/* Simulate reading a hardware counter */</span>
+        val = <span class="fn">atomic_inc_return</span>(&amp;dev-&gt;counter);
+        dev-&gt;last_value = val;
+        count++;
+
+        <span class="fn">pr_info</span>(<span class="st">"[poll_thread] iter %d/%d: value=%d\n"</span>,
+                count, iterations, val);
+
+        <span class="cm">/* Defer heavy processing to workqueue */</span>
+        <span class="fn">schedule_work</span>(&amp;dev-&gt;process_work);
+
+        <span class="cm">/* Check if we've done enough iterations */</span>
+        <span class="kw">if</span> (count &gt;= iterations) {
+            <span class="fn">pr_info</span>(<span class="st">"[poll_thread] done %d iterations, exiting\n"</span>, count);
+            <span class="kw">break</span>;
+        }
+
+        <span class="cm">/* Sleep between polls — responds to kthread_stop() quickly */</span>
+        <span class="fn">msleep_interruptible</span>(interval_ms);
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"[poll_thread] exiting\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">threads_practice_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> ret;
+
+    <span class="fn">pr_info</span>(<span class="st">"=== Day 6: Threads Practice (interval=%dms, iters=%d) ===\n"</span>,
+            interval_ms, iterations);
+    <span class="fn">pr_info</span>(<span class="st">"[init] running as '%s' (pid=%d)\n"</span>,
+            <span class="mc">current</span>-&gt;comm, <span class="mc">current</span>-&gt;pid);
+
+    <span class="cm">/* Initialise device state */</span>
+    <span class="fn">init_completion</span>(&amp;pdev.init_done);
+    <span class="fn">init_waitqueue_head</span>(&amp;pdev.data_wq);
+    <span class="fn">INIT_WORK</span>(&amp;pdev.process_work, <span class="fn">process_work_fn</span>);
+    <span class="fn">atomic_set</span>(&amp;pdev.counter, <span class="nm">0</span>);
+    pdev.data_ready = <span class="nm">false</span>;
+
+    <span class="cm">/* Start the polling thread */</span>
+    pdev.poll_thread = <span class="fn">kthread_run</span>(<span class="fn">poll_thread_fn</span>, &amp;pdev, <span class="st">"practice_poll"</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(pdev.poll_thread)) {
+        ret = <span class="fn">PTR_ERR</span>(pdev.poll_thread);
+        pdev.poll_thread = <span class="nm">NULL</span>;
+        <span class="fn">pr_err</span>(<span class="st">"Failed to create thread: %d\n"</span>, ret);
+        <span class="kw">return</span> ret;
+    }
+
+    <span class="cm">/* Wait for thread to signal it's ready (timeout: 2s) */</span>
+    <span class="kw">if</span> (!<span class="fn">wait_for_completion_timeout</span>(&amp;pdev.init_done, <span class="fn">msecs_to_jiffies</span>(<span class="nm">2000</span>))) {
+        <span class="fn">pr_err</span>(<span class="st">"Thread did not start within 2s!\n"</span>);
+        <span class="fn">kthread_stop</span>(pdev.poll_thread);
+        <span class="kw">return</span> -<span class="nm">ETIMEDOUT</span>;
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"[init] thread started successfully, module ready\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">threads_practice_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"[exit] stopping...\n"</span>);
+
+    <span class="kw">if</span> (pdev.poll_thread)
+        <span class="fn">kthread_stop</span>(pdev.poll_thread);
+
+    <span class="cm">/* Wait for any queued work to finish before module is removed */</span>
+    <span class="fn">cancel_work_sync</span>(&amp;pdev.process_work);
+
+    <span class="fn">pr_info</span>(<span class="st">"[exit] done. Final counter: %d\n"</span>,
+            <span class="fn">atomic_read</span>(&amp;pdev.counter));
+}
+
+<span class="mc">module_init</span>(<span class="fn">threads_practice_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">threads_practice_exit</span>);</pre>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Load and observe the thread lifecycle</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make && sudo insmod threads_practice.ko interval_ms=500 iterations=4</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo dmesg --follow &</span>
+<span class="cm"># Watch: init → thread starts → iterations → work_fn runs → exit</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ps aux | grep practice_poll</span>
+<span class="t-out">root  12345  0.0  0.0      0     0 ? S  10:01  0:00 [practice_poll]</span>
+<span class="cm"># Kernel thread appears in ps with [] brackets</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod threads_practice</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Inspect task_struct fields from the thread</h4>
+        <p>Add these lines inside <code>poll_thread_fn()</code> at the start:</p>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">C — Add to poll_thread_fn()</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="fn">pr_info</span>(<span class="st">"  mm=%s (kernel thread has no mm)\n"</span>,
+        <span class="mc">current</span>-&gt;mm ? <span class="st">"has mm"</span> : <span class="st">"NULL"</span>);
+<span class="fn">pr_info</span>(<span class="st">"  state=%u policy=%u prio=%d\n"</span>,
+        <span class="mc">current</span>-&gt;__state, <span class="mc">current</span>-&gt;policy, <span class="mc">current</span>-&gt;prio);</pre>
+        </div>
+        <p>Verify: <code>mm == NULL</code> (confirms it's a kernel thread with no user address space).</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Test the wait queue from userspace</h4>
+        <p>Modify the module to expose a <code>/proc</code> file (we'll learn this properly on Day 8). For now: add a simulated "blocking read" — inside <code>threads_practice_init()</code>, after loading, call <code>wait_event_interruptible_timeout(&amp;pdev.data_wq, pdev.data_ready, msecs_to_jiffies(3000))</code> to show it blocking until the first work_fn fires.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Walk all processes from init</h4>
+        <p>Add a <code>for_each_process()</code> loop in <code>threads_practice_init()</code> that counts running vs sleeping processes and prints the totals. Observe the result with <code>dmesg</code>.</p>
+      </div>
+    </div>
+  </div>
+
+<!-- ════════════════ SECTION 10 — Summary ════════════════ -->
+  <div class="section-header">
+    <div class="sn green">10</div>
+    <h2>Day 6 Summary &amp; Week 1 Completion!</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>✅ What You Mastered Today</h3>
+      <ul class="checklist">
+        <li><span class="chk">☑</span> task_struct layout — key fields every driver developer uses</li>
+        <li><span class="chk">☑</span> current pointer — what it is and when it's valid</li>
+        <li><span class="chk">☑</span> Process states — RUNNING, INTERRUPTIBLE, UNINTERRUPTIBLE, KILLABLE</li>
+        <li><span class="chk">☑</span> kthread_run / kthread_stop / kthread_should_stop pattern</li>
+        <li><span class="chk">☑</span> Workqueues — INIT_WORK, schedule_work, cancel_work_sync</li>
+        <li><span class="chk">☑</span> Delayed work — schedule_delayed_work, cancel_delayed_work_sync</li>
+        <li><span class="chk">☑</span> Wait queues — wait_event_interruptible, wake_up_interruptible</li>
+        <li><span class="chk">☑</span> Completions — init_completion, wait_for_completion_timeout, complete</li>
+        <li><span class="chk">☑</span> Timing — udelay/msleep/usleep_range, jiffies, ktime_get</li>
+        <li><span class="chk">☑</span> for_each_process — walking the task list with RCU</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card" style="border-color:rgba(34,197,94,0.4);background:rgba(34,197,94,0.05)">
+        <h3>🏆 Week 1 Complete!</h3>
+        <p style="color:var(--text2)">You've completed the entire first week — <strong>Kernel Foundations</strong>. You now have the mental model and vocabulary for everything that follows. Here's what Week 2 brings:</p>
+        <ul class="checklist">
+          <li><span class="chk-no">○</span> Day 7 — Week 1 review + mini project</li>
+          <li><span class="chk-no">○</span> Day 8 — Character devices & file operations</li>
+          <li><span class="chk-no">○</span> Day 9 — /proc & sysfs interfaces</li>
+          <li><span class="chk-no">○</span> Day 10 — Interrupt handling deep dive</li>
+          <li><span class="chk-no">○</span> Day 11 — Spinlocks, mutexes & RCU</li>
+          <li><span class="chk-no">○</span> Day 12 — Atomic operations & memory barriers</li>
+          <li><span class="chk-no">○</span> Day 13 — Device model & platform bus</li>
+        </ul>
+      </div>
+      <div class="info-box tip" style="margin-top:16px">
+        <span class="icon">📚</span>
+        <div class="content"><strong>Tonight's Reading</strong>LDD3 Chapter 7 — "Time, Delays, and Deferred Work". Also read <code>Documentation/core-api/workqueue.rst</code> for the definitive guide to workqueue concurrency design.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote">
+    "The boundary between process context and interrupt context is the most important conceptual line in kernel programming. Everything you learned this week — memory allocation with GFP flags, data structure locking, workqueue deferral, wait queues, timing — ultimately comes down to one question: am I in a context that can sleep? Answer that question correctly every time, and your drivers will be robust. Answer it wrong, and you will spend days debugging the most confusing crashes you've ever seen."
+    <strong>— Week 1 Complete ✓ — Foundations are solid. Week 2 starts with real device drivers.</strong>
+  </div>
+
+</div>
+
+<div class="footer">
+  Day 6 of 30 · Linux Device Driver Roadmap · Week 1 Complete!
+</div>
+</body>
+</html>

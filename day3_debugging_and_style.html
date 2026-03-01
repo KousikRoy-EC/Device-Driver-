@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 3 — printk, Debugging & Kernel Coding Style</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0f0e;
+    --bg2: #101410;
+    --bg3: #151a14;
+    --card: #111812;
+    --border: #1e3020;
+    --accent: #22c55e;
+    --accent2: #4ade80;
+    --blue: #3b82f6;
+    --blue2: #60a5fa;
+    --yellow: #eab308;
+    --yellow2: #facc15;
+    --red: #ef4444;
+    --red2: #f87171;
+    --purple: #a855f7;
+    --purple2: #c084fc;
+    --cyan: #06b6d4;
+    --orange: #f97316;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); line-height:1.7; font-size:15px; }
+
+  /* ── HERO ── */
+  .hero {
+    background: linear-gradient(135deg, #0b0f0e 0%, #0a1a10 45%, #0b0f0e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 40px 50px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content:''; position:absolute; top:-100px; right:-60px;
+    width:500px; height:500px;
+    background: radial-gradient(circle, rgba(34,197,94,0.09) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .hero::after {
+    content:''; position:absolute; bottom:-80px; left:150px;
+    width:400px; height:400px;
+    background: radial-gradient(circle, rgba(234,179,8,0.06) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);
+    color:var(--accent2); padding:5px 14px; border-radius:20px;
+    font-family:var(--mono); font-size:12px; letter-spacing:0.05em; margin-bottom:20px;
+  }
+  .badge .dot { width:6px; height:6px; background:var(--yellow); border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.4)} }
+  .hero h1 { font-family:var(--display); font-size:clamp(28px,4vw,46px); font-weight:800; line-height:1.15; color:#fff; margin-bottom:12px; }
+  .hero h1 span { color:var(--accent2); }
+  .hero .sub { color:var(--text2); font-size:16px; max-width:640px; margin-bottom:28px; }
+  .hero-tags { display:flex; flex-wrap:wrap; gap:8px; }
+  .tag { background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--text2); padding:4px 12px; border-radius:6px; font-size:12px; font-family:var(--mono); }
+
+  /* ── LAYOUT ── */
+  .container { max-width:980px; margin:0 auto; padding:40px 24px; }
+
+  /* ── SECTION HEADER ── */
+  .section-header { display:flex; align-items:center; gap:12px; margin:52px 0 20px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .sn { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:13px; font-weight:700; flex-shrink:0; color:#fff; }
+  .sn.green  { background:var(--accent); }
+  .sn.blue   { background:var(--blue); }
+  .sn.yellow { background:var(--yellow); color:#000; }
+  .sn.red    { background:var(--red); }
+  .sn.purple { background:var(--purple); }
+  .sn.cyan   { background:var(--cyan); color:#000; }
+  .sn.orange { background:var(--orange); }
+  .section-header h2 { font-family:var(--display); font-size:22px; font-weight:700; color:#fff; }
+
+  /* ── CARDS ── */
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:20px; }
+  .card h3 { font-family:var(--display); font-size:16px; font-weight:700; color:var(--accent2); margin-bottom:12px; }
+  .card p  { color:var(--text2); margin-bottom:10px; font-size:14.5px; }
+  .card p:last-child { margin-bottom:0; }
+  .card ul { padding-left:20px; }
+  .card ul li { color:var(--text2); margin-bottom:7px; font-size:14.5px; }
+  .card ul li strong { color:var(--text); }
+
+  /* ── CODE BLOCKS ── */
+  .code-block { background:#050908; border:1px solid var(--border); border-radius:10px; margin:16px 0; overflow:hidden; }
+  .code-header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#0a100b; border-bottom:1px solid var(--border); }
+  .code-lang { font-family:var(--mono); font-size:11px; color:var(--text3); letter-spacing:0.08em; text-transform:uppercase; }
+  .code-dots { display:flex; gap:6px; }
+  .code-dots span { width:10px; height:10px; border-radius:50%; }
+  .code-dots span:nth-child(1){background:#ef4444;} .code-dots span:nth-child(2){background:#f59e0b;} .code-dots span:nth-child(3){background:#22c55e;}
+  .code-block pre { padding:20px; overflow-x:auto; font-family:var(--mono); font-size:13px; line-height:1.85; color:#cdd6f4; }
+  .kw  { color:#cba6f7; }
+  .fn  { color:#89b4fa; }
+  .st  { color:#a6e3a1; }
+  .cm  { color:#4a5568; font-style:italic; }
+  .nm  { color:#fab387; }
+  .tp  { color:#89dceb; }
+  .pp  { color:#f38ba8; }
+  .mc  { color:#f9e2af; }
+  .op  { color:#94e2d5; }
+  .hl  { background:rgba(34,197,94,0.08); display:block; margin:0 -20px; padding:0 20px; border-left:3px solid var(--accent); }
+  .hl-warn { background:rgba(234,179,8,0.07); display:block; margin:0 -20px; padding:0 20px; border-left:3px solid var(--yellow); }
+  .hl-red  { background:rgba(239,68,68,0.07); display:block; margin:0 -20px; padding:0 20px; border-left:3px solid var(--red); }
+
+  /* ── TERMINAL ── */
+  .terminal { background:#050505; border:1px solid #222; border-radius:10px; overflow:hidden; margin:16px 0; }
+  .terminal-header { background:#111; padding:10px 16px; display:flex; align-items:center; gap:8px; }
+  .terminal-header span { width:12px; height:12px; border-radius:50%; }
+  .terminal-header span:nth-child(1){background:#ff5f57;} .terminal-header span:nth-child(2){background:#ffbd2e;} .terminal-header span:nth-child(3){background:#28c840;}
+  .t-title { margin-left:8px; font-family:var(--mono); font-size:12px; color:#555; }
+  .terminal pre { padding:18px 20px; font-family:var(--mono); font-size:13px; line-height:1.85; color:#d4d4d4; }
+  .t-prompt { color:#22c55e; } .t-cmd { color:#e2e8f0; } .t-out { color:#6b7280; }
+  .t-green  { color:#22c55e; } .t-yellow { color:#eab308; } .t-red    { color:#ef4444; }
+  .t-blue   { color:#60a5fa; } .t-purple { color:#c084fc; } .t-cyan   { color:#06b6d4; }
+
+  /* ── DIAGRAM ── */
+  .diagram { background:#050908; border:1px solid var(--border); border-radius:10px; padding:24px; margin:16px 0; font-family:var(--mono); font-size:13px; line-height:1.9; overflow-x:auto; white-space:pre; color:#cdd6f4; }
+
+  /* ── INFO BOXES ── */
+  .info-box { display:flex; gap:14px; padding:16px 20px; border-radius:10px; margin:16px 0; font-size:14px; }
+  .info-box.note   { background:rgba(59,130,246,0.07);  border:1px solid rgba(59,130,246,0.2); }
+  .info-box.warn   { background:rgba(234,179,8,0.07);   border:1px solid rgba(234,179,8,0.25); }
+  .info-box.tip    { background:rgba(34,197,94,0.07);   border:1px solid rgba(34,197,94,0.2); }
+  .info-box.danger { background:rgba(239,68,68,0.07);   border:1px solid rgba(239,68,68,0.2); }
+  .info-box .icon  { font-size:18px; flex-shrink:0; margin-top:1px; }
+  .info-box .content { color:var(--text2); }
+  .info-box .content strong { color:var(--text); display:block; margin-bottom:4px; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x:auto; margin:16px 0; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th { background:var(--bg3); color:var(--accent2); font-family:var(--display); font-weight:600; padding:12px 16px; text-align:left; border-bottom:1px solid var(--border); font-size:13px; }
+  td { padding:11px 16px; border-bottom:1px solid rgba(30,48,32,0.5); color:var(--text2); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  tr:nth-child(even) td { background:rgba(255,255,255,0.013); }
+  td strong { color:var(--text); }
+  td code { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.2); color:var(--accent2); padding:1px 6px; border-radius:4px; font-family:var(--mono); font-size:12px; }
+
+  /* ── TWO / THREE COL ── */
+  .two-col   { display:grid; grid-template-columns:1fr 1fr;       gap:16px; margin:16px 0; }
+  .three-col { display:grid; grid-template-columns:1fr 1fr 1fr;   gap:14px; margin:16px 0; }
+  @media(max-width:640px){ .two-col,.three-col { grid-template-columns:1fr; } }
+
+  /* ── MINI CARD ── */
+  .mini-card { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:18px; }
+  .mini-card .mc-icon { font-size:22px; margin-bottom:10px; }
+  .mini-card h4 { color:#fff; font-weight:600; font-size:14px; margin-bottom:6px; font-family:var(--display); }
+  .mini-card p  { color:var(--text2); font-size:13px; line-height:1.6; }
+
+  /* ── STEPS ── */
+  .steps { display:flex; flex-direction:column; gap:0; margin:16px 0; }
+  .step  { display:flex; gap:16px; position:relative; padding-bottom:28px; }
+  .step:last-child { padding-bottom:0; }
+  .step-left { display:flex; flex-direction:column; align-items:center; }
+  .step-num  { width:32px; height:32px; background:var(--accent); color:#000; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:13px; font-weight:700; flex-shrink:0; z-index:1; }
+  .step-line { width:2px; flex:1; background:var(--border); margin-top:6px; }
+  .step:last-child .step-line { display:none; }
+  .step-content { padding-top:4px; flex:1; }
+  .step-content h4 { color:#fff; font-weight:600; font-size:15px; margin-bottom:8px; font-family:var(--display); }
+  .step-content p  { color:var(--text2); font-size:14px; margin-bottom:8px; }
+
+  /* ── INLINE CODE ── */
+  code { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.2); color:var(--accent2); padding:1px 6px; border-radius:4px; font-family:var(--mono); font-size:12.5px; }
+
+  /* ── NAV ── */
+  .nav-bar { background:var(--bg2); border-bottom:1px solid var(--border); padding:12px 40px; display:flex; align-items:center; gap:16px; font-family:var(--mono); font-size:12px; color:var(--text3); position:sticky; top:0; z-index:100; }
+  .nav-bar .crumb { color:var(--text2); }
+  .nav-bar .sep   { color:var(--border); }
+  .nav-bar .current { color:var(--accent2); }
+
+  /* ── PROGRESS ── */
+  .progress-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:13px; color:var(--text2); }
+  .progress-bar  { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-bottom:18px; }
+  .progress-fill { height:100%; border-radius:3px; }
+
+  /* ── QUOTE ── */
+  .quote { border-left:3px solid var(--accent); padding:14px 20px; margin:20px 0; background:rgba(34,197,94,0.04); border-radius:0 8px 8px 0; color:var(--text2); font-style:italic; font-size:14.5px; }
+  .quote strong { color:var(--accent2); font-style:normal; display:block; margin-top:6px; font-size:12px; }
+
+  /* ── OOPS BLOCK ── */
+  .oops-block { background:#080408; border:1px solid #3d1a1a; border-radius:10px; overflow:hidden; margin:16px 0; }
+  .oops-header { background:#1a0808; padding:10px 16px; font-family:var(--mono); font-size:12px; color:var(--red2); border-bottom:1px solid #3d1a1a; }
+  .oops-block pre { padding:20px; font-family:var(--mono); font-size:12.5px; line-height:1.85; overflow-x:auto; }
+  .oops-addr  { color:#f87171; }
+  .oops-fn    { color:#fbbf24; }
+  .oops-mod   { color:#34d399; }
+  .oops-key   { color:#a78bfa; }
+  .oops-info  { color:#94a3b8; }
+  .oops-ann   { color:#4ade80; font-style:italic; }
+
+  /* ── STYLE COMPARISON ── */
+  .style-compare { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+  @media(max-width:640px){ .style-compare { grid-template-columns:1fr; } }
+  .bad-box  { border:1px solid rgba(239,68,68,0.3);  background:rgba(239,68,68,0.05);  border-radius:10px; overflow:hidden; }
+  .good-box { border:1px solid rgba(34,197,94,0.3);  background:rgba(34,197,94,0.05);  border-radius:10px; overflow:hidden; }
+  .style-label { padding:8px 16px; font-family:var(--mono); font-size:12px; font-weight:700; }
+  .bad-label  { background:rgba(239,68,68,0.15);  color:var(--red2); }
+  .good-label { background:rgba(34,197,94,0.15);  color:var(--accent2); }
+  .style-box-pre { padding:16px; font-family:var(--mono); font-size:12.5px; line-height:1.8; color:#cdd6f4; overflow-x:auto; }
+
+  /* ── FOOTER ── */
+  .footer { margin-top:60px; padding:30px 24px; border-top:1px solid var(--border); text-align:center; color:var(--text3); font-size:13px; font-family:var(--mono); }
+
+  /* ── CHECKLIST ── */
+  .checklist { list-style:none; padding:0; margin:12px 0; }
+  .checklist li { display:flex; align-items:flex-start; gap:10px; padding:7px 0; border-bottom:1px solid rgba(30,48,32,0.4); color:var(--text2); font-size:14px; }
+  .checklist li:last-child { border-bottom:none; }
+  .chk { color:var(--accent2); font-size:15px; flex-shrink:0; margin-top:1px; }
+  .chk-no { color:var(--text3); font-size:15px; flex-shrink:0; margin-top:1px; }
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 1: Kernel Foundations</span>
+  <span class="sep">›</span>
+  <span class="current">Day 3 — printk, Debugging & Kernel Coding Style</span>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 1 · Day 3 of 30</div>
+  <h1>printk Deep Dive,<br><span>Debugging &amp; Coding Style</span></h1>
+  <p class="sub">Master kernel debugging from the ground up — dynamic debug, BUG/WARN macros, reading real kernel oops output, and the coding style rules every kernel contributor must follow.</p>
+  <div class="hero-tags">
+    <span class="tag">dynamic_debug</span>
+    <span class="tag">BUG() / WARN()</span>
+    <span class="tag">Kernel Oops</span>
+    <span class="tag">likely() / unlikely()</span>
+    <span class="tag">Coding Style</span>
+    <span class="tag">/proc/kallsyms</span>
+    <span class="tag">addr2line</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- PROGRESS -->
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 3 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:10%; background:linear-gradient(90deg,#22c55e,#4ade80)"></div></div>
+    <div class="progress-header"><span>Week 1 Progress</span><span>Day 3 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:42.8%; background:linear-gradient(90deg,#22c55e,#4ade80)"></div></div>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn green">1</div>
+    <h2>The Kernel Ring Buffer — How printk Really Works</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔄 What is the Ring Buffer?</h3>
+    <p>When your driver calls <code>printk()</code>, the message is written to a fixed-size circular buffer in kernel memory called the <strong>kernel ring buffer</strong> (also called the <em>log buffer</em>). This buffer is defined by <code>CONFIG_LOG_BUF_SHIFT</code> — default is 17 (2^17 = 128KB), but production systems often use 18 or 19 (256KB / 512KB).</p>
+    <p>The buffer is <em>circular</em> — when it fills up, old messages are overwritten. This means on busy systems, early boot messages can be lost by the time you read them. <code>dmesg</code> is just reading this buffer from <code>/dev/kmsg</code>.</p>
+  </div>
+
+  <div class="diagram">
+Kernel Ring Buffer (circular, fixed size ~128KB-512KB)
+───────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ [  0.000000] Linux version 6.8.0 (gcc 13.2.0)                  │
+  │ [  0.000010] BIOS-provided physical RAM map: ...                │
+  │ [  0.012345] ACPI: IRQ0 used by override.                       │
+  │ ...                                                             │
+  │ [  2.345678] eth0: Link is Up - 1Gbps                          │
+  │ [892.341207] hello: loading out-of-tree module taints kernel.   │◄── write ptr
+  │ [892.341891] Hello, Kernel World! Module loaded.                │
+  └─────────────────────────────────────────────────────────────────┘
+
+  Every message has:
+  ┌──────────────────────┬────────────────────────────────────────────┐
+  │ [timestamp_seconds]  │ <level> module_name: message text \n       │
+  └──────────────────────┴────────────────────────────────────────────┘
+        │                           │
+        ▼                           ▼
+  monotonic clock          "<6>" = KERN_INFO prefix
+  (since boot)             stripped by dmesg for display
+
+Reading the ring buffer:
+  dmesg              → reads /dev/kmsg, formats for human display
+  dmesg -T           → human-readable timestamps instead of seconds
+  dmesg -H           → colored, human-friendly output
+  dmesg --follow     → tail -f equivalent for kernel messages
+  cat /dev/kmsg      → raw format with level, facility, sequence
+  /sys/fs/pstore/    → persistent storage (survives crashes if configured)</div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">bash — Essential dmesg Commands for Driver Development</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm"># Watch kernel messages in real time (like tail -f for the kernel)</span>
+dmesg --follow
+
+<span class="cm"># Filter by level — see only errors and warnings</span>
+dmesg --level=err,warn
+
+<span class="cm"># Human-readable timestamps + color + decode facility</span>
+dmesg -HTx
+
+<span class="cm"># See only messages from your module</span>
+dmesg | grep "hello:"
+
+<span class="cm"># Clear the ring buffer (useful before a test run)</span>
+sudo dmesg -C
+
+<span class="cm"># Show messages since last boot</span>
+journalctl -k                    <span class="cm"># systemd systems</span>
+journalctl -k --since "1 hour ago"
+
+<span class="cm"># Show ring buffer size and how full it is</span>
+cat /proc/sys/kernel/printk_devkmsg  <span class="cm"># on/ratelimit/off</span>
+
+<span class="cm"># LIVE monitoring during module testing — run this in a separate terminal</span>
+sudo dmesg --follow --level=emerg,alert,crit,err,warn,notice,info</pre>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">2</div>
+    <h2>Dynamic Debug — The Right Way to Debug Drivers</h2>
+  </div>
+
+  <div class="card">
+    <h3>🎚️ What is Dynamic Debug?</h3>
+    <p><code>pr_debug()</code> and <code>dev_dbg()</code> calls are <strong>compiled into the kernel but disabled by default</strong>. They have zero runtime cost when disabled. The <code>dynamic_debug</code> infrastructure lets you selectively enable them at runtime — per module, per file, per function, even per line — <em>without recompiling</em>.</p>
+    <p>This is the professional way to add debug output to drivers. You never remove debug calls — you leave them in and control them via dynamic debug.</p>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>Requirement</strong>Your kernel must have <code>CONFIG_DYNAMIC_DEBUG=y</code> (enabled in most distro kernels). Check: <code>grep DYNAMIC_DEBUG /boot/config-$(uname -r)</code></div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">bash — Dynamic Debug Control Interface</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm"># The control file — every pr_debug/dev_dbg call is an entry here</span>
+sudo cat /sys/kernel/debug/dynamic_debug/control | head -20
+<span class="cm"># Format: filename:lineno [module]function flags format
+# e1000/e1000_main.c:2341 [e1000]e1000_probe =_ "e1000: %s NIC Link is Up\012"
+# flags: p=print, f=show function, l=show line, m=show module, t=show thread</span>
+
+<span class="cm"># ── ENABLE DEBUG MESSAGES ──────────────────────────────────────────</span>
+
+<span class="cm"># Enable ALL debug in your module</span>
+sudo sh -c 'echo "module hello +p" > /sys/kernel/debug/dynamic_debug/control'
+
+<span class="cm"># Enable debug for a specific file only</span>
+sudo sh -c 'echo "file hello.c +p" > /sys/kernel/debug/dynamic_debug/control'
+
+<span class="cm"># Enable debug for a specific function</span>
+sudo sh -c 'echo "func hello_init +p" > /sys/kernel/debug/dynamic_debug/control'
+
+<span class="cm"># Enable debug for a specific line number</span>
+sudo sh -c 'echo "file hello.c line 42 +p" > /sys/kernel/debug/dynamic_debug/control'
+
+<span class="cm"># Enable with EXTRA info: function name (f), line number (l), module (m)</span>
+sudo sh -c 'echo "module hello +pflm" > /sys/kernel/debug/dynamic_debug/control'
+<span class="cm"># Output becomes: [  892.1] hello hello_init:42 Debug message here</span>
+
+<span class="cm"># ── DISABLE DEBUG MESSAGES ────────────────────────────────────────</span>
+sudo sh -c 'echo "module hello -p" > /sys/kernel/debug/dynamic_debug/control'
+
+<span class="cm"># ── ENABLE AT BOOT (kernel command line) ──────────────────────────</span>
+<span class="cm"># Add to GRUB_CMDLINE_LINUX in /etc/default/grub:</span>
+<span class="cm"># dyndbg="module hello +p"</span>
+
+<span class="cm"># ── ENABLE AT MODULE LOAD ─────────────────────────────────────────</span>
+sudo insmod hello.ko dyndbg="+p"     <span class="cm"># enable all debug for this module</span>
+sudo modprobe hello dyndbg="+pflm"   <span class="cm"># with function/line/module info</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — How to Use pr_debug Correctly in Your Driver</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+
+<span class="cm">/* IMPORTANT: If you want pr_debug() to be dynamic (not compiled out entirely),
+ * you must NOT define DEBUG. With DEBUG defined, pr_debug becomes a regular
+ * printk(KERN_DEBUG) always compiled in.
+ * Without DEBUG: pr_debug uses dynamic debug infrastructure → zero cost when off */</span>
+
+<span class="kw">static int</span> <span class="fn">process_data</span>(<span class="kw">int</span> *buf, <span class="kw">int</span> len)
+{
+    <span class="kw">int</span> i, sum = <span class="nm">0</span>;
+
+    <span class="fn">pr_debug</span>(<span class="st">"process_data called: buf=%p, len=%d\n"</span>, buf, len);  <span class="cm">/* debug entry */</span>
+
+    <span class="kw">for</span> (i = <span class="nm">0</span>; i &lt; len; i++) {
+        sum += buf[i];
+        <span class="fn">pr_debug</span>(<span class="st">"  buf[%d] = %d, running sum = %d\n"</span>, i, buf[i], sum);
+    }
+
+    <span class="fn">pr_debug</span>(<span class="st">"process_data done: sum=%d\n"</span>, sum);               <span class="cm">/* debug exit */</span>
+    <span class="kw">return</span> sum;
+}
+
+<span class="cm">/* In a driver with struct device *dev, always prefer dev_dbg(): */</span>
+<span class="kw">static int</span> <span class="fn">sensor_read</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev, <span class="kw">int</span> *value)
+{
+    <span class="fn">dev_dbg</span>(dev, <span class="st">"Reading sensor register 0x%02x\n"</span>, <span class="nm">REG_DATA</span>);
+    <span class="cm">/* dev_dbg prepends the device name automatically:
+     * [  1.234] sensor 1-0048: Reading sensor register 0x00
+     * This tells you WHICH device instance caused the message — crucial
+     * when you have multiple devices using the same driver */</span>
+    <span class="kw">return</span> <span class="nm">0</span>;
+}</pre>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn red">3</div>
+    <h2>BUG(), BUG_ON(), WARN(), WARN_ON() — When to Use Each</h2>
+  </div>
+
+  <div class="card">
+    <h3>💣 The Assertion Macros — Your Safety Net</h3>
+    <p>These macros let you assert invariants in your code. When an invariant is violated, they trigger controlled kernel error reporting. Choosing the right one is critical — using BUG() where WARN() is appropriate will cause unnecessary system crashes during development.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Macro</th><th>Triggers When</th><th>What Happens</th><th>System Survives?</th><th>Use When</th></tr>
+      <tr>
+        <td><code>BUG()</code></td>
+        <td>Always (unconditional)</td>
+        <td>Prints oops with full stack trace, <strong>kills current process</strong>, may panic</td>
+        <td>Maybe — if <code>panic_on_oops=0</code></td>
+        <td>Reached an <strong>impossible</strong> code path. State is completely unrecoverable. E.g., <code>default:</code> in a switch that should never happen.</td>
+      </tr>
+      <tr>
+        <td><code>BUG_ON(cond)</code></td>
+        <td>When <code>cond</code> is true</td>
+        <td>Same as BUG() if condition is true</td>
+        <td>Maybe</td>
+        <td>Assert a condition that must NEVER be true: <code>BUG_ON(ptr == NULL)</code>, <code>BUG_ON(count < 0)</code></td>
+      </tr>
+      <tr>
+        <td><code>WARN(cond, fmt, ...)</code></td>
+        <td>When <code>cond</code> is true</td>
+        <td>Prints <strong>one-time warning</strong> with stack trace to dmesg. Execution <strong>continues</strong>.</td>
+        <td><strong>Yes — always</strong></td>
+        <td>Something unexpected but <strong>recoverable</strong>. Driver can continue safely.</td>
+      </tr>
+      <tr>
+        <td><code>WARN_ON(cond)</code></td>
+        <td>When <code>cond</code> is true</td>
+        <td>Prints one-time warning + stack trace. Returns the condition value.</td>
+        <td><strong>Yes — always</strong></td>
+        <td>Most common for driver debugging. Used as: <code>if (WARN_ON(ret < 0)) return ret;</code></td>
+      </tr>
+      <tr>
+        <td><code>WARN_ONCE(cond, fmt)</code></td>
+        <td>First time <code>cond</code> is true</td>
+        <td>Same as WARN but fires exactly once per boot</td>
+        <td><strong>Yes</strong></td>
+        <td>Warning about deprecated usage or one-time events that shouldn't spam dmesg</td>
+      </tr>
+      <tr>
+        <td><code>might_sleep()</code></td>
+        <td>In atomic context</td>
+        <td>WARN if called where sleeping is not allowed (spinlock held, interrupt context)</td>
+        <td><strong>Yes</strong></td>
+        <td>Add at top of any function that might sleep — helps catch bugs during development</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Correct Usage of All Assert Macros</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/bug.h&gt;</span>      <span class="cm">/* BUG, BUG_ON, WARN, WARN_ON */</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>   <span class="cm">/* might_sleep */</span>
+
+<span class="kw">enum</span> <span class="tp">device_state</span> {
+    DEV_IDLE = <span class="nm">0</span>,
+    DEV_RUNNING,
+    DEV_ERROR,
+    DEV_STATE_MAX   <span class="cm">/* sentinel */</span>
+};
+
+<span class="kw">static void</span> <span class="fn">handle_state</span>(<span class="kw">enum</span> <span class="tp">device_state</span> state, <span class="kw">struct</span> <span class="tp">my_dev</span> *dev)
+{
+    <span class="cm">/* BUG_ON: This pointer must NEVER be NULL at this point.
+     * If it is, our caller has a serious bug — there's no safe recovery. */</span>
+    <span class="fn">BUG_ON</span>(dev == <span class="nm">NULL</span>);
+
+    <span class="kw">switch</span> (state) {
+    <span class="kw">case</span> DEV_IDLE:
+        <span class="fn">pr_info</span>(<span class="st">"Device is idle\n"</span>);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> DEV_RUNNING:
+        <span class="fn">pr_info</span>(<span class="st">"Device is running\n"</span>);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> DEV_ERROR:
+        <span class="cm">/* WARN: unexpected but we can handle it */</span>
+        <span class="fn">WARN</span>(<span class="nm">1</span>, <span class="st">"Device entered error state unexpectedly\n"</span>);
+        <span class="fn">reset_device</span>(dev);  <span class="cm">/* try to recover */</span>
+        <span class="kw">break</span>;
+
+    <span class="kw">default</span>:
+        <span class="cm">/* BUG: this switch is exhaustive. Reaching default means
+         * someone added a state without updating this function — 
+         * that's a programming bug, not a runtime error. */</span>
+        <span class="fn">BUG</span>();
+    }
+}
+
+<span class="kw">static int</span> <span class="fn">read_register</span>(<span class="kw">struct</span> <span class="tp">my_dev</span> *dev, <span class="kw">u32</span> reg, <span class="kw">u32</span> *val)
+{
+    <span class="kw">int</span> ret;
+
+    <span class="cm">/* might_sleep: assert this function is only called in process context */</span>
+    <span class="fn">might_sleep</span>();
+
+    ret = <span class="fn">do_i2c_read</span>(dev, reg, val);
+
+    <span class="cm">/* WARN_ON: if ret < 0, print a warning with stack trace and
+     * return the error to caller. The 'if' makes this a useful pattern. */</span>
+    <span class="kw">if</span> (<span class="fn">WARN_ON</span>(ret &lt; <span class="nm">0</span>)) {
+        <span class="fn">pr_err</span>(<span class="st">"Failed to read register 0x%x: %d\n"</span>, reg, ret);
+        <span class="kw">return</span> ret;
+    }
+
+    <span class="cm">/* WARN_ONCE: device responded slowly — noteworthy but not actionable */</span>
+    <span class="fn">WARN_ONCE</span>(dev-&gt;latency_ms &gt; <span class="nm">100</span>,
+        <span class="st">"Device responding slowly: %dms (expected < 100ms)\n"</span>,
+        dev-&gt;latency_ms);
+
+    <span class="kw">return</span> <span class="nm">0</span>;
+}</pre>
+  </div>
+
+  <div class="info-box warn">
+    <span class="icon">⚠️</span>
+    <div class="content"><strong>Golden Rule: BUG() vs WARN()</strong>Ask yourself: "If this condition is true, can the kernel continue safely?" If YES → use WARN(). If NO (state is completely corrupt, continuing will cause data loss or worse oopses) → use BUG_ON(). In practice, prefer WARN_ON() — let the system survive and collect more debug info. Reserve BUG_ON() for true invariant violations where continuing is dangerous.</div>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn yellow">4</div>
+    <h2>Reading a Kernel Oops — The Most Important Debugging Skill</h2>
+  </div>
+
+  <div class="card">
+    <h3>💥 What is a Kernel Oops?</h3>
+    <p>An <strong>oops</strong> is what the kernel prints when it detects an unrecoverable error in kernel code — most commonly a NULL pointer dereference, use-after-free, or stack overflow. Unlike userspace segfaults (which just kill the process), an oops can kill the entire system if <code>panic_on_oops=1</code>.</p>
+    <p>Reading oops output is the #1 skill that separates experienced kernel developers from beginners. Here is a real oops, annotated line by line.</p>
+  </div>
+
+  <div class="oops-block">
+    <div class="oops-header">🔴 Kernel Oops Output — NULL Pointer Dereference in a Driver</div>
+    <pre>
+<span class="oops-key">BUG: unable to handle kernel NULL pointer dereference</span> <span class="oops-info">at 0000000000000010</span>
+<span class="oops-ann">   ↑ Type of fault: tried to access virtual address 0x10 (= NULL + offset 0x10)</span>
+<span class="oops-ann">     This tells us we have a valid struct pointer, but a FIELD inside it is NULL</span>
+
+<span class="oops-key">PF flags: [WRITE]</span> <span class="oops-info">[USER]</span>
+<span class="oops-ann">   ↑ Page fault flags: WRITE = tried to write. USER = happened in user context</span>
+<span class="oops-ann">     [PRESENT] missing = page not present (NULL). [WRITE] = write access.</span>
+
+<span class="oops-key">RIP:</span> <span class="oops-info">0010:</span><span class="oops-fn">hello_write+0x2a/0x80</span> <span class="oops-info">[hello]</span>
+<span class="oops-ann">   ↑ RIP = Instruction Pointer (where the crash happened)</span>
+<span class="oops-ann">     hello_write = function name (from kallsyms)</span>
+<span class="oops-ann">     +0x2a = offset INTO that function (0x2a bytes from function start)</span>
+<span class="oops-ann">     /0x80 = total function size (0x80 = 128 bytes)</span>
+<span class="oops-ann">     [hello] = which module. If blank, it's core kernel code.</span>
+
+<span class="oops-key">Code:</span> <span class="oops-info">48 8b 47 10 48 89 04 24 e8 ...</span>
+<span class="oops-ann">   ↑ Raw x86 bytes of the crashing instruction. Useful with objdump.</span>
+
+<span class="oops-key">RSP: 0018:ffffc9000040bde8</span>  <span class="oops-key">EFLAGS: 00010246</span>
+<span class="oops-key">RAX: 0000000000000000</span>  <span class="oops-key">RBX: ffff888100b4e800</span>  <span class="oops-key">RCX: 0000000000000005</span>
+<span class="oops-key">RDX: 0000000000000005</span>  <span class="oops-key">RSI: 00007ffd8f3a2b20</span>  <span class="oops-key">RDI: ffff888100b4e800</span>
+<span class="oops-ann">   ↑ CPU register dump at crash time. RAX=0x0 often confirms a NULL pointer.</span>
+<span class="oops-ann">     RSI = 0x00007ffd... = a USERSPACE address (note the low bits)</span>
+<span class="oops-ann">     RBX/RDI = 0xffff888... = kernel addresses</span>
+
+<span class="oops-key">CR2: 0000000000000010</span>
+<span class="oops-ann">   ↑ CR2 = the EXACT address that caused the page fault = 0x10 = NULL+0x10</span>
+<span class="oops-ann">     This is the most important register for NULL deref debugging</span>
+
+<span class="oops-key">Call Trace:</span>
+<span class="oops-ann">   ↑ Stack trace — read BOTTOM to TOP for call order:</span>
+ &lt;<span class="oops-fn">TASK</span>&gt;
+ <span class="oops-fn">hello_write</span><span class="oops-info">+0x2a/0x80</span> <span class="oops-info">[hello]</span>   <span class="oops-ann">← CRASH HERE (top of trace)</span>
+ <span class="oops-fn">vfs_write</span><span class="oops-info">+0xc3/0x3c0</span>             <span class="oops-ann">← VFS write called hello_write</span>
+ <span class="oops-fn">ksys_write</span><span class="oops-info">+0x65/0xe0</span>            <span class="oops-ann">← syscall handler called vfs_write</span>
+ <span class="oops-fn">__x64_sys_write</span><span class="oops-info">+0x19/0x30</span>       <span class="oops-ann">← x86_64 syscall entry</span>
+ <span class="oops-fn">do_syscall_64</span><span class="oops-info">+0x5c/0x90</span>         <span class="oops-ann">← syscall dispatch</span>
+ <span class="oops-fn">entry_SYSCALL_64_after_hwframe</span><span class="oops-info">+0x78/0x82</span> <span class="oops-ann">← user → kernel transition</span>
+ &lt;/<span class="oops-fn">TASK</span>&gt;
+
+<span class="oops-key">Modules linked in:</span> <span class="oops-mod">hello</span><span class="oops-info">(OE) e1000 video</span>
+<span class="oops-ann">   ↑ All loaded modules at crash time. O=out-of-tree, E=unsigned (tainted)</span>
+
+<span class="oops-key">CR3:</span> <span class="oops-info">0000000104e04001</span> <span class="oops-key">CR4:</span> <span class="oops-info">00000000003706e0</span>
+<span class="oops-ann">   ↑ CR3 = page directory (identifies the process's address space)</span>
+    </pre>
+  </div>
+
+  <div class="card">
+    <h3>🔍 Step-by-Step: Decoding the Crash to a Source Line</h3>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Find the Exact Source Line with addr2line</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre>
+<span class="cm"># From the oops: hello_write+0x2a/0x80 [hello]
+# We need to find the address of hello_write, then add 0x2a</span>
+
+<span class="cm"># Method 1: nm on your .ko file</span>
+<span class="t-prompt">$</span> <span class="t-cmd">nm hello.ko | grep hello_write</span>
+<span class="t-out">0000000000000000 t hello_write</span>
+<span class="cm"># hello_write is at offset 0x0 in the .ko</span>
+<span class="cm"># Crash is at 0x0 + 0x2a = 0x2a</span>
+
+<span class="cm"># Method 2: addr2line with debug symbols</span>
+<span class="t-prompt">$</span> <span class="t-cmd">addr2line -e hello.o 0x2a</span>
+<span class="t-green">/home/user/day3/hello.c:45</span>
+<span class="cm"># Line 45 of hello.c caused the crash!</span>
+
+<span class="cm"># Method 3: objdump — see the assembly around the crash</span>
+<span class="t-prompt">$</span> <span class="t-cmd">objdump -d -l --no-show-raw-insn hello.ko | grep -A 20 "&lt;hello_write&gt;"</span>
+<span class="t-out">0000000000000000 &lt;hello_write&gt;:
+hello.c:38
+   0:   push   %rbp
+   ...
+hello.c:45
+  2a:   mov    0x10(%rax),%rax   ← CRASH HERE: rax is NULL, 0x10 is field offset
+  2e:   mov    %rax,(%rsp)</span>
+
+<span class="cm"># Method 4: scripts/faddr2line (kernel provides this script)</span>
+<span class="t-prompt">$</span> <span class="t-cmd">./scripts/faddr2line hello.ko hello_write+0x2a</span>
+<span class="t-green">hello_write+0x2a/0x80:
+hello_write at /home/user/day3/hello.c:45</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Understand What CR2 = 0x10 Tells You</h4>
+        <p>The faulting address <code>0x10</code> = <code>16</code> in decimal. This means the code accessed a pointer at <strong>offset 16 from a NULL base pointer</strong>. Look at your struct — which field is at byte offset 16?</p>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">C — Finding the Struct Field at Offset 0x10</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="kw">struct</span> <span class="tp">my_device</span> {
+    <span class="kw">int</span>   id;           <span class="cm">/* offset 0x00, size 4 */</span>
+    <span class="kw">int</span>   flags;        <span class="cm">/* offset 0x04, size 4 */</span>
+    <span class="kw">void</span> *data;         <span class="cm">/* offset 0x08, size 8 (64-bit pointer) */</span>
+    <span class="kw">char</span> *name;         <span class="cm">/* offset 0x10, size 8  ← this is what we accessed! */</span>
+};
+
+<span class="cm">/* To check offsets programmatically: */</span>
+<span class="fn">pr_info</span>(<span class="st">"name offset: %zu\n"</span>, <span class="fn">offsetof</span>(<span class="kw">struct</span> <span class="tp">my_device</span>, name));
+<span class="cm">/* or use pahole tool: pahole hello.ko */</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Use /proc/kallsyms for Running Kernel Crashes</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre>
+<span class="cm"># If you have an address from a crash (e.g., ffffffffc0a12000 + 0x2a)</span>
+<span class="cm"># Look it up in kallsyms to find which function it belongs to</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo grep "hello_write" /proc/kallsyms</span>
+<span class="t-out">ffffffffc0a12000 t hello_write    [hello]</span>
+
+<span class="cm"># Crash address = 0xffffffffc0a12000 + 0x2a = 0xffffffffc0a1202a
+# Search for the nearest symbol below that address:</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo awk -v addr="ffffffffc0a1202a" 'strtonum("0x"$1) <= strtonum("0x"addr)' /proc/kallsyms | tail -3</span>
+<span class="t-out">ffffffffc0a12000 t hello_write    [hello]</span>
+<span class="cm"># Confirms crash at hello_write + 0x2a</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>Deliberate Crash Exercise</strong>Write a module that deliberately dereferences NULL, then decode the oops yourself. Add this to your hello_init(): <code>char *p = NULL; *p = 'X';</code> — compile with debug symbols (<code>ccflags-y += -g</code> in Makefile), load in QEMU, decode the oops using addr2line. This is the most educational exercise of Week 1.</div>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">5</div>
+    <h2>likely() and unlikely() — Branch Prediction Hints</h2>
+  </div>
+
+  <div class="card">
+    <h3>⚡ What They Are and Why They Matter</h3>
+    <p>Modern CPUs use <strong>branch prediction</strong> to speculatively execute code before a branch is resolved. If the prediction is wrong, the CPU flushes the pipeline — expensive. <code>likely()</code> and <code>unlikely()</code> are compiler hints that tell GCC which branch is expected to be taken, allowing it to optimize the generated assembly for the common case.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C — Without Hints (baseline)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">int</span> <span class="fn">do_work</span>(<span class="kw">struct</span> <span class="tp">buffer</span> *buf)
+{
+    <span class="kw">if</span> (buf == <span class="nm">NULL</span>)   <span class="cm">/* rarely NULL */</span>
+        <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+
+    <span class="cm">/* ... normal processing ... */</span>
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+<span class="cm">/* Compiler has no idea which branch is
+   more likely → generates "balanced" code
+   → extra pipeline flush cost on every
+   NULL check even when buf is valid */</span></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C — With Hints (optimized)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">int</span> <span class="fn">do_work</span>(<span class="kw">struct</span> <span class="tp">buffer</span> *buf)
+{
+    <span class="kw">if</span> (<span class="fn">unlikely</span>(buf == <span class="nm">NULL</span>)) <span class="cm">/* hint: rare */</span>
+        <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+
+    <span class="cm">/* ... normal processing ... */</span>
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+<span class="cm">/* Compiler puts error path code FAR from
+   the main code path → I-cache stays hot
+   with normal code → faster hot path */</span></pre>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — likely/unlikely Patterns in Real Driver Code</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/compiler.h&gt;</span>  <span class="cm">/* defines likely() and unlikely() */</span>
+
+<span class="cm">/* ── UNLIKELY: error conditions are rare ─────────────────────────── */</span>
+
+<span class="cm">/* kmalloc fails rarely — hint: unlikely to fail */</span>
+buf = <span class="fn">kmalloc</span>(size, <span class="nm">GFP_KERNEL</span>);
+<span class="kw">if</span> (<span class="fn">unlikely</span>(!buf)) {
+    <span class="fn">pr_err</span>(<span class="st">"Out of memory\n"</span>);
+    <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+}
+
+<span class="cm">/* Hardware errors are rare during normal operation */</span>
+status = <span class="fn">read_hw_status</span>(dev);
+<span class="kw">if</span> (<span class="fn">unlikely</span>(status &amp; HW_ERROR_BIT)) {
+    <span class="fn">handle_error</span>(dev);
+    <span class="kw">return</span> -<span class="nm">EIO</span>;
+}
+
+<span class="cm">/* ── LIKELY: normal/expected conditions ──────────────────────────── */</span>
+
+<span class="cm">/* Device is almost always ready */</span>
+<span class="kw">if</span> (<span class="fn">likely</span>(dev-&gt;state == DEV_READY)) {
+    <span class="fn">process_data</span>(dev);
+} <span class="kw">else</span> {
+    <span class="fn">wait_for_device</span>(dev);
+}
+
+<span class="cm">/* ── IMPLEMENTATION (how they actually work) ──────────────────────── */</span>
+<span class="cm">/* In include/linux/compiler.h: */</span>
+<span class="cm">/*   #define likely(x)   __builtin_expect(!!(x), 1) */</span>
+<span class="cm">/*   #define unlikely(x) __builtin_expect(!!(x), 0) */</span>
+<span class="cm">/* __builtin_expect is a GCC intrinsic that provides branch prediction hints.
+ * The !! converts the value to 0 or 1 (handles non-boolean values). */</span>
+
+<span class="cm">/* ── WHEN NOT TO USE THEM ────────────────────────────────────────── */</span>
+<span class="cm">/* DON'T use on branches where both paths are equally common:
+ *   if (likely(x > 0))   ← wrong if x is sometimes > 0 and sometimes ≤ 0
+ * DON'T use just for style — only when you KNOW the probability
+ * The kernel style guide says: use only when the result impacts performance
+ *   (hot paths: interrupt handlers, packet processing, scheduler) */</span></pre>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">6</div>
+    <h2>Kernel Coding Style — Rules Every Driver Must Follow</h2>
+  </div>
+
+  <div class="info-box note">
+    <span class="icon">📋</span>
+    <div class="content"><strong>Why This Matters for Your Job</strong>Every patch submitted to the Linux kernel is reviewed against the coding style. Reviewers will reject or delay patches that violate it. In your job, your driver code will be reviewed by colleagues who expect this style. Learn it now — it becomes muscle memory.</div>
+  </div>
+
+  <div class="card">
+    <h3>📐 The Rules — Directly From Documentation/process/coding-style.rst</h3>
+  </div>
+
+  <div class="style-compare">
+    <div class="bad-box">
+      <div class="style-label bad-label">❌ WRONG — Will Be Rejected</div>
+      <pre class="style-box-pre"><span class="cm">// Wrong indentation: spaces</span>
+int myFunction(int x) {
+    if (x > 0) {
+        return x;
+    }
+    else {
+        return -x;
+    }
+}
+
+<span class="cm">// Wrong brace style</span>
+if (condition)
+{
+    do_something();
+}
+
+<span class="cm">// Wrong spacing around operators</span>
+int y=x+1;
+if(y>0)
+    return(y);
+
+<span class="cm">// Wrong: typedef hides struct
+typedef struct {
+    int val;
+} myStruct_t;
+
+// Wrong: camelCase
+void doSomeWork() { }</span></pre>
+    </div>
+    <div class="good-box">
+      <div class="style-label good-label">✅ CORRECT — Kernel Style</div>
+      <pre class="style-box-pre"><span class="cm">/* Correct: TAB indentation */</span>
+<span class="kw">int</span> <span class="fn">my_function</span>(<span class="kw">int</span> x)
+{
+    <span class="kw">if</span> (x &gt; <span class="nm">0</span>)
+        <span class="kw">return</span> x;   <span class="cm">/* no braces for single stmt */</span>
+    <span class="kw">return</span> -x;
+}
+
+<span class="cm">/* Correct: K&R brace style for functions,
+ * Allman style for control flow */</span>
+<span class="kw">if</span> (condition) {   <span class="cm">/* brace on same line */</span>
+    <span class="fn">do_something</span>();
+    <span class="fn">do_more</span>();     <span class="cm">/* braces when >1 stmt */</span>
+}
+
+<span class="cm">/* Correct: spaces around operators */</span>
+<span class="kw">int</span> y = x + <span class="nm">1</span>;
+<span class="kw">if</span> (y &gt; <span class="nm">0</span>)
+    <span class="kw">return</span> y;     <span class="cm">/* no parens around return */</span>
+
+<span class="cm">/* Correct: no typedef for structs */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> {
+    <span class="kw">int</span> val;
+};
+
+<span class="cm">/* Correct: snake_case */</span>
+<span class="kw">void</span> <span class="fn">do_some_work</span>(<span class="kw">void</span>) { }</pre>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Rule</th><th>Correct</th><th>Wrong</th><th>Reason</th></tr>
+      <tr>
+        <td><strong>Indentation</strong></td>
+        <td>TAB characters (8-space equivalent visual width)</td>
+        <td>Spaces, 2-space, 4-space tabs</td>
+        <td>8-space indentation intentionally makes deeply nested code look ugly — encourages refactoring into functions</td>
+      </tr>
+      <tr>
+        <td><strong>Line length</strong></td>
+        <td>80 columns max (hard rule for core, 100 tolerated in some subsystems)</td>
+        <td>Lines > 80-100 chars</td>
+        <td>Readability, terminal compatibility, side-by-side diffs</td>
+      </tr>
+      <tr>
+        <td><strong>Naming</strong></td>
+        <td><code>snake_case</code> for everything: variables, functions, structs, files</td>
+        <td><code>camelCase</code>, <code>PascalCase</code>, Hungarian notation</td>
+        <td>C global convention; camelCase is C++ style</td>
+      </tr>
+      <tr>
+        <td><strong>Braces — functions</strong></td>
+        <td>Opening brace on <strong>next line</strong>: <code>int foo()\n{</code></td>
+        <td><code>int foo() {</code></td>
+        <td>K&R C style for function definitions</td>
+      </tr>
+      <tr>
+        <td><strong>Braces — control flow</strong></td>
+        <td>Opening brace on <strong>same line</strong>: <code>if (x) {</code></td>
+        <td><code>if (x)\n{</code></td>
+        <td>Saves vertical space in control structures</td>
+      </tr>
+      <tr>
+        <td><strong>Single-statement if</strong></td>
+        <td>No braces: <code>if (x)\n\treturn 0;</code></td>
+        <td><code>if (x) { return 0; }</code></td>
+        <td>Cleaner, unless there's an else clause with braces</td>
+      </tr>
+      <tr>
+        <td><strong>Comments</strong></td>
+        <td><code>/* C-style comments */</code></td>
+        <td><code>// C++ style</code></td>
+        <td>Kernel was originally C89. C++ comments now tolerated but C-style preferred</td>
+      </tr>
+      <tr>
+        <td><strong>Typedefs</strong></td>
+        <td>Never typedef structs. Use <code>struct my_dev *dev</code></td>
+        <td><code>typedef struct {} my_dev_t</code></td>
+        <td>Typedefs hide the type. In kernel code, knowing something is a struct matters.</td>
+      </tr>
+      <tr>
+        <td><strong>goto</strong></td>
+        <td>Allowed for <strong>error cleanup only</strong> — the "goto cleanup" pattern</td>
+        <td>Using goto for anything else</td>
+        <td>The goto cleanup pattern is cleaner than deeply nested ifs for resource teardown</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — The goto Cleanup Pattern — Canonical Kernel Error Handling</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/* This is THE standard pattern for resource management in kernel init functions.
+ * It is not a code smell — it is idiomatic kernel C. Learn it and use it. */</span>
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">my_driver_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> ret;
+
+    <span class="cm">/* Step 1: Allocate memory */</span>
+    my_dev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*my_dev), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!my_dev) {
+        ret = -<span class="nm">ENOMEM</span>;
+        <span class="kw">goto</span> <span class="fn">err_alloc</span>;           <span class="cm">/* jump to cleanup */</span>
+    }
+
+    <span class="cm">/* Step 2: Register device */</span>
+    ret = <span class="fn">register_chrdev_region</span>(...);
+    <span class="kw">if</span> (ret &lt; <span class="nm">0</span>) {
+        <span class="fn">pr_err</span>(<span class="st">"Failed to register: %d\n"</span>, ret);
+        <span class="kw">goto</span> <span class="fn">err_register</span>;        <span class="cm">/* kfree my_dev, then return */</span>
+    }
+
+    <span class="cm">/* Step 3: Request IRQ */</span>
+    ret = <span class="fn">request_irq</span>(irq, <span class="fn">my_handler</span>, <span class="nm">0</span>, <span class="st">"mydev"</span>, my_dev);
+    <span class="kw">if</span> (ret &lt; <span class="nm">0</span>) {
+        <span class="fn">pr_err</span>(<span class="st">"Failed to get IRQ: %d\n"</span>, ret);
+        <span class="kw">goto</span> <span class="fn">err_irq</span>;             <span class="cm">/* unregister, kfree, return */</span>
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"Driver loaded OK\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;                     <span class="cm">/* SUCCESS: skip all cleanup labels */</span>
+
+<span class="cm">/* ── ERROR CLEANUP — in REVERSE order of acquisition ─────────────── */</span>
+<span class="fn">err_irq</span>:
+    <span class="fn">unregister_chrdev_region</span>(...);
+<span class="fn">err_register</span>:
+    <span class="fn">kfree</span>(my_dev);
+<span class="fn">err_alloc</span>:
+    <span class="kw">return</span> ret;
+}
+
+<span class="cm">/* KEY RULES for this pattern:
+ * 1. Cleanup labels are in REVERSE order of acquisition
+ * 2. Each label only undoes what the CORRESPONDING step did
+ * 3. Early labels fall through to later ones (no return between labels)
+ * 4. Label names are descriptive: err_alloc, err_register, err_irq
+ * This pattern is impossible to get wrong once you understand the "waterfall" */</span></pre>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn orange">7</div>
+    <h2>checkpatch.pl — Automated Style Checking</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔧 The Kernel's Style Linter</h3>
+    <p>The kernel ships a Perl script at <code>scripts/checkpatch.pl</code> that checks your code or patch against the coding style rules. Every patch submitted to the kernel must pass checkpatch. Run it on your code before committing — it catches many style errors automatically.</p>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">Terminal — Running checkpatch</div></div>
+    <pre>
+<span class="cm"># Check a source file directly</span>
+<span class="t-prompt">$</span> <span class="t-cmd">perl linux-6.9/scripts/checkpatch.pl --no-tree -f hello.c</span>
+<span class="t-red">ERROR: code indent should use tabs where possible
+#12: FILE: hello.c:12:
++    if (x > 0) {</span>
+<span class="t-yellow">WARNING: line over 80 characters
+#24: FILE: hello.c:24:
++    pr_info("This is a very long message that exceeds the 80 character limit set by coding style\n");</span>
+<span class="t-yellow">WARNING: Missing a blank line after declarations
+#35: FILE: hello.c:35:
++	int ret;</span>
+<span class="t-green">total: 1 errors, 2 warnings, 45 lines checked</span>
+
+<span class="cm"># Check a git patch</span>
+<span class="t-prompt">$</span> <span class="t-cmd">git diff HEAD~1 | perl linux-6.9/scripts/checkpatch.pl -</span>
+
+<span class="cm"># --strict: enable extra checks (use for mainline submissions)</span>
+<span class="t-prompt">$</span> <span class="t-cmd">perl linux-6.9/scripts/checkpatch.pl --strict --no-tree -f hello.c</span>
+
+<span class="cm"># Fix automatically where possible (experimental)</span>
+<span class="t-prompt">$</span> <span class="t-cmd">perl linux-6.9/scripts/checkpatch.pl --fix --no-tree -f hello.c</span>
+
+<span class="cm"># Add to your Makefile for convenience:</span>
+<span class="cm"># check:</span>
+<span class="cm"># 	perl $(KDIR)/../scripts/checkpatch.pl --no-tree -f $(wildcard *.c *.h)</span></pre>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn green">8</div>
+    <h2>/proc/kallsyms Deep Dive — The Kernel Symbol Map</h2>
+  </div>
+
+  <div class="card">
+    <h3>🗺️ Every Kernel Symbol — Address, Type, Module</h3>
+    <p><code>/proc/kallsyms</code> maps every symbol in the running kernel to its virtual address. It includes core kernel symbols, all loaded module symbols, and percpu variables. As a driver developer, you use it to decode crash addresses, understand memory layout, and verify your module's symbols are loaded correctly.</p>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash — Working with /proc/kallsyms</div></div>
+    <pre>
+<span class="cm"># Basic format: address  type  name  [module]</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo cat /proc/kallsyms | head -5</span>
+<span class="t-out">0000000000000000 A fixed_percpu_data
+0000000000000000 A __per_cpu_start
+ffffffff81000000 T startup_64
+ffffffff81000000 T _stext
+ffffffff81001000 T do_syscall_64</span>
+
+<span class="cm"># Symbol type letters (from nm man page):</span>
+<span class="cm"># T/t = code (.text): T=global, t=local/static</span>
+<span class="cm"># D/d = initialized data (.data)</span>
+<span class="cm"># B/b = uninitialized data (.bss)</span>
+<span class="cm"># R/r = read-only data (.rodata)</span>
+<span class="cm"># A   = absolute (address doesn't change with KASLR)</span>
+<span class="cm"># W/w = weak symbol</span>
+
+<span class="cm"># Find all symbols from your module</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo grep "\[hello\]" /proc/kallsyms</span>
+<span class="t-out">ffffffffc0a12000 t hello_init    [hello]
+ffffffffc0a12050 t hello_exit    [hello]
+ffffffffc0a12100 d hello_count   [hello]</span>
+
+<span class="cm"># Find where a function lives (e.g., printk)</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo grep " T printk$" /proc/kallsyms</span>
+<span class="t-out">ffffffff81234567 T printk</span>
+
+<span class="cm"># Decode an oops address to nearest symbol</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ADDR=ffffffff81234599; sudo awk -v a="$ADDR" 'strtonum("0x"$1) <= strtonum("0x"a) {s=$0} END {print s}' /proc/kallsyms</span>
+
+<span class="cm"># See what the kernel text/data sections look like</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo grep -E "^ffffffff[0-9a-f]+ [A-Z] _(text|etext|sdata|edata|end)$" /proc/kallsyms</span>
+<span class="t-out">ffffffff81000000 T _text      ← kernel code starts here
+ffffffff82000000 T _etext     ← kernel code ends here
+ffffffff82200000 D _sdata     ← kernel data starts here
+ffffffff82600000 B _end       ← kernel ends here</span>
+
+<span class="cm"># KASLR note: With KASLR enabled (most systems), addresses in kallsyms
+# change every boot. That's why crash addresses must be compared against
+# the CURRENT boot's kallsyms, not a saved copy.</span></pre>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">9</div>
+    <h2>Error Return Values — The Kernel's Error Code System</h2>
+  </div>
+
+  <div class="card">
+    <h3>⚠️ How Kernel Functions Signal Errors</h3>
+    <p>Kernel functions return <strong>negative errno values</strong> on error. These are defined in <code>&lt;linux/errno.h&gt;</code> (values from POSIX). The pattern is always: return 0 on success, return <code>-EXXXX</code> on failure. Never return positive values as errors.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Error Code</th><th>Value</th><th>Meaning</th><th>When to Return from Driver</th></tr>
+      <tr><td><code>-EINVAL</code></td><td>-22</td><td>Invalid argument</td><td>Bad parameter from userspace, invalid ioctl command, out-of-range value</td></tr>
+      <tr><td><code>-ENOMEM</code></td><td>-12</td><td>Out of memory</td><td><code>kmalloc()</code> returned NULL</td></tr>
+      <tr><td><code>-EIO</code></td><td>-5</td><td>I/O error</td><td>Hardware communication failed, register read/write timed out</td></tr>
+      <tr><td><code>-ENODEV</code></td><td>-19</td><td>No such device</td><td>Hardware not present, device removed during operation</td></tr>
+      <tr><td><code>-EBUSY</code></td><td>-16</td><td>Device or resource busy</td><td>Resource already in use, lock contention, module in use</td></tr>
+      <tr><td><code>-EACCES</code></td><td>-13</td><td>Permission denied</td><td>Caller lacks required privilege (CAP_SYS_ADMIN, etc.)</td></tr>
+      <tr><td><code>-EFAULT</code></td><td>-14</td><td>Bad address</td><td>copy_from/to_user() failed — userspace pointer was invalid</td></tr>
+      <tr><td><code>-ETIMEDOUT</code></td><td>-110</td><td>Connection timed out</td><td>Hardware didn't respond within expected time</td></tr>
+      <tr><td><code>-EAGAIN</code></td><td>-11</td><td>Try again</td><td>Resource temporarily unavailable — caller should retry</td></tr>
+      <tr><td><code>-ENOTSUPP</code></td><td>-524</td><td>Not supported</td><td>Operation not supported by this hardware</td></tr>
+      <tr><td><code>-EPROBE_DEFER</code></td><td>-517</td><td>Probe deferred</td><td>Dependency not ready yet — kernel will retry probe later. Critical for platform/I2C drivers!</td></tr>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — PTR_ERR / IS_ERR / ERR_PTR — Encoding Errors in Pointers</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/err.h&gt;</span>
+
+<span class="cm">/* Many kernel functions return either a valid pointer OR an error code
+ * encoded as a pointer. This uses the fact that kernel pointers are always
+ * above 0xffff... — the very last 4KB of address space is used for errors.
+ *
+ * IS_ERR(ptr)   → true if ptr is an error (value between -4095 and -1)
+ * PTR_ERR(ptr)  → extract the errno from an error pointer (e.g., -ENOMEM)
+ * ERR_PTR(err)  → convert an errno to an error pointer */</span>
+
+<span class="kw">struct</span> <span class="tp">my_device</span> *<span class="fn">create_device</span>(<span class="kw">const char</span> *name)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev;
+
+    dev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*dev), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!dev)
+        <span class="kw">return</span> <span class="fn">ERR_PTR</span>(-<span class="nm">ENOMEM</span>);  <span class="cm">/* return error as pointer */</span>
+
+    <span class="kw">return</span> dev;                        <span class="cm">/* return valid pointer on success */</span>
+}
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">my_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev;
+
+    dev = <span class="fn">create_device</span>(<span class="st">"test"</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(dev)) {                  <span class="cm">/* check if it's an error */</span>
+        <span class="kw">int</span> err = <span class="fn">PTR_ERR</span>(dev);        <span class="cm">/* extract the errno: -ENOMEM */</span>
+        <span class="fn">pr_err</span>(<span class="st">"create_device failed: %d\n"</span>, err);
+        <span class="kw">return</span> err;
+    }
+    <span class="cm">/* dev is a valid pointer here */</span>
+    <span class="fn">pr_info</span>(<span class="st">"Device created: %p\n"</span>, dev);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}</pre>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn yellow">10</div>
+    <h2>Day 3 Practice — Deliberate Crash &amp; Full Debug Session</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Today's Practice Goal</strong>Write a module that deliberately crashes (NULL deref), decode the oops yourself, fix it, and add proper debug infrastructure. This is the most important exercise of Week 1 — it teaches you to think like a kernel developer.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — debug_practice.c — Full Practice Module</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * debug_practice.c - Day 3 Practice Module
+ * Demonstrates: pr_debug, BUG_ON, WARN_ON, error handling, coding style
+ *
+ * Build: make
+ * Load:  sudo insmod debug_practice.ko
+ *        sudo insmod debug_practice.ko mode=crash    (deliberate crash)
+ *        sudo insmod debug_practice.ko mode=warn     (WARN_ON demo)
+ */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="pp">#include &lt;linux/slab.h&gt;</span>    <span class="cm">/* kmalloc, kfree */</span>
+<span class="pp">#include &lt;linux/bug.h&gt;</span>     <span class="cm">/* BUG_ON, WARN_ON */</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Day 3 Debug Practice Module"</span>);
+
+<span class="kw">static char</span> *mode = <span class="st">"normal"</span>;
+<span class="mc">module_param</span>(mode, charp, <span class="nm">0444</span>);
+<span class="mc">MODULE_PARM_DESC</span>(mode, <span class="st">"Mode: normal|crash|warn|defer"</span>);
+
+<span class="kw">struct</span> <span class="tp">sensor_data</span> {
+    <span class="kw">int</span>   value;
+    <span class="kw">char</span> *name;     <span class="cm">/* field at offset 0x08 (after 4-byte value + 4-byte padding) */</span>
+};
+
+<span class="kw">static int</span> <span class="fn">process_sensor</span>(<span class="kw">struct</span> <span class="tp">sensor_data</span> *s)
+{
+    <span class="fn">pr_debug</span>(<span class="st">"process_sensor: ptr=%p\n"</span>, s);
+
+    <span class="cm">/* WARN_ON: sensor pointer should never be NULL here */</span>
+    <span class="kw">if</span> (<span class="fn">WARN_ON</span>(!s))
+        <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+
+    <span class="fn">pr_debug</span>(<span class="st">"process_sensor: value=%d, name=%s\n"</span>, s-&gt;value, s-&gt;name);
+    <span class="fn">pr_info</span>(<span class="st">"Sensor '%s' reads: %d\n"</span>, s-&gt;name, s-&gt;value);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">debug_practice_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">struct</span> <span class="tp">sensor_data</span> *sensor;
+    <span class="kw">int</span> ret;
+
+    <span class="fn">pr_info</span>(<span class="st">"debug_practice: Loading in '%s' mode\n"</span>, mode);
+
+    <span class="kw">if</span> (<span class="fn">strcmp</span>(mode, <span class="st">"crash"</span>) == <span class="nm">0</span>) {
+        <span class="cm">/* DELIBERATE NULL DEREFERENCE — run in QEMU! */</span>
+        <span class="fn">pr_warn</span>(<span class="st">"About to crash deliberately! Watch dmesg.\n"</span>);
+        sensor = <span class="nm">NULL</span>;
+        <span class="fn">pr_info</span>(<span class="st">"Sensor name: %s\n"</span>, sensor-&gt;name);  <span class="cm">/* CRASH HERE */</span>
+        <span class="kw">return</span> <span class="nm">0</span>;
+    }
+
+    <span class="kw">if</span> (<span class="fn">strcmp</span>(mode, <span class="st">"warn"</span>) == <span class="nm">0</span>) {
+        <span class="cm">/* WARN_ON demo — system survives */</span>
+        ret = <span class="fn">process_sensor</span>(<span class="nm">NULL</span>);   <span class="cm">/* passes NULL → WARN_ON fires */</span>
+        <span class="fn">pr_info</span>(<span class="st">"process_sensor returned: %d (system still alive!)\n"</span>, ret);
+        <span class="kw">return</span> <span class="nm">0</span>;
+    }
+
+    <span class="cm">/* NORMAL mode — proper resource management with goto cleanup */</span>
+    sensor = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*sensor), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (<span class="fn">unlikely</span>(!sensor)) {
+        <span class="fn">pr_err</span>(<span class="st">"Failed to allocate sensor struct\n"</span>);
+        ret = -<span class="nm">ENOMEM</span>;
+        <span class="kw">goto</span> <span class="fn">err_alloc</span>;
+    }
+
+    sensor-&gt;value = <span class="nm">42</span>;
+    sensor-&gt;name = <span class="st">"temp_sensor_0"</span>;
+
+    ret = <span class="fn">process_sensor</span>(sensor);
+    <span class="kw">if</span> (<span class="fn">unlikely</span>(ret &lt; <span class="nm">0</span>)) {
+        <span class="fn">pr_err</span>(<span class="st">"process_sensor failed: %d\n"</span>, ret);
+        <span class="kw">goto</span> <span class="fn">err_process</span>;
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"debug_practice: Init complete\n"</span>);
+    <span class="fn">kfree</span>(sensor);  <span class="cm">/* no persistent state needed */</span>
+    <span class="kw">return</span> <span class="nm">0</span>;
+
+<span class="fn">err_process</span>:
+    <span class="fn">kfree</span>(sensor);
+<span class="fn">err_alloc</span>:
+    <span class="kw">return</span> ret;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">debug_practice_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"debug_practice: Unloaded\n"</span>);
+}
+
+<span class="mc">module_init</span>(<span class="fn">debug_practice_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">debug_practice_exit</span>);</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">Makefile — With Debug Symbols and checkpatch Target</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre>obj-m += debug_practice.o
+KDIR ?= /lib/modules/$(shell uname -r)/build
+
+<span class="cm"># Add -g for debug symbols (needed for addr2line)</span>
+ccflags-y += -g -DDEBUG
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+<span class="cm"># Style check target</span>
+check:
+	perl $(KDIR)/scripts/checkpatch.pl --no-tree -f debug_practice.c</pre>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Normal Mode — Verify Clean Operation</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make && sudo insmod debug_practice.ko && dmesg | tail -5</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod debug_practice</span>
+<span class="cm"># Enable dynamic debug to see pr_debug output:</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod debug_practice.ko dyndbg="+p"</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -10</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>WARN Mode — System Survives a WARN_ON</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo insmod debug_practice.ko mode=warn</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -15</span>
+<span class="cm"># You'll see the WARN_ON stack trace AND the system continues</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod debug_practice   # still works!</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Crash Mode — Deliberate NULL Deref (QEMU ONLY!)</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash — Inside QEMU</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo insmod debug_practice.ko mode=crash</span>
+<span class="cm"># Kernel prints oops. System may panic.
+# Read the oops output carefully:
+# 1. Find the RIP line — which function, what offset?
+# 2. Find CR2 — what address was accessed?
+# 3. Read the call trace bottom to top
+# 4. Use addr2line to find the exact source line</span>
+<span class="t-prompt">$</span> <span class="t-cmd">addr2line -e debug_practice.o 0xOFFSET</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Style Check</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make check</span>
+<span class="cm"># Fix any errors it reports
+# Goal: "total: 0 errors, 0 warnings"</span>
+<span class="t-prompt">$</span> <span class="t-cmd">perl ~/linux-6.9/scripts/checkpatch.pl --no-tree -f debug_practice.c</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="section-header">
+    <div class="sn green">11</div>
+    <h2>Day 3 Summary &amp; Tomorrow's Preview</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>✅ What You Mastered Today</h3>
+      <ul class="checklist">
+        <li><span class="chk">☑</span> Kernel ring buffer mechanics and all dmesg options</li>
+        <li><span class="chk">☑</span> dynamic_debug — enabling pr_debug at runtime without recompile</li>
+        <li><span class="chk">☑</span> BUG() vs WARN() — when each is appropriate</li>
+        <li><span class="chk">☑</span> Reading a real kernel oops line by line</li>
+        <li><span class="chk">☑</span> addr2line, nm, objdump — source-level crash decoding</li>
+        <li><span class="chk">☑</span> /proc/kallsyms — symbol lookup for crash analysis</li>
+        <li><span class="chk">☑</span> likely() / unlikely() — branch prediction hints</li>
+        <li><span class="chk">☑</span> Full kernel coding style rules</li>
+        <li><span class="chk">☑</span> The goto cleanup pattern for error handling</li>
+        <li><span class="chk">☑</span> checkpatch.pl — automated style linting</li>
+        <li><span class="chk">☑</span> PTR_ERR / IS_ERR / ERR_PTR pattern</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🔜 Day 4 Preview — Kernel Memory Management</h3>
+        <ul class="checklist">
+          <li><span class="chk-no">○</span> Physical vs virtual address space in depth</li>
+          <li><span class="chk-no">○</span> kmalloc / kzalloc / kfree — SLUB allocator</li>
+          <li><span class="chk-no">○</span> GFP flags — when to use GFP_KERNEL vs GFP_ATOMIC</li>
+          <li><span class="chk-no">○</span> vmalloc / vfree — virtually contiguous allocations</li>
+          <li><span class="chk-no">○</span> Page allocator — alloc_pages, get_free_pages</li>
+          <li><span class="chk-no">○</span> Memory pools and slab caches</li>
+          <li><span class="chk-no">○</span> /proc/slabinfo — observing allocator internals</li>
+          <li><span class="chk-no">○</span> Kernel stack limits and why they matter</li>
+        </ul>
+      </div>
+      <div class="info-box tip" style="margin-top:16px">
+        <span class="icon">📚</span>
+        <div class="content"><strong>Tonight's Reading</strong>Documentation/process/coding-style.rst — the official kernel style guide. Read the whole thing (it's short, ~15 minutes). Then read Documentation/core-api/printk-formats.rst for all the special kernel format specifiers.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote">
+    "The ability to read a kernel oops and find the crashing line in under 5 minutes is what makes a driver developer worth hiring. Practice it until it's automatic — every oops tells a story, and learning to read that story quickly is the difference between a 30-minute debug session and a 3-day one."
+    <strong>— Day 3 Complete ✓ — You can now read kernel crashes. That's huge.</strong>
+  </div>
+
+</div>
+
+<div class="footer">
+  Day 3 of 30 · Linux Device Driver Roadmap · Week 1: Kernel Foundations
+</div>
+</body>
+</html>

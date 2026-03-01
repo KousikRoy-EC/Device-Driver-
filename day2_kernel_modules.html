@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 2 — Kernel Modules: Hello World & Internals</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1629;
+    --bg3: #141c35;
+    --card: #111827;
+    --border: #1e2d4d;
+    --accent: #3b82f6;
+    --accent2: #60a5fa;
+    --green: #10b981;
+    --green2: #34d399;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --purple: #8b5cf6;
+    --cyan: #06b6d4;
+    --orange: #f97316;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.7; font-size: 15px; }
+
+  .hero {
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a0f3d 50%, #0a0e1a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 40px 50px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -80px; right: -80px;
+    width: 450px; height: 450px;
+    background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: ''; position: absolute; bottom: -60px; left: 100px;
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3);
+    color: #a78bfa; padding: 5px 14px; border-radius: 20px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em; margin-bottom: 20px;
+  }
+  .badge .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.4)} }
+  .hero h1 { font-family: var(--display); font-size: clamp(28px,4vw,46px); font-weight: 800; line-height: 1.15; color: #fff; margin-bottom: 12px; }
+  .hero h1 span { color: #a78bfa; }
+  .hero .sub { color: var(--text2); font-size: 16px; max-width: 640px; margin-bottom: 28px; }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text2); padding: 4px 12px; border-radius: 6px; font-size: 12px; font-family: var(--mono); }
+
+  .container { max-width: 980px; margin: 0 auto; padding: 40px 24px; }
+
+  .section-header { display: flex; align-items: center; gap: 12px; margin: 52px 0 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .section-num { width: 32px; height: 32px; background: var(--accent); color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .section-num.green { background: var(--green); }
+  .section-num.yellow { background: var(--yellow); color: #000; }
+  .section-num.purple { background: var(--purple); }
+  .section-num.cyan { background: var(--cyan); color: #000; }
+  .section-num.red { background: var(--red); }
+  .section-num.orange { background: var(--orange); }
+  .section-header h2 { font-family: var(--display); font-size: 22px; font-weight: 700; color: #fff; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .card h3 { font-family: var(--display); font-size: 16px; font-weight: 700; color: var(--accent2); margin-bottom: 12px; }
+  .card p { color: var(--text2); margin-bottom: 10px; font-size: 14.5px; }
+  .card p:last-child { margin-bottom: 0; }
+  .card ul { padding-left: 20px; }
+  .card ul li { color: var(--text2); margin-bottom: 7px; font-size: 14.5px; }
+  .card ul li strong { color: var(--text); }
+
+  .code-block { background: #060b14; border: 1px solid var(--border); border-radius: 10px; margin: 16px 0; overflow: hidden; }
+  .code-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: #0c1220; border-bottom: 1px solid var(--border); }
+  .code-lang { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; }
+  .code-dots { display: flex; gap: 6px; }
+  .code-dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .code-dots span:nth-child(1) { background: #ef4444; }
+  .code-dots span:nth-child(2) { background: #f59e0b; }
+  .code-dots span:nth-child(3) { background: #10b981; }
+  .code-block pre { padding: 20px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.85; color: #cdd6f4; }
+
+  /* syntax */
+  .kw { color: #cba6f7; }
+  .fn { color: #89b4fa; }
+  .st { color: #a6e3a1; }
+  .cm { color: #585b70; font-style: italic; }
+  .nm { color: #fab387; }
+  .tp { color: #89dceb; }
+  .pp { color: #f38ba8; }
+  .mc { color: #f9e2af; } /* macros */
+  .op { color: #94e2d5; }
+
+  .diagram { background: #060b14; border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin: 16px 0; font-family: var(--mono); font-size: 13px; line-height: 1.9; overflow-x: auto; white-space: pre; color: #cdd6f4; }
+
+  .info-box { display: flex; gap: 14px; padding: 16px 20px; border-radius: 10px; margin: 16px 0; font-size: 14px; }
+  .info-box.note { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
+  .info-box.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+  .info-box.tip  { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+  .info-box.danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+  .info-box .icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .info-box .content { color: var(--text2); }
+  .info-box .content strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { background: var(--bg3); color: var(--accent2); font-family: var(--display); font-weight: 600; padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+  td { padding: 11px 16px; border-bottom: 1px solid rgba(30,45,77,0.5); color: var(--text2); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+  td strong { color: var(--text); }
+  td code { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: var(--accent2); padding: 1px 6px; border-radius: 4px; font-family: var(--mono); font-size: 12px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  @media(max-width:640px) { .two-col { grid-template-columns: 1fr; } }
+
+  .steps { display: flex; flex-direction: column; gap: 0; margin: 16px 0; }
+  .step { display: flex; gap: 16px; position: relative; padding-bottom: 28px; }
+  .step:last-child { padding-bottom: 0; }
+  .step-left { display: flex; flex-direction: column; align-items: center; }
+  .step-num { width: 32px; height: 32px; background: var(--purple); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 13px; font-weight: 700; flex-shrink: 0; z-index: 1; }
+  .step-line { width: 2px; flex: 1; background: var(--border); margin-top: 6px; }
+  .step:last-child .step-line { display: none; }
+  .step-content { padding-top: 4px; flex: 1; }
+  .step-content h4 { color: #fff; font-weight: 600; font-size: 15px; margin-bottom: 8px; font-family: var(--display); }
+  .step-content p { color: var(--text2); font-size: 14px; margin-bottom: 8px; }
+
+  code { background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25); color: #a78bfa; padding: 1px 6px; border-radius: 4px; font-family: var(--mono); font-size: 12.5px; }
+
+  .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin: 16px 0; }
+  @media(max-width:700px) { .grid-3 { grid-template-columns: 1fr; } }
+  .mini-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .mini-card .mc-icon { font-size: 22px; margin-bottom: 10px; }
+  .mini-card h4 { color: #fff; font-weight: 600; font-size: 14px; margin-bottom: 6px; font-family: var(--display); }
+  .mini-card p { color: var(--text2); font-size: 13px; line-height: 1.6; }
+
+  .nav-bar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 40px; display: flex; align-items: center; gap: 16px; font-family: var(--mono); font-size: 12px; color: var(--text3); position: sticky; top: 0; z-index: 100; }
+  .nav-bar .crumb { color: var(--text2); }
+  .nav-bar .sep { color: var(--border); }
+  .nav-bar .current { color: #a78bfa; }
+
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 13px; color: var(--text2); }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 18px; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+
+  .quote { border-left: 3px solid var(--purple); padding: 14px 20px; margin: 20px 0; background: rgba(139,92,246,0.05); border-radius: 0 8px 8px 0; color: var(--text2); font-style: italic; font-size: 14.5px; }
+  .quote strong { color: #a78bfa; font-style: normal; display: block; margin-top: 6px; font-size: 12px; }
+
+  .file-tree { background: #060b14; border: 1px solid var(--border); border-radius: 10px; padding: 20px; font-family: var(--mono); font-size: 13px; line-height: 2; }
+  .file-tree .dir { color: var(--accent2); font-weight: 700; }
+  .file-tree .file { color: #cdd6f4; }
+  .file-tree .comment { color: var(--text3); font-style: italic; }
+
+  .annotated { position: relative; }
+  .ann-line { display: flex; gap: 16px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid rgba(30,45,77,0.3); }
+  .ann-line:last-child { border-bottom: none; }
+  .ann-code { font-family: var(--mono); font-size: 12.5px; color: #cdd6f4; min-width: 340px; }
+  .ann-note { font-size: 13px; color: var(--text2); padding-top: 2px; }
+
+  .terminal { background: #0a0a0a; border: 1px solid #333; border-radius: 10px; overflow: hidden; margin: 16px 0; }
+  .terminal-header { background: #1a1a1a; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+  .terminal-header span { width: 12px; height: 12px; border-radius: 50%; }
+  .terminal-header span:nth-child(1) { background: #ff5f57; }
+  .terminal-header span:nth-child(2) { background: #ffbd2e; }
+  .terminal-header span:nth-child(3) { background: #28c840; }
+  .terminal-header .t-title { margin-left: 8px; font-family: var(--mono); font-size: 12px; color: #666; }
+  .terminal pre { padding: 18px 20px; font-family: var(--mono); font-size: 13px; line-height: 1.8; color: #d4d4d4; }
+  .t-prompt { color: #28c840; }
+  .t-cmd { color: #d4d4d4; }
+  .t-out { color: #808080; }
+  .t-green { color: #28c840; }
+  .t-blue { color: #569cd6; }
+  .t-yellow { color: #dcdcaa; }
+  .t-red { color: #f48771; }
+
+  .lifecycle { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0; margin: 20px 0; }
+  .lc-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; text-align: center; min-width: 120px; }
+  .lc-box .lc-icon { font-size: 24px; margin-bottom: 6px; }
+  .lc-box .lc-title { font-family: var(--display); font-size: 13px; font-weight: 700; color: #fff; }
+  .lc-box .lc-desc { font-size: 11px; color: var(--text3); margin-top: 4px; font-family: var(--mono); }
+  .lc-arrow { color: var(--text3); font-size: 20px; padding: 0 8px; }
+  .lc-box.active { border-color: var(--purple); background: rgba(139,92,246,0.1); }
+  .lc-box.active .lc-title { color: #a78bfa; }
+
+  .footer { margin-top: 60px; padding: 30px 24px; border-top: 1px solid var(--border); text-align: center; color: var(--text3); font-size: 13px; font-family: var(--mono); }
+
+  .param-table { margin: 16px 0; }
+  .param-row { display: grid; grid-template-columns: 180px 1fr; gap: 0; border-bottom: 1px solid rgba(30,45,77,0.4); }
+  .param-row:last-child { border-bottom: none; }
+  .param-key { font-family: var(--mono); font-size: 12.5px; color: #a78bfa; background: rgba(139,92,246,0.06); padding: 10px 14px; border-right: 1px solid rgba(30,45,77,0.4); }
+  .param-val { font-size: 13.5px; color: var(--text2); padding: 10px 14px; }
+  .param-val strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 1: Kernel Foundations</span>
+  <span class="sep">›</span>
+  <span class="current">Day 2 — Kernel Modules: Hello World & Internals</span>
+</nav>
+
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 1 · Day 2 of 30</div>
+  <h1>Kernel Modules —<br><span>Hello World &amp; Internals</span></h1>
+  <p class="sub">Write your very first piece of kernel code. Understand the complete module lifecycle, how the build system works, module parameters, symbol exports, and how the kernel loads your code into its own address space.</p>
+  <div class="hero-tags">
+    <span class="tag">LKM — Loadable Kernel Module</span>
+    <span class="tag">module_init / module_exit</span>
+    <span class="tag">insmod / rmmod / modprobe</span>
+    <span class="tag">Module Parameters</span>
+    <span class="tag">EXPORT_SYMBOL</span>
+    <span class="tag">Module Lifecycle</span>
+    <span class="tag">dmesg / lsmod</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- PROGRESS -->
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 2 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:6.6%; background:linear-gradient(90deg,#8b5cf6,#a78bfa)"></div></div>
+    <div class="progress-header"><span>Week 1 Progress</span><span>Day 2 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:28.5%; background:linear-gradient(90deg,#8b5cf6,#a78bfa)"></div></div>
+  </div>
+
+  <!-- ═══════════ SECTION 1 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num purple">1</div>
+    <h2>What is a Loadable Kernel Module (LKM)?</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔌 The Core Idea</h3>
+    <p>A <strong>Loadable Kernel Module</strong> is a piece of kernel code compiled as a separate binary (<code>.ko</code> file) that can be inserted into a running kernel without rebooting — and removed when no longer needed. This is how virtually every driver is shipped and deployed on Linux.</p>
+    <p>When you load a module with <code>insmod</code>, the kernel literally <strong>copies your code into kernel address space</strong>, resolves all symbol references (like <code>printk</code>), and calls your <code>init</code> function. From that moment, your code runs with full Ring 0 privilege — same as the core kernel itself.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>✅ Why Modules (not built-in)?</h3>
+      <ul>
+        <li><strong>Load on demand:</strong> Only load when the hardware is present</li>
+        <li><strong>No reboot needed:</strong> Deploy, test, fix, reload instantly</li>
+        <li><strong>Smaller kernel image:</strong> Fewer drivers compiled in = faster boot</li>
+        <li><strong>Easier development:</strong> Change code → rmmod → insmod, done</li>
+        <li><strong>Distribution friendly:</strong> One kernel, many driver packages</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>⚠️ The Price of Privilege</h3>
+      <ul>
+        <li>Your module runs in <strong>Ring 0</strong> — full hardware access</li>
+        <li>A bug (NULL deref, use-after-free) causes a <strong>kernel oops or panic</strong></li>
+        <li>No memory protection from the rest of the kernel — you share address space</li>
+        <li>No automatic resource cleanup if your init fails midway — you must do it</li>
+        <li>This is why we test in <strong>QEMU first</strong></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 2 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>Your First Kernel Module — Complete Annotated Code</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Read Every Line</strong>Unlike userspace Hello World, every single line of a kernel module has a reason. We'll go through each one in detail.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — hello.c — Your First Kernel Module</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * hello.c - The simplest possible kernel module
+ * This file MUST be compiled against kernel headers, not glibc.
+ */</span>
+
+<span class="cm">/* ── REQUIRED HEADERS ─────────────────────────────────────────────────── */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>     <span class="cm">/* __init, __exit macros */</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>   <span class="cm">/* MODULE_* macros, module_init/exit */</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>  <span class="cm">/* pr_info(), KERN_INFO, printk() */</span>
+
+<span class="cm">/* ── MODULE METADATA ──────────────────────────────────────────────────── */</span>
+<span class="cm">/* These become readable via: modinfo hello.ko                             */</span>
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);              <span class="cm">/* REQUIRED. "GPL" unlocks GPL-only symbols */</span>
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);         <span class="cm">/* Shows in modinfo */</span>
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Hello World"</span>);  <span class="cm">/* Brief description */</span>
+<span class="mc">MODULE_VERSION</span>(<span class="st">"1.0"</span>);              <span class="cm">/* Optional version string */</span>
+
+<span class="cm">/* ── INIT FUNCTION ───────────────────────────────────────────────────── */</span>
+<span class="cm">/* Called when the module is loaded (insmod / modprobe)
+ * __init: tells linker to put this in .init.text section.
+ *         After init succeeds, kernel FREES this memory.
+ *         Never call an __init function after module loads!
+ * Returns 0 on success, negative errno on failure.             */</span>
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">hello_init</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"Hello, Kernel World! Module loaded.\n"</span>);
+    <span class="cm">/* pr_info is shorthand for printk(KERN_INFO "...") */</span>
+
+    <span class="kw">return</span> <span class="nm">0</span>;  <span class="cm">/* 0 = success. Negative = failure (insmod returns error) */</span>
+}
+
+<span class="cm">/* ── EXIT FUNCTION ───────────────────────────────────────────────────── */</span>
+<span class="cm">/* Called when module is unloaded (rmmod).
+ * __exit: placed in .exit.text section.
+ *         If module is built-in (not loadable), kernel discards this.
+ *         Must undo EVERYTHING done in init, in reverse order.
+ * No return value — cleanup MUST succeed.                       */</span>
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">hello_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"Goodbye, Kernel World! Module unloaded.\n"</span>);
+    <span class="cm">/* No return value. If cleanup is impossible, use BUG() or
+     * mark module as permanent with try_module_get() */</span>
+}
+
+<span class="cm">/* ── REGISTER INIT/EXIT WITH THE KERNEL ──────────────────────────────── */</span>
+<span class="mc">module_init</span>(<span class="fn">hello_init</span>);  <span class="cm">/* Macro: sets .init pointer in module struct */</span>
+<span class="mc">module_exit</span>(<span class="fn">hello_exit</span>);  <span class="cm">/* Macro: sets .exit pointer in module struct */</span></pre>
+  </div>
+
+  <div class="card">
+    <h3>🔍 Line-by-Line Deep Dive</h3>
+    <div class="param-table">
+      <div class="param-row">
+        <div class="param-key">#include &lt;linux/module.h&gt;</div>
+        <div class="param-val">The single most important kernel header. Defines <code>module_init()</code>, <code>module_exit()</code>, <code>MODULE_LICENSE()</code>, <code>EXPORT_SYMBOL()</code>, <code>THIS_MODULE</code>, and the <code>module</code> structure itself. Without this, nothing compiles.</div>
+      </div>
+      <div class="param-row">
+        <div class="param-key">MODULE_LICENSE("GPL")</div>
+        <div class="param-val"><strong>Mandatory.</strong> Sets the license. "GPL" is critical because many kernel functions are exported as <code>EXPORT_SYMBOL_GPL()</code> — only GPL modules can use them. Using "Proprietary" taints the kernel and blocks access to GPL-only symbols. Options: <code>"GPL"</code>, <code>"GPL v2"</code>, <code>"GPL and additional rights"</code>, <code>"MIT"</code>, <code>"Proprietary"</code>.</div>
+      </div>
+      <div class="param-row">
+        <div class="param-key">static int __init</div>
+        <div class="param-val"><strong>static</strong>: limits symbol visibility to this file (good practice). <strong>__init</strong>: a macro expanding to <code>__attribute__((__section__(".init.text")))</code> — tells the linker to place this function in a special section that is freed after boot/module init succeeds. Saves memory.</div>
+      </div>
+      <div class="param-row">
+        <div class="param-key">pr_info()</div>
+        <div class="param-val">Wrapper for <code>printk(KERN_INFO "...")</code>. Uses C99 variadic macros. Output goes to the kernel ring buffer (readable via <code>dmesg</code>). On development kernels, also appears on serial console.</div>
+      </div>
+      <div class="param-row">
+        <div class="param-key">return 0</div>
+        <div class="param-val">Zero = success. Module is now "loaded". <strong>Any negative errno</strong> = failure — module is immediately unloaded, <code>insmod</code> returns an error to shell. The exit function is NOT called on init failure (you must clean up partially-initialized resources yourself before returning the error).</div>
+      </div>
+      <div class="param-row">
+        <div class="param-key">static void __exit</div>
+        <div class="param-val"><strong>void</strong>: cleanup cannot fail. If it does, you have a memory leak or a dangling resource — but the kernel cannot refuse to unload. <strong>__exit</strong>: code placed in <code>.exit.text</code> section, discarded for built-in modules since they can never be unloaded.</div>
+      </div>
+      <div class="param-row">
+        <div class="param-key">module_init(hello_init)</div>
+        <div class="param-val">Expands to: <code>static initcall_t __initcall_hello_init = hello_init</code> placed in <code>.initcall</code> section. The kernel's init code scans this section and calls all registered init functions. For modules, this pointer is stored in the <code>struct module</code> that <code>insmod</code> fills in.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 3 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num green">3</div>
+    <h2>The Makefile — Building Out-of-Tree Modules</h2>
+  </div>
+
+  <div class="card">
+    <h3>📁 Project Structure</h3>
+    <p>Create a directory for your module. You only need two files to start:</p>
+  </div>
+
+  <div class="file-tree">
+<span class="dir">~/drivers/day2/</span>
+├── <span class="file">hello.c</span>          <span class="comment">← your module source code</span>
+├── <span class="file">Makefile</span>         <span class="comment">← tells the kernel build system what to compile</span>
+└── <span class="cm">[after build:]</span>
+    ├── <span class="file">hello.ko</span>        <span class="comment">← the compiled kernel module (this is what insmod loads)</span>
+    ├── <span class="file">hello.o</span>         <span class="comment">← intermediate object file</span>
+    ├── <span class="file">hello.mod.c</span>     <span class="comment">← auto-generated: module metadata in C</span>
+    ├── <span class="file">hello.mod.o</span>     <span class="comment">← compiled metadata object</span>
+    ├── <span class="file">Module.symvers</span>  <span class="comment">← symbol version table (for EXPORT_SYMBOL)</span>
+    └── <span class="file">modules.order</span>   <span class="comment">← build order of modules</span>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">Makefile — The Standard Out-of-Tree Module Makefile</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm"># Makefile for out-of-tree kernel module</span>
+
+<span class="cm"># obj-m: tells kbuild to build this as a loadable module (.ko)</span>
+<span class="cm"># obj-y would build it into the kernel image instead</span>
+obj-m += hello.o
+
+<span class="cm"># If your module has multiple source files, use this pattern:</span>
+<span class="cm"># mydriver-objs := file1.o file2.o file3.o</span>
+<span class="cm"># obj-m += mydriver.o</span>
+
+<span class="cm"># KDIR: path to the kernel build tree for your TARGET kernel</span>
+<span class="cm"># For the currently running kernel (most common during development):</span>
+KDIR ?= /lib/modules/$(shell uname -r)/build
+
+<span class="cm"># Default target: build the module</span>
+all:
+	<span class="cm"># $(MAKE): call make recursively</span>
+	<span class="cm"># -C $(KDIR): change to the kernel build directory first</span>
+	<span class="cm"># M=$(PWD): tell kbuild where our module source is (current dir)</span>
+	<span class="cm"># modules: the target to build</span>
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+<span class="cm"># Clean target: removes all build artifacts</span>
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+<span class="cm"># Install target: copies .ko to /lib/modules and runs depmod</span>
+install:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules_install
+	depmod -a
+
+<span class="cm"># NOTE: Indentation MUST be a TAB, not spaces!</span></pre>
+  </div>
+
+  <div class="info-box warn">
+    <span class="icon">⚠️</span>
+    <div class="content"><strong>Makefile Indentation Must Be TABs</strong>Make requires TAB characters (not spaces) for command indentation. If you use spaces, you'll get: <code>Makefile:10: *** missing separator. Stop.</code> Check with <code>cat -A Makefile</code> — you should see <code>^I</code> (TAB) before commands, not spaces.</div>
+  </div>
+
+  <div class="card">
+    <h3>🏗️ What Happens During Build — Under the Hood</h3>
+    <p>When you run <code>make</code>, here's exactly what happens:</p>
+    <ol style="padding-left:20px;color:var(--text2);font-size:14px">
+      <li style="margin-bottom:8px"><strong>Phase 1 — Main Makefile:</strong> Make enters your directory, reads <code>obj-m += hello.o</code>, then hands control to the kernel build system by running <code>make -C /lib/modules/.../build M=$(PWD)</code></li>
+      <li style="margin-bottom:8px"><strong>Phase 2 — Kernel kbuild:</strong> The kernel's top-level Makefile takes over. It reads your <code>Makefile</code> again (now in the context of the kernel tree), finds <code>hello.o</code>, and compiles <code>hello.c</code> with the <em>exact same compiler flags</em> as the kernel was built with — including the correct <code>-D__KERNEL__</code>, include paths, etc.</li>
+      <li style="margin-bottom:8px"><strong>Phase 3 — Module metadata:</strong> kbuild auto-generates <code>hello.mod.c</code> containing your module's version magic string, parameter list, and symbol table. It compiles this too.</li>
+      <li style="margin-bottom:8px"><strong>Phase 4 — Linking:</strong> Links <code>hello.o</code> + <code>hello.mod.o</code> into <code>hello.ko</code> — an ELF relocatable object file (not a regular executable).</li>
+    </ol>
+  </div>
+
+  <!-- ═══════════ SECTION 4 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num yellow">4</div>
+    <h2>Building, Loading &amp; Unloading — Complete Workflow</h2>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">Terminal — Full Module Workflow</div></div>
+    <pre>
+<span class="cm"># ── Step 1: Compile ───────────────────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">make</span>
+<span class="t-out">make -C /lib/modules/6.8.0-51-generic/build M=/home/user/day2 modules
+make[1]: Entering directory '/usr/src/linux-headers-6.8.0-51-generic'
+  CC [M]  /home/user/day2/hello.o
+  MODPOST /home/user/day2/Module.symvers
+  CC [M]  /home/user/day2/hello.mod.o
+  LD [M]  /home/user/day2/hello.ko
+make[1]: Leaving directory '/usr/src/linux-headers-6.8.0-51-generic'</span>
+
+<span class="cm"># ── Step 2: Inspect what we built ─────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">file hello.ko</span>
+<span class="t-out">hello.ko: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), BuildID[sha1]=..., not stripped</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">modinfo hello.ko</span>
+<span class="t-blue">filename:</span>       /home/user/day2/hello.ko
+<span class="t-blue">description:</span>    Hello World
+<span class="t-blue">author:</span>         Your Name
+<span class="t-blue">license:</span>        GPL
+<span class="t-blue">version:</span>        1.0
+<span class="t-blue">srcversion:</span>     A3B2C1D4E5F6A7B8C9D0E1F
+<span class="t-blue">depends:</span>        
+<span class="t-blue">retpoline:</span>      Y
+<span class="t-blue">name:</span>           hello
+<span class="t-blue">vermagic:</span>       6.8.0-51-generic SMP preempt mod_unload modversions
+
+<span class="cm"># ── Step 3: Load the module ───────────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod hello.ko</span>
+<span class="t-green">[No output on success — check dmesg]</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -3</span>
+<span class="t-out">[  892.341207] hello: loading out-of-tree module taints kernel.
+[  892.341412] hello: module verification failed: signature and/or required key missing - tainting kernel
+[  892.341891]</span> <span class="t-green">Hello, Kernel World! Module loaded.</span>
+
+<span class="cm"># ── Step 4: Verify it's loaded ────────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">lsmod | grep hello</span>
+<span class="t-out">hello                  16384  0</span>
+<span class="cm">#  Module name          Size   Use count (0 = not used by anything)</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/modules | grep hello</span>
+<span class="t-out">hello 16384 0 - Live 0xffffffffc0a12000 (OE)</span>
+<span class="cm"># Name  Size  UseCount  Deps  State  LoadAddress  Flags(O=OOT, E=unsigned)</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">ls /sys/module/hello/</span>
+<span class="t-out">coresize  holders  initsize  initstate  notes  refcnt  sections  srcversion  taint  uevent  version</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/module/hello/initstate</span>
+<span class="t-green">live</span>
+
+<span class="cm"># ── Step 5: Unload the module ─────────────────────────────────────</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod hello</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -2</span>
+<span class="t-out">[  934.112045]</span> <span class="t-yellow">Goodbye, Kernel World! Module unloaded.</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">lsmod | grep hello</span>
+<span class="t-out">[no output — module is gone]</span></pre>
+  </div>
+
+  <!-- ═══════════ SECTION 5 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num orange">5</div>
+    <h2>insmod vs rmmod vs modprobe — Know the Difference</h2>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr>
+        <th>Command</th>
+        <th>What it Does</th>
+        <th>Resolves Dependencies?</th>
+        <th>When to Use</th>
+      </tr>
+      <tr>
+        <td><code>insmod hello.ko</code></td>
+        <td>Directly inserts the specified <code>.ko</code> file into the kernel. Calls the kernel's <code>finit_module()</code> syscall.</td>
+        <td><strong>NO.</strong> If your module depends on another module (e.g., <code>i2c-core</code>), you must load that manually first or <code>insmod</code> fails with <code>ENOENT</code> (unknown symbol).</td>
+        <td>During development when testing a single module. Fast, simple.</td>
+      </tr>
+      <tr>
+        <td><code>rmmod hello</code></td>
+        <td>Removes the named module from the kernel. Calls <code>delete_module()</code> syscall. Fails if module is in use (<code>use_count > 0</code>).</td>
+        <td><strong>NO.</strong> Does not unload dependencies automatically.</td>
+        <td>During development. Use module name, not filename.</td>
+      </tr>
+      <tr>
+        <td><code>modprobe hello</code></td>
+        <td>Loads a module <strong>by name</strong> from <code>/lib/modules/$(uname -r)/</code>. Reads <code>modules.dep</code> and automatically loads all dependencies first.</td>
+        <td><strong>YES.</strong> Full dependency resolution. This is how the kernel auto-loads drivers when hardware is detected (udev triggers modprobe).</td>
+        <td>Production use. After running <code>make modules_install</code> + <code>depmod -a</code>.</td>
+      </tr>
+      <tr>
+        <td><code>modprobe -r hello</code></td>
+        <td>Removes a module and also unloads now-unused dependencies.</td>
+        <td><strong>YES.</strong> Full cleanup.</td>
+        <td>Production use for clean removal.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">bash — How modprobe Finds Modules</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm"># After: sudo make modules_install && sudo depmod -a</span>
+
+<span class="cm"># depmod scans /lib/modules/$(uname -r)/ and builds:</span>
+ls /lib/modules/$(uname -r)/
+<span class="cm"># modules.dep      ← dependency graph: which module needs which</span>
+<span class="cm"># modules.alias    ← device ID aliases (PCI IDs, USB IDs → module name)</span>
+<span class="cm"># modules.builtin  ← modules built into vmlinux (modprobe ignores these)</span>
+
+<span class="cm"># Show what modprobe would load for a module:</span>
+modprobe --show-depends hello
+
+<span class="cm"># See module aliases (how kernel auto-selects driver for detected hardware)</span>
+modinfo e1000e | grep alias
+<span class="cm"># alias: pci:v00008086d000010BCs...</span>
+<span class="cm"># The kernel sees PCI ID 0x8086:0x10BC → loads e1000e automatically</span>
+
+<span class="cm"># Override module behavior via /etc/modprobe.d/</span>
+echo "options hello debug=1" | sudo tee /etc/modprobe.d/hello.conf</pre>
+  </div>
+
+  <!-- ═══════════ SECTION 6 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <h2>Module Lifecycle — Every State Explained</h2>
+  </div>
+
+  <div class="lifecycle">
+    <div class="lc-box">
+      <div class="lc-icon">💾</div>
+      <div class="lc-title">On Disk</div>
+      <div class="lc-desc">hello.ko file</div>
+    </div>
+    <div class="lc-arrow">→</div>
+    <div class="lc-box active">
+      <div class="lc-icon">📥</div>
+      <div class="lc-title">Loading</div>
+      <div class="lc-desc">insmod → finit_module()</div>
+    </div>
+    <div class="lc-arrow">→</div>
+    <div class="lc-box active">
+      <div class="lc-icon">⚙️</div>
+      <div class="lc-title">init runs</div>
+      <div class="lc-desc">hello_init() called</div>
+    </div>
+    <div class="lc-arrow">→</div>
+    <div class="lc-box active">
+      <div class="lc-icon">🟢</div>
+      <div class="lc-title">Live</div>
+      <div class="lc-desc">Running in kernel</div>
+    </div>
+    <div class="lc-arrow">→</div>
+    <div class="lc-box">
+      <div class="lc-icon">🔴</div>
+      <div class="lc-title">exit runs</div>
+      <div class="lc-desc">hello_exit() called</div>
+    </div>
+    <div class="lc-arrow">→</div>
+    <div class="lc-box">
+      <div class="lc-icon">🗑️</div>
+      <div class="lc-title">Unloaded</div>
+      <div class="lc-desc">Memory freed</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📋 What finit_module() Does Internally</h3>
+    <p>When you run <code>insmod hello.ko</code>, the kernel's <code>finit_module()</code> syscall does all of this:</p>
+    <ol style="padding-left:20px;color:var(--text2);font-size:14px;line-height:2">
+      <li><strong>Read the ELF:</strong> Parse <code>hello.ko</code> as an ELF relocatable object. Extract sections: <code>.text</code>, <code>.data</code>, <code>.bss</code>, <code>.init.text</code>, etc.</li>
+      <li><strong>Verify version magic:</strong> Check that <code>hello.ko</code>'s <code>vermagic</code> string matches the running kernel exactly. If it doesn't match, <code>insmod</code> fails with <code>EINVAL</code>. This prevents loading modules built for a different kernel version.</li>
+      <li><strong>Allocate kernel memory:</strong> Allocate memory in kernel space (module_alloc) for the module's code and data.</li>
+      <li><strong>Copy and relocate:</strong> Copy sections into kernel memory and apply ELF relocations — patch all the symbol addresses (e.g., <code>printk</code> address).</li>
+      <li><strong>Resolve symbols:</strong> Look up all undefined symbols in the module against the kernel's symbol table (<code>/proc/kallsyms</code>). If any symbol is missing, fail with <code>ENOENT</code>.</li>
+      <li><strong>Run module notifiers:</strong> Notify other kernel subsystems (e.g., tracing) that a new module is loading.</li>
+      <li><strong>Call init function:</strong> Call your <code>hello_init()</code>. If it returns non-zero, module is immediately unloaded.</li>
+      <li><strong>Free __init sections:</strong> After successful init, free the <code>.init.text</code> memory (your <code>__init</code> function is gone forever).</li>
+    </ol>
+  </div>
+
+  <!-- ═══════════ SECTION 7 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num purple">7</div>
+    <h2>printk — The Kernel's Logging System</h2>
+  </div>
+
+  <div class="card">
+    <h3>📢 Log Levels — Full Reference</h3>
+    <p>Every <code>printk</code> call has a log level that determines urgency. The kernel compares this against the current console log level to decide whether to print to the console immediately.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Level Macro</th><th>Numeric</th><th>Meaning</th><th>Wrapper Function</th><th>When to Use</th></tr>
+      <tr><td><code>KERN_EMERG</code></td><td>"&lt;0&gt;"</td><td>System is unusable</td><td><code>pr_emerg()</code></td><td>Imminent system crash. Very rare.</td></tr>
+      <tr><td><code>KERN_ALERT</code></td><td>"&lt;1&gt;"</td><td>Action must be taken immediately</td><td><code>pr_alert()</code></td><td>Data corruption detected, hardware failure.</td></tr>
+      <tr><td><code>KERN_CRIT</code></td><td>"&lt;2&gt;"</td><td>Critical conditions</td><td><code>pr_crit()</code></td><td>Severe hardware or software failures.</td></tr>
+      <tr><td><code>KERN_ERR</code></td><td>"&lt;3&gt;"</td><td>Error conditions</td><td><code>pr_err()</code></td><td><strong>Driver errors</strong>: failed init, hardware not responding.</td></tr>
+      <tr><td><code>KERN_WARNING</code></td><td>"&lt;4&gt;"</td><td>Warning conditions</td><td><code>pr_warn()</code></td><td>Deprecated feature used, unusual but handled condition.</td></tr>
+      <tr><td><code>KERN_NOTICE</code></td><td>"&lt;5&gt;"</td><td>Normal but significant</td><td><code>pr_notice()</code></td><td>Security alerts, important state changes.</td></tr>
+      <tr><td><code>KERN_INFO</code></td><td>"&lt;6&gt;"</td><td>Informational</td><td><code>pr_info()</code></td><td><strong>Most common in drivers</strong>: probe success, feature detection.</td></tr>
+      <tr><td><code>KERN_DEBUG</code></td><td>"&lt;7&gt;"</td><td>Debug-level messages</td><td><code>pr_debug()</code></td><td>Verbose debug. Compiled out unless <code>DEBUG</code> or <code>dynamic_debug</code> enabled.</td></tr>
+    </table>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — All printk Forms + Best Practices</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/* OLD style (still valid but verbose): */</span>
+<span class="fn">printk</span>(<span class="mc">KERN_INFO</span> <span class="st">"Driver loaded, version %d\n"</span>, version);
+<span class="cm">/* Note: KERN_INFO and the format string are adjacent — no comma!
+   KERN_INFO expands to the string "&lt;6&gt;" which gets prepended */</span>
+
+<span class="cm">/* MODERN style — prefer these wrappers: */</span>
+<span class="fn">pr_err</span>(<span class="st">"Failed to allocate memory: %d\n"</span>, ret);
+<span class="fn">pr_warn</span>(<span class="st">"Deprecated API used by %s\n"</span>, <span class="mc">current</span>-&gt;comm);
+<span class="fn">pr_info</span>(<span class="st">"Device found: %s\n"</span>, dev_name);
+<span class="fn">pr_debug</span>(<span class="st">"Entering %s\n"</span>, __func__);  <span class="cm">/* compiled out in production */</span>
+
+<span class="cm">/* DEVICE-AWARE logging (use in drivers that have a struct device *dev):
+   Prefixes output with device name — ALWAYS use these in real drivers! */</span>
+<span class="fn">dev_err</span>(dev, <span class="st">"Register read failed: %d\n"</span>, ret);
+<span class="fn">dev_warn</span>(dev, <span class="st">"Link speed degraded\n"</span>);
+<span class="fn">dev_info</span>(dev, <span class="st">"Probe successful\n"</span>);
+<span class="fn">dev_dbg</span>(dev, <span class="st">"RX buffer: %d bytes\n"</span>, len);
+<span class="cm">/* Output: [  123.456] mydriver 0000:00:1f.0: Register read failed: -5 */</span>
+
+<span class="cm">/* RATE-LIMITED logging (avoid log spam in hot paths): */</span>
+<span class="fn">pr_err_ratelimited</span>(<span class="st">"DMA error occurred\n"</span>);  <span class="cm">/* max 10 per 5 seconds */</span>
+
+<span class="cm">/* ONCE logging (print only on first occurrence): */</span>
+<span class="fn">pr_warn_once</span>(<span class="st">"This feature is deprecated\n"</span>);
+
+<span class="cm">/* Useful format specifiers unique to kernel: */</span>
+<span class="fn">pr_info</span>(<span class="st">"Kernel pointer: %pK\n"</span>, ptr);   <span class="cm">/* hides address unless CAP_SYSLOG */</span>
+<span class="fn">pr_info</span>(<span class="st">"Function: %pS\n"</span>, ptr);        <span class="cm">/* resolves to symbol name */</span>
+<span class="fn">pr_info</span>(<span class="st">"IPv4: %pI4\n"</span>, &amp;ipaddr);       <span class="cm">/* prints 192.168.1.1 */</span>
+<span class="fn">pr_info</span>(<span class="st">"UUID: %pUB\n"</span>, uuid);          <span class="cm">/* prints formatted UUID */</span>
+<span class="fn">pr_info</span>(<span class="st">"MAC: %pM\n"</span>, mac_addr);        <span class="cm">/* prints aa:bb:cc:dd:ee:ff */</span></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">bash — Controlling the Log Level</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm"># View current log levels</span>
+cat /proc/sys/kernel/printk
+<span class="cm"># Output: 4  4  1  7
+#   [0] = current console log level (messages >= this level go to console)
+#   [1] = default message log level (if no level specified in printk)
+#   [2] = minimum console log level (can't set lower than this)
+#   [3] = default console log level at boot</span>
+
+<span class="cm"># Set console log level to DEBUG (7) — see ALL messages on console</span>
+sudo sh -c 'echo 7 > /proc/sys/kernel/printk'
+
+<span class="cm"># Enable dynamic debug for your module (shows pr_debug output)</span>
+sudo sh -c 'echo "module hello +p" > /sys/kernel/debug/dynamic_debug/control'
+<span class="cm"># Now pr_debug() calls in 'hello' module will print</span>
+
+<span class="cm"># Enable debug for a specific file and line</span>
+sudo sh -c 'echo "file hello.c line 25 +p" > /sys/kernel/debug/dynamic_debug/control'
+
+<span class="cm"># Watch kernel messages in real-time</span>
+dmesg --follow --level=err,warn,info</pre>
+  </div>
+
+  <!-- ═══════════ SECTION 8 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num red">8</div>
+    <h2>Module Parameters — Runtime Configuration</h2>
+  </div>
+
+  <div class="card">
+    <h3>⚙️ What are Module Parameters?</h3>
+    <p>Module parameters let you configure your driver's behavior at load time without recompiling. They're passed via <code>insmod</code> on the command line, or set permanently in <code>/etc/modprobe.d/</code>. They're also <strong>exposed via sysfs</strong> at <code>/sys/module/&lt;name&gt;/parameters/</code> and can sometimes be changed at runtime.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — hello_params.c — Full Parameter Examples</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="pp">#include &lt;linux/moduleparam.h&gt;</span>   <span class="cm">/* module_param, MODULE_PARM_DESC */</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Module with parameters demo"</span>);
+
+<span class="cm">/* ── PARAMETER DECLARATIONS ──────────────────────────────────────── */</span>
+
+<span class="cm">/* Integer parameter */</span>
+<span class="kw">static int</span> timeout = <span class="nm">100</span>;                   <span class="cm">/* default value: 100 */</span>
+<span class="mc">module_param</span>(timeout, int, <span class="nm">0644</span>);          <span class="cm">/* name, type, sysfs permissions */</span>
+<span class="mc">MODULE_PARM_DESC</span>(timeout, <span class="st">"Timeout in ms (default: 100)"</span>);
+<span class="cm">/*
+ * module_param(name, type, perm)
+ *   name  = variable name (must be already declared)
+ *   type  = byte, short, ushort, int, uint, long, ulong, charp, bool, invbool
+ *   perm  = sysfs file permissions:
+ *           0644 = owner rw, group r, others r (most common for writable params)
+ *           0444 = read-only from sysfs (cannot change after load)
+ *           0    = not exposed in sysfs at all
+ */</span>
+
+<span class="cm">/* Boolean parameter */</span>
+<span class="kw">static bool</span> debug = <span class="nm">false</span>;
+<span class="mc">module_param</span>(debug, bool, <span class="nm">0644</span>);
+<span class="mc">MODULE_PARM_DESC</span>(debug, <span class="st">"Enable debug logging (default: false)"</span>);
+
+<span class="cm">/* String parameter */</span>
+<span class="kw">static char</span> *device_name = <span class="st">"mydevice0"</span>;
+<span class="mc">module_param</span>(device_name, charp, <span class="nm">0444</span>);    <span class="cm">/* read-only in sysfs */</span>
+<span class="mc">MODULE_PARM_DESC</span>(device_name, <span class="st">"Name of the device (default: mydevice0)"</span>);
+
+<span class="cm">/* Array parameter */</span>
+<span class="kw">static int</span> ports[<span class="nm">4</span>] = {<span class="nm">80</span>, <span class="nm">443</span>, <span class="nm">8080</span>, <span class="nm">8443</span>};
+<span class="kw">static int</span> ports_count = <span class="nm">4</span>;               <span class="cm">/* actual number of elements passed */</span>
+<span class="mc">module_param_array</span>(ports, int, &amp;ports_count, <span class="nm">0644</span>);
+<span class="cm">/* module_param_array(name, type, &nump, perm)
+   nump = pointer to int that receives actual count of values passed */</span>
+<span class="mc">MODULE_PARM_DESC</span>(ports, <span class="st">"List of ports (comma-separated, max 4)"</span>);
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">hello_params_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> i;
+
+    <span class="fn">pr_info</span>(<span class="st">"=== Module Parameters Demo ===\n"</span>);
+    <span class="fn">pr_info</span>(<span class="st">"timeout     = %d ms\n"</span>, timeout);
+    <span class="fn">pr_info</span>(<span class="st">"debug       = %s\n"</span>, debug ? <span class="st">"true"</span> : <span class="st">"false"</span>);
+    <span class="fn">pr_info</span>(<span class="st">"device_name = %s\n"</span>, device_name);
+    <span class="fn">pr_info</span>(<span class="st">"ports count = %d\n"</span>, ports_count);
+
+    <span class="kw">for</span> (i = <span class="nm">0</span>; i &lt; ports_count; i++)
+        <span class="fn">pr_info</span>(<span class="st">"  ports[%d] = %d\n"</span>, i, ports[i]);
+
+    <span class="kw">if</span> (debug)
+        <span class="fn">pr_debug</span>(<span class="st">"Debug mode is active!\n"</span>);
+
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">hello_params_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"Module with parameters unloaded\n"</span>);
+}
+
+<span class="mc">module_init</span>(<span class="fn">hello_params_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">hello_params_exit</span>);</pre>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">Terminal — Using Module Parameters</div></div>
+    <pre>
+<span class="cm"># Load with custom parameters</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod hello_params.ko timeout=250 debug=1 device_name="sensor0" ports=22,80,443</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -8</span>
+<span class="t-green">[1234.001] hello_params: === Module Parameters Demo ===
+[1234.002] hello_params: timeout     = 250 ms
+[1234.003] hello_params: debug       = true
+[1234.004] hello_params: device_name = sensor0
+[1234.005] hello_params: ports count = 3
+[1234.006] hello_params:   ports[0]  = 22
+[1234.007] hello_params:   ports[1]  = 80
+[1234.008] hello_params:   ports[2]  = 443</span>
+
+<span class="cm"># Parameters exposed in sysfs (can change writable ones at runtime)</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ls /sys/module/hello_params/parameters/</span>
+<span class="t-out">debug  device_name  ports  timeout</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/module/hello_params/parameters/timeout</span>
+<span class="t-out">250</span>
+
+<span class="cm"># Change timeout at runtime (0644 permission allows this)</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo 500 > /sys/module/hello_params/parameters/timeout'</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/module/hello_params/parameters/timeout</span>
+<span class="t-out">500</span>
+
+<span class="cm"># Set permanent defaults via modprobe.d</span>
+<span class="t-prompt">$</span> <span class="t-cmd">echo "options hello_params timeout=500 debug=0" | sudo tee /etc/modprobe.d/hello_params.conf</span>
+<span class="cm"># Now every 'modprobe hello_params' uses these defaults</span></pre>
+  </div>
+
+  <!-- ═══════════ SECTION 9 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num cyan">9</div>
+    <h2>EXPORT_SYMBOL — Sharing Functions Between Modules</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔗 Why Symbol Export Matters</h3>
+    <p>By default, functions in a kernel module are private — other modules cannot call them. <code>EXPORT_SYMBOL</code> makes a function visible to other modules. This is how the kernel builds layered subsystems: <code>i2c-core.ko</code> exports <code>i2c_transfer()</code> so your sensor driver can call it.</p>
+    <p>There are two variants — choosing the wrong one is a common mistake with important consequences.</p>
+  </div>
+
+  <div class="two-col">
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C — Library Module (exports symbols)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="cm">/* mylib.c — provides functions to other modules */</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+
+<span class="kw">int</span> <span class="fn">mylib_add</span>(<span class="kw">int</span> a, <span class="kw">int</span> b)
+{
+    <span class="fn">pr_info</span>(<span class="st">"mylib_add(%d, %d)\n"</span>, a, b);
+    <span class="kw">return</span> a + b;
+}
+<span class="cm">/* Available to ALL modules (GPL or not) */</span>
+<span class="mc">EXPORT_SYMBOL</span>(<span class="fn">mylib_add</span>);
+
+<span class="kw">int</span> <span class="fn">mylib_secret</span>(<span class="kw">void</span>)
+{
+    <span class="kw">return</span> <span class="nm">42</span>;
+}
+<span class="cm">/* Available ONLY to GPL-licensed modules */</span>
+<span class="mc">EXPORT_SYMBOL_GPL</span>(<span class="fn">mylib_secret</span>);</pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">C — Consumer Module (uses exports)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="cm">/* myclient.c — uses mylib's exported symbols */</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+
+<span class="cm">/* Declare extern — function is from another module */</span>
+<span class="kw">extern int</span> <span class="fn">mylib_add</span>(<span class="kw">int</span> a, <span class="kw">int</span> b);
+<span class="kw">extern int</span> <span class="fn">mylib_secret</span>(<span class="kw">void</span>);
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">client_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> result = <span class="fn">mylib_add</span>(<span class="nm">3</span>, <span class="nm">7</span>);
+    <span class="fn">pr_info</span>(<span class="st">"3 + 7 = %d\n"</span>, result);
+    <span class="fn">pr_info</span>(<span class="st">"secret = %d\n"</span>, <span class="fn">mylib_secret</span>());
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">client_exit</span>(<span class="kw">void</span>) { }
+<span class="mc">module_init</span>(<span class="fn">client_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">client_exit</span>);</pre>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Macro</th><th>Who Can Use It</th><th>Use Case</th></tr>
+      <tr>
+        <td><code>EXPORT_SYMBOL(fn)</code></td>
+        <td>Any module — GPL or proprietary</td>
+        <td>Generic utility functions, hardware abstraction that should be broadly accessible. E.g., helper math functions.</td>
+      </tr>
+      <tr>
+        <td><code>EXPORT_SYMBOL_GPL(fn)</code></td>
+        <td><strong>Only GPL-licensed modules</strong>. Proprietary modules get <code>ENOENT</code> on load.</td>
+        <td>Core kernel APIs, subsystem interfaces. Most new kernel exports use this. Forces proprietary driver authors to not depend on internal APIs.</td>
+      </tr>
+      <tr>
+        <td><code>EXPORT_SYMBOL_NS(fn, ns)</code></td>
+        <td>Modules that declare <code>MODULE_IMPORT_NS(ns)</code></td>
+        <td>Namespaced exports — groups related symbols. E.g., <code>EXPORT_SYMBOL_NS(fn, NVME)</code>. Newer API (kernel 5.4+)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="info-box warn">
+    <span class="icon">⚠️</span>
+    <div class="content"><strong>Load Order Matters</strong>If <code>myclient</code> depends on <code>mylib</code>, you must <code>insmod mylib.ko</code> FIRST, then <code>insmod myclient.ko</code>. With <code>modprobe</code>, this is automatic via <code>modules.dep</code>. The dependency is tracked in <code>Module.symvers</code> — if you move module files around, keep this file with them.</div>
+  </div>
+
+  <!-- ═══════════ SECTION 10 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num green">10</div>
+    <h2>vermagic — Version Magic Explained</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔏 Why Your .ko Won't Load on a Different Kernel</h3>
+    <p>Every <code>.ko</code> file embeds a <strong>version magic string</strong> (vermagic) that must exactly match the running kernel. This is a safety mechanism — a module built for kernel 6.1 may use struct layouts or APIs that changed in kernel 6.8, causing silent memory corruption if loaded on the wrong version.</p>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">Terminal — Inspecting vermagic</div></div>
+    <pre>
+<span class="t-prompt">$</span> <span class="t-cmd">modinfo hello.ko | grep vermagic</span>
+<span class="t-out">vermagic:       6.8.0-51-generic SMP preempt mod_unload modversions</span>
+<span class="cm">#               │                │   │        │          └ CONFIG_MODVERSIONS=y (CRC checks)</span>
+<span class="cm">#               │                │   │        └─ CONFIG_MODULE_UNLOAD=y</span>
+<span class="cm">#               │                │   └────────── CONFIG_PREEMPT=y</span>
+<span class="cm">#               │                └────────────── CONFIG_SMP=y (multi-core)</span>
+<span class="cm">#               └─────────────────────────────── Exact kernel version string</span>
+
+<span class="cm"># Try loading on wrong kernel:</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod hello.ko</span>
+<span class="t-red">insmod: ERROR: could not insert module hello.ko: Invalid module format</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -2</span>
+<span class="t-red">[  45.123] hello: version magic '6.8.0-51-generic SMP preempt mod_unload modversions' 
+            should be '6.9.1-custom SMP preempt mod_unload modversions'</span>
+
+<span class="cm"># Solution: ALWAYS build modules against the kernel they'll run on</span>
+<span class="cm"># Point KDIR to the correct kernel headers</span>
+<span class="t-prompt">$</span> <span class="t-cmd">make KDIR=/lib/modules/6.9.1-custom/build</span></pre>
+  </div>
+
+  <!-- ═══════════ SECTION 11 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num">11</div>
+    <h2>Module Reference Counting — Preventing Unsafe Removal</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔢 What is the Module Use Count?</h3>
+    <p>Each module has a <strong>reference count</strong> (use count). <code>rmmod</code> fails with <code>EBUSY</code> if the use count is non-zero. This prevents removing a module that's actively being used — for example, you can't unload a filesystem module while a disk using that filesystem is mounted.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Managing Module Reference Count</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/module.h&gt;</span>
+
+<span class="cm">/* Increment ref count — prevents rmmod while this is held */</span>
+<span class="kw">if</span> (!<span class="fn">try_module_get</span>(<span class="mc">THIS_MODULE</span>)) {
+    <span class="cm">/* Module is being unloaded, reject new requests */</span>
+    <span class="kw">return</span> -<span class="nm">ENODEV</span>;
+}
+
+<span class="cm">/* Do your work here... */</span>
+
+<span class="cm">/* Decrement ref count — allow rmmod again */</span>
+<span class="fn">module_put</span>(<span class="mc">THIS_MODULE</span>);
+
+<span class="cm">/* Check current use count (for debugging): */</span>
+<span class="fn">pr_info</span>(<span class="st">"Module use count: %d\n"</span>, <span class="fn">module_refcount</span>(<span class="mc">THIS_MODULE</span>));
+
+<span class="cm">/* In practice: char device drivers use this automatically via cdev.
+   When userspace opens /dev/mydevice, kernel increments use count.
+   When all fds are closed, it decrements. rmmod only succeeds when
+   no files are open. We'll implement this in Day 8. */</span></pre>
+  </div>
+
+  <!-- ═══════════ SECTION 12 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num yellow">12</div>
+    <h2>Practical Day 2 Project — Module with Parameters</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Your Goal</strong>Build a module that accepts 3 parameters (a string name, an integer count, and a bool verbose), prints a message <em>count</em> times on load (with verbose detail if enabled), and cleanly unloads. Then inspect it with all the tools you've learned.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — practice_module.c — Full Project</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * practice_module.c — Day 2 Practice Project
+ * A kernel module with parameters that demonstrates the full module lifecycle
+ */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="pp">#include &lt;linux/moduleparam.h&gt;</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Day 2 Practice: Module with parameters"</span>);
+<span class="mc">MODULE_VERSION</span>(<span class="st">"1.0"</span>);
+
+<span class="cm">/* ── Parameters ──────────────────────────────────────────────── */</span>
+<span class="kw">static char</span> *greeting = <span class="st">"Hello"</span>;
+<span class="mc">module_param</span>(greeting, charp, <span class="nm">0444</span>);
+<span class="mc">MODULE_PARM_DESC</span>(greeting, <span class="st">"Greeting string (default: Hello)"</span>);
+
+<span class="kw">static int</span> count = <span class="nm">3</span>;
+<span class="mc">module_param</span>(count, int, <span class="nm">0644</span>);
+<span class="mc">MODULE_PARM_DESC</span>(count, <span class="st">"How many times to greet (default: 3)"</span>);
+
+<span class="kw">static bool</span> verbose = <span class="nm">false</span>;
+<span class="mc">module_param</span>(verbose, bool, <span class="nm">0644</span>);
+<span class="mc">MODULE_PARM_DESC</span>(verbose, <span class="st">"Enable verbose output (default: false)"</span>);
+
+<span class="cm">/* ── Init ─────────────────────────────────────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">practice_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> i;
+
+    <span class="cm">/* Validate parameters */</span>
+    <span class="kw">if</span> (count &lt; <span class="nm">0</span> || count &gt; <span class="nm">100</span>) {
+        <span class="fn">pr_err</span>(<span class="st">"practice: count must be between 0 and 100, got %d\n"</span>, count);
+        <span class="kw">return</span> -<span class="nm">EINVAL</span>;   <span class="cm">/* Return error — init fails, module not loaded */</span>
+    }
+
+    <span class="kw">if</span> (verbose)
+        <span class="fn">pr_info</span>(<span class="st">"practice: Loading module (verbose mode ON)\n"</span>);
+
+    <span class="fn">pr_info</span>(<span class="st">"practice: Parameters: greeting='%s', count=%d, verbose=%d\n"</span>,
+            greeting, count, verbose);
+
+    <span class="kw">for</span> (i = <span class="nm">1</span>; i &lt;= count; i++) {
+        <span class="kw">if</span> (verbose)
+            <span class="fn">pr_info</span>(<span class="st">"practice: [%d/%d] %s, Kernel World!\n"</span>, i, count, greeting);
+        <span class="kw">else</span>
+            <span class="fn">pr_info</span>(<span class="st">"practice: %s, Kernel World!\n"</span>, greeting);
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"practice: Module loaded successfully\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;   <span class="cm">/* success */</span>
+}
+
+<span class="cm">/* ── Exit ─────────────────────────────────────────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">practice_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">pr_info</span>(<span class="st">"practice: Module unloaded. Goodbye!\n"</span>);
+}
+
+<span class="mc">module_init</span>(<span class="fn">practice_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">practice_exit</span>);</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">Makefile — For the Practice Project</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre>obj-m += practice_module.o
+KDIR ?= /lib/modules/$(shell uname -r)/build
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean</pre>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">1</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Build and do basic load/unload</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod practice_module.ko</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -6</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod practice_module</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Test with parameters</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo insmod practice_module.ko greeting="Namaste" count=5 verbose=1</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -10</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/module/practice_module/parameters/count</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo 10 > /sys/module/practice_module/parameters/count'</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod practice_module</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">3</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Test error path — invalid parameter</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo insmod practice_module.ko count=999</span>
+<span class="t-red">insmod: ERROR: could not insert module practice_module.ko: Invalid parameters</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | tail -2</span>
+<span class="t-yellow">[xxx] practice: count must be between 0 and 100, got 999</span>
+<span class="t-prompt">$</span> <span class="t-cmd">lsmod | grep practice</span>
+<span class="t-out">[no output — module was NOT loaded because init returned -EINVAL]</span></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-left"><div class="step-num">4</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Inspect everything about your module</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">sudo insmod practice_module.ko</span>
+<span class="t-prompt">$</span> <span class="t-cmd">modinfo practice_module.ko</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ls /sys/module/practice_module/</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/module/practice_module/initstate</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/module/practice_module/refcnt</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/modules | grep practice</span>
+<span class="t-prompt">$</span> <span class="t-cmd">nm practice_module.ko | grep -E " T | t "</span>
+<span class="cm"># nm shows all symbols: T=global function, t=static function</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 13 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num red">13</div>
+    <h2>Common Mistakes &amp; How to Fix Them</h2>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Error</th><th>Message / Symptom</th><th>Cause &amp; Fix</th></tr>
+      <tr>
+        <td><strong>Wrong indentation</strong></td>
+        <td><code>Makefile:5: *** missing separator. Stop.</code></td>
+        <td>Used spaces instead of TABs. Fix: <code>sed -i 's/^    /\t/' Makefile</code></td>
+      </tr>
+      <tr>
+        <td><strong>Missing kernel headers</strong></td>
+        <td><code>fatal error: linux/module.h: No such file or directory</code></td>
+        <td>Install kernel headers: <code>sudo apt install linux-headers-$(uname -r)</code></td>
+      </tr>
+      <tr>
+        <td><strong>Version mismatch</strong></td>
+        <td><code>Invalid module format</code> from insmod</td>
+        <td>Module built for different kernel. Rebuild with <code>KDIR=/lib/modules/$(uname -r)/build</code></td>
+      </tr>
+      <tr>
+        <td><strong>Missing MODULE_LICENSE</strong></td>
+        <td>Module loads with taint warning. GPL-only symbols fail to resolve.</td>
+        <td>Add <code>MODULE_LICENSE("GPL");</code>. Without it, kernel marks itself "tainted" and blocks GPL symbols.</td>
+      </tr>
+      <tr>
+        <td><strong>Unknown symbol</strong></td>
+        <td><code>Unknown symbol foo (err -2)</code></td>
+        <td>Module uses a function not exported by the kernel or dependency not loaded. Check with <code>grep foo /proc/kallsyms</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>Module in use</strong></td>
+        <td><code>rmmod: ERROR: Module practice_module is in use</code></td>
+        <td>Something holds a reference. Check <code>lsmod</code> — the 3rd column is use count. Find who's using it with <code>lsmod | grep practice</code> (shows dependents).</td>
+      </tr>
+      <tr>
+        <td><strong>Kernel taint</strong></td>
+        <td><code>[1234] hello: loading out-of-tree module taints kernel.</code></td>
+        <td>Normal for development! Out-of-tree modules always taint. In production, sign your modules with <code>CONFIG_MODULE_SIG</code>.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ═══════════ SECTION 14 ═══════════ -->
+  <div class="section-header">
+    <div class="section-num green">14</div>
+    <h2>Day 2 Summary &amp; Tomorrow's Preview</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>✅ What You Mastered Today</h3>
+      <ul style="list-style:none;padding:0">
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ What an LKM is and how it differs from built-in</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Every line of a Hello World module explained</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Makefile for out-of-tree module builds</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ insmod vs rmmod vs modprobe differences</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Complete module lifecycle (finit_module internals)</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ All printk log levels and modern wrappers</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ Module parameters (int, bool, string, array)</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ EXPORT_SYMBOL vs EXPORT_SYMBOL_GPL</li>
+        <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#94a3b8">☑ vermagic and why version matching matters</li>
+        <li style="padding:6px 0;color:#94a3b8">☑ Module reference counting</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🔜 Day 3 Preview — printk, Debugging &amp; Coding Style</h3>
+        <ul style="list-style:none;padding:0">
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ Deep dive into dynamic_debug</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ BUG(), BUG_ON(), WARN(), WARN_ON()</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ Kernel coding style (Documentation)</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ likely() and unlikely() macros</li>
+          <li style="padding:6px 0;border-bottom:1px solid #1e2d4d;color:#64748b">→ /proc/kallsyms deep dive</li>
+          <li style="padding:6px 0;color:#64748b">→ Reading and decoding kernel oops</li>
+        </ul>
+      </div>
+      <div class="info-box tip" style="margin-top:16px">
+        <span class="icon">📚</span>
+        <div class="content"><strong>Read Tonight</strong>LDD3 Chapter 2 — "Building and Running Modules". It covers everything we did today plus more historical context. Available free at lwn.net/Kernel/LDD3/</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote">
+    "Writing your first kernel module feels magical — the same system that manages all of your hardware, processes, and memory just ran YOUR code in Ring 0. That feeling never gets old. Now make sure you understand <em>every single line</em> before Day 3."
+    <strong>— Day 2 Complete ✓ — You've written kernel code!</strong>
+  </div>
+
+</div>
+
+<div class="footer">
+  Day 2 of 30 · Linux Device Driver Roadmap · Week 1: Kernel Foundations
+</div>
+
+</body>
+</html>
