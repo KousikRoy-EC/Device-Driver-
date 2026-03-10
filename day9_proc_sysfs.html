@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 9 — /proc &amp; sysfs Interfaces</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0f0a;--bg2:#0e150e;--bg3:#121a12;--card:#0e150e;--border:#1a2e1a;
+    --accent:#22d3ee;--accent2:#67e8f9;--blue:#3b82f6;--blue2:#60a5fa;
+    --green:#22c55e;--green2:#4ade80;--yellow:#eab308;--yellow2:#facc15;
+    --red:#ef4444;--red2:#f87171;--purple:#a855f7;--purple2:#c084fc;
+    --orange:#f97316;--teal:#14b8a6;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+    --mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;--display:'Syne',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:15px;}
+  .hero{background:linear-gradient(135deg,#0a0f0a 0%,#091418 50%,#0a0f0a 100%);border-bottom:1px solid var(--border);padding:60px 40px 50px;position:relative;overflow:hidden;}
+  .hero::before{content:'';position:absolute;top:-80px;right:-60px;width:520px;height:520px;background:radial-gradient(circle,rgba(34,211,238,0.10) 0%,transparent 70%);pointer-events:none;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(34,211,238,0.12);border:1px solid rgba(34,211,238,0.35);color:var(--accent2);padding:5px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;margin-bottom:20px;}
+  .badge .dot{width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+  .hero h1{font-family:var(--display);font-size:clamp(28px,4vw,46px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;}
+  .hero h1 span{color:var(--accent2);}
+  .hero .sub{color:var(--text2);font-size:16px;max-width:660px;margin-bottom:28px;}
+  .hero-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;font-size:12px;font-family:var(--mono);}
+  .container{max-width:980px;margin:0 auto;padding:40px 24px;}
+  .section-header{display:flex;align-items:center;gap:12px;margin:52px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .sn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;}
+  .sn.cyan{background:var(--accent);color:#000;}.sn.blue{background:var(--blue);color:#fff;}
+  .sn.green{background:var(--green);color:#000;}.sn.yellow{background:var(--yellow);color:#000;}
+  .sn.red{background:var(--red);color:#fff;}.sn.purple{background:var(--purple);color:#fff;}
+  .sn.orange{background:var(--orange);color:#fff;}.sn.teal{background:var(--teal);color:#000;}
+  .section-header h2{font-family:var(--display);font-size:22px;font-weight:700;color:#fff;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+  .card h3{font-family:var(--display);font-size:16px;font-weight:700;color:var(--accent2);margin-bottom:12px;}
+  .card p{color:var(--text2);margin-bottom:10px;font-size:14.5px;}
+  .card p:last-child{margin-bottom:0;}
+  .card ul{padding-left:20px;}
+  .card ul li{color:var(--text2);margin-bottom:7px;font-size:14.5px;}
+  .card ul li strong{color:var(--text);}
+  .code-block{background:#060d06;border:1px solid var(--border);border-radius:10px;margin:16px 0;overflow:hidden;}
+  .code-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0a130a;border-bottom:1px solid var(--border);}
+  .code-lang{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
+  .code-dots{display:flex;gap:6px;}
+  .code-dots span{width:10px;height:10px;border-radius:50%;}
+  .code-dots span:nth-child(1){background:#ef4444;}.code-dots span:nth-child(2){background:#f59e0b;}.code-dots span:nth-child(3){background:#22c55e;}
+  .code-block pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.85;color:#cdd6f4;}
+  .kw{color:#cba6f7;}.fn{color:#89b4fa;}.st{color:#a6e3a1;}.cm{color:#4a5568;font-style:italic;}
+  .nm{color:#fab387;}.tp{color:#89dceb;}.pp{color:#f38ba8;}.mc{color:#f9e2af;}
+  .hl{background:rgba(34,211,238,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-ok{background:rgba(34,197,94,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--green);}
+  .hl-warn{background:rgba(234,179,8,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--yellow);}
+  .hl-red{background:rgba(239,68,68,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--red);}
+  .terminal{background:#050505;border:1px solid #1a2e1a;border-radius:10px;overflow:hidden;margin:16px 0;}
+  .terminal-header{background:#0a0a0a;padding:10px 16px;display:flex;align-items:center;gap:8px;}
+  .terminal-header span{width:12px;height:12px;border-radius:50%;}
+  .terminal-header span:nth-child(1){background:#ff5f57;}.terminal-header span:nth-child(2){background:#ffbd2e;}.terminal-header span:nth-child(3){background:#28c840;}
+  .t-title{margin-left:8px;font-family:var(--mono);font-size:12px;color:#444;}
+  .terminal pre{padding:18px 20px;font-family:var(--mono);font-size:13px;line-height:1.85;color:#d4d4d4;}
+  .t-prompt{color:#22d3ee;}.t-cmd{color:#e2e8f0;}.t-out{color:#6b7280;}
+  .t-green{color:#22c55e;}.t-yellow{color:#eab308;}.t-red{color:#ef4444;}
+  .diagram{background:#060d06;border:1px solid var(--border);border-radius:10px;padding:24px;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.9;overflow-x:auto;white-space:pre;color:#cdd6f4;}
+  .info-box{display:flex;gap:14px;padding:16px 20px;border-radius:10px;margin:16px 0;font-size:14px;}
+  .info-box.note{background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);}
+  .info-box.warn{background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.25);}
+  .info-box.tip{background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.2);}
+  .info-box.danger{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);}
+  .info-box .icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .info-box .content{color:var(--text2);}
+  .info-box .content strong{color:var(--text);display:block;margin-bottom:4px;}
+  .table-wrap{overflow-x:auto;margin:16px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{background:var(--bg3);color:var(--accent2);font-family:var(--display);font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;}
+  td{padding:11px 16px;border-bottom:1px solid rgba(26,46,26,.5);color:var(--text2);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:nth-child(even) td{background:rgba(255,255,255,.013);}
+  td strong{color:var(--text);}
+  td code,code{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0;}
+  @media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr;}}
+  .mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;}
+  .mini-card h4{color:#fff;font-weight:600;font-size:14px;margin-bottom:6px;font-family:var(--display);}
+  .mini-card p{color:var(--text2);font-size:13px;line-height:1.6;}
+  .steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+  .step{display:flex;gap:16px;position:relative;padding-bottom:28px;}
+  .step:last-child{padding-bottom:0;}
+  .step-left{display:flex;flex-direction:column;align-items:center;}
+  .step-num{width:32px;height:32px;background:var(--accent);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;z-index:1;}
+  .step-line{width:2px;flex:1;background:var(--border);margin-top:6px;}
+  .step:last-child .step-line{display:none;}
+  .step-content{padding-top:4px;flex:1;}
+  .step-content h4{color:#fff;font-weight:600;font-size:15px;margin-bottom:8px;font-family:var(--display);}
+  .step-content p{color:var(--text2);font-size:14px;margin-bottom:8px;}
+  .nav-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:12px;color:var(--text3);position:sticky;top:0;z-index:100;}
+  .nav-bar .crumb{color:var(--text2);}.nav-bar .sep{color:var(--border);}.nav-bar .current{color:var(--accent2);}
+  .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;color:var(--text2);}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:18px;}
+  .progress-fill{height:100%;border-radius:3px;}
+  .quote{border-left:3px solid var(--accent);padding:14px 20px;margin:20px 0;background:rgba(34,211,238,0.04);border-radius:0 8px 8px 0;color:var(--text2);font-style:italic;font-size:14.5px;}
+  .quote strong{color:var(--accent2);font-style:normal;display:block;margin-top:6px;font-size:12px;}
+  .footer{margin-top:60px;padding:30px 24px;border-top:1px solid var(--border);text-align:center;color:var(--text3);font-size:13px;font-family:var(--mono);}
+  .checklist{list-style:none;padding:0;margin:12px 0;}
+  .checklist li{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(26,46,26,.4);color:var(--text2);font-size:14px;}
+  .checklist li:last-child{border-bottom:none;}
+  .chk{color:var(--green2);font-size:15px;flex-shrink:0;margin-top:1px;}
+  .chk-no{color:var(--text3);font-size:15px;flex-shrink:0;margin-top:1px;}
+  .fs-compare{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:16px 0;}
+  @media(max-width:680px){.fs-compare{grid-template-columns:1fr;}}
+  .fs-card{border-radius:10px;padding:18px;}
+  .fs-card.proc{background:rgba(34,211,238,0.07);border:1px solid rgba(34,211,238,0.25);}
+  .fs-card.sysfs{background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);}
+  .fs-card.debugfs{background:rgba(168,85,247,0.07);border:1px solid rgba(168,85,247,0.25);}
+  .fs-card h4{font-family:var(--display);font-size:15px;font-weight:700;margin-bottom:4px;}
+  .fs-card.proc h4{color:var(--accent2);}.fs-card.sysfs h4{color:#4ade80;}.fs-card.debugfs h4{color:#c084fc;}
+  .fs-card .fs-mount{font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:10px;}
+  .fs-card ul{list-style:none;padding:0;}
+  .fs-card ul li{font-size:13px;color:var(--text2);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .fs-card ul li:last-child{border-bottom:none;}
+  .fs-card ul li::before{content:"▸ ";color:var(--text3);font-size:11px;}
+  .tree{font-family:var(--mono);font-size:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;margin:16px 0;line-height:1.8;color:#cdd6f4;}
+  .tree .t-dir{color:var(--accent2);}.tree .t-file{color:#4ade80;}.tree .t-link{color:var(--yellow2);}
+</style>
+</head>
+<body>
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span><span class="sep">›</span>
+  <span class="crumb">Week 2: Driver Interfaces</span><span class="sep">›</span>
+  <span class="current">Day 9 — /proc &amp; sysfs Interfaces</span>
+</nav>
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 2 · Day 9 of 30</div>
+  <h1>/proc &amp; sysfs<br><span>Interfaces</span></h1>
+  <p class="sub">Expose driver state, configuration, and statistics to userspace through the kernel's virtual filesystems. Master <code>/proc</code> with seq_file for multi-page output, <code>sysfs</code> attributes with show/store callbacks, <code>debugfs</code> for development-time introspection, and the <code>DEVICE_ATTR</code> macro family.</p>
+  <div class="hero-tags">
+    <span class="tag">proc_create</span><span class="tag">seq_file</span><span class="tag">kobject</span>
+    <span class="tag">sysfs_create_file</span><span class="tag">DEVICE_ATTR_RO/RW</span>
+    <span class="tag">show/store callbacks</span><span class="tag">debugfs_create_file</span><span class="tag">debugfs_create_u32</span>
+  </div>
+</div>
+<div class="container">
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 9 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:30%;background:linear-gradient(90deg,#22d3ee,#67e8f9)"></div></div>
+    <div class="progress-header"><span>Week 2 Progress</span><span>Day 2 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:28.6%;background:linear-gradient(90deg,#22d3ee,#67e8f9)"></div></div>
+  </div>
+
+<!-- SECTION 1 -->
+<div class="section-header"><div class="sn cyan">1</div><h2>The Three Virtual Filesystems — /proc, /sys, /sys/kernel/debug</h2></div>
+<div class="card">
+  <h3>🗂️ Why Virtual Filesystems?</h3>
+  <p>Rather than inventing a new IPC mechanism for every piece of driver information to expose, Linux reuses its existing filesystem abstraction. Virtual filesystems contain no disk data — reading and writing them calls kernel code directly. Files appear and disappear as drivers load and unload. From userspace they look like ordinary text files, but every <code>cat</code> or <code>echo</code> invokes your driver's callback functions.</p>
+</div>
+<div class="fs-compare">
+  <div class="fs-card proc">
+    <h4>📋 /proc</h4><div class="fs-mount">mounted at /proc</div>
+    <ul><li>Process &amp; kernel info</li><li>Driver stats &amp; state</li><li>Use: seq_file API</li><li>Free-form text OK</li><li>Audience: humans, tools</li></ul>
+  </div>
+  <div class="fs-card sysfs">
+    <h4>🔧 sysfs (/sys)</h4><div class="fs-mount">mounted at /sys</div>
+    <ul><li>Device model hierarchy</li><li>ONE value per file (rule!)</li><li>show/store callbacks</li><li>Stable ABI — careful!</li><li>Audience: udev, scripts</li></ul>
+  </div>
+  <div class="fs-card debugfs">
+    <h4>🐛 debugfs</h4><div class="fs-mount">mounted at /sys/kernel/debug</div>
+    <ul><li>Debug &amp; dev only</li><li>No ABI guarantees</li><li>Rich built-in types</li><li>Disabled in production</li><li>Audience: driver developer</li></ul>
+  </div>
+</div>
+<div class="diagram">WHERE TO PUT WHAT:
+─────────────────────────────────────────────────────────────────────────
+  /proc/driver/mydriver/stats      ← aggregate statistics, human-readable
+  /proc/driver/mydriver/status     ← current driver state summary
+
+  /sys/bus/platform/devices/mydev/enable      ← single on/off value
+  /sys/bus/platform/devices/mydev/threshold   ← single tunable integer
+  /sys/bus/platform/devices/mydev/temperature ← single sensor reading
+
+  /sys/kernel/debug/mydriver/regs      ← raw register dump
+  /sys/kernel/debug/mydriver/verbose   ← toggle verbose logging
+  /sys/kernel/debug/mydriver/fifo      ← internal buffer state
+
+Rule of thumb:
+  Stable ABI that scripts rely on?           → sysfs
+  Diagnostic/human-readable/aggregated?      → /proc
+  Debug-only, no stability guarantee needed? → debugfs</div>
+
+<!-- SECTION 2 -->
+<div class="section-header"><div class="sn blue">2</div><h2>/proc with seq_file — Multi-Page Kernel Output</h2></div>
+<div class="card">
+  <h3>📄 Why seq_file? The Buffer Problem</h3>
+  <p>Early drivers used a simple <code>read()</code>-style callback to generate /proc output. The problem: everything had to fit in one PAGE_SIZE buffer. If your driver has thousands of entries, you'd overflow. <code>seq_file</code> iterates your data in chunks, transparently reassembling them for whatever the reader requests — handling buffer sizing, seeking, and partial reads automatically.</p>
+  <p>Two patterns: <strong>single</strong> (simple, non-iterated — most drivers use this) and <strong>iterator</strong> (for large datasets walked element by element).</p>
+</div>
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">C — Pattern 1: seq_file single — Simple Proc File</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+  <pre><span class="pp">#include &lt;linux/proc_fs.h&gt;</span>    <span class="cm">/* proc_create_data, proc_remove */</span>
+<span class="pp">#include &lt;linux/seq_file.h&gt;</span>   <span class="cm">/* seq_file, seq_printf, single_open */</span>
+
+<span class="cm">/* The show callback: called once to generate ALL content */</span>
+<span class="kw">static int</span> <span class="fn">mydrv_proc_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = m-&gt;private;
+
+    <span class="cm">/* seq_printf: like printf, writes to the seq_file buffer.
+     * Handles all buffer management — just print what you need. */</span>
+    <span class="fn">seq_printf</span>(m, <span class="st">"Driver:     mydriver v1.0\n"</span>);
+    <span class="fn">seq_printf</span>(m, <span class="st">"Device:     %s\n"</span>,   dev-&gt;name);
+    <span class="fn">seq_printf</span>(m, <span class="st">"State:      %s\n"</span>,   dev-&gt;enabled ? <span class="st">"enabled"</span> : <span class="st">"disabled"</span>);
+    <span class="fn">seq_printf</span>(m, <span class="st">"IRQ:        %d\n"</span>,   dev-&gt;irq);
+    <span class="fn">seq_printf</span>(m, <span class="st">"Poll count: %u\n"</span>,   dev-&gt;poll_count);
+    <span class="fn">seq_printf</span>(m, <span class="st">"RX bytes:   %llu\n"</span>, dev-&gt;rx_bytes);
+    <span class="fn">seq_printf</span>(m, <span class="st">"TX bytes:   %llu\n"</span>, dev-&gt;tx_bytes);
+    <span class="fn">seq_printf</span>(m, <span class="st">"Buffer:     %u/%u bytes\n"</span>,
+               <span class="fn">kfifo_len</span>(&amp;dev-&gt;fifo), <span class="fn">kfifo_size</span>(&amp;dev-&gt;fifo));
+
+    <span class="cm">/* seq_puts: no formatting, slightly faster than seq_printf */</span>
+    <span class="fn">seq_puts</span>(m, <span class="st">"\n--- Sensors ---\n"</span>);
+    <span class="kw">struct</span> <span class="tp">sensor</span> *s;
+    <span class="fn">list_for_each_entry</span>(s, &amp;dev-&gt;sensor_list, list)
+        <span class="fn">seq_printf</span>(m, <span class="st">"  [%d] %-16s %3d C  %s\n"</span>,
+                   s-&gt;id, s-&gt;name, s-&gt;value,
+                   s-&gt;value &gt; <span class="nm">80</span> ? <span class="st">"ALERT"</span> : <span class="st">"ok"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static int</span> <span class="fn">mydrv_proc_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *file)
+{
+    <span class="cm">/* single_open: wraps show() into a seq_file with one iteration.
+     * pde_data() retrieves the data pointer set in proc_create_data(). */</span>
+    <span class="kw">return</span> <span class="fn">single_open</span>(file, <span class="fn">mydrv_proc_show</span>, <span class="fn">pde_data</span>(<span class="fn">file_inode</span>(file)));
+}
+
+<span class="cm">/* Since kernel 5.6, /proc uses proc_ops (not file_operations) */</span>
+<span class="kw">static const struct</span> <span class="tp">proc_ops</span> mydrv_proc_ops = {
+    .proc_open    = <span class="fn">mydrv_proc_open</span>,
+    .proc_read    = <span class="fn">seq_read</span>,       <span class="cm">/* provided by seq_file */</span>
+    .proc_lseek   = <span class="fn">seq_lseek</span>,      <span class="cm">/* provided by seq_file */</span>
+    .proc_release = <span class="fn">single_release</span>, <span class="cm">/* provided by seq_file */</span>
+};
+
+<span class="cm">/* In init: */</span>
+<span class="kw">static struct</span> <span class="tp">proc_dir_entry</span> *mydrv_proc_dir;
+
+<span class="kw">static int</span> <span class="fn">mydrv_proc_init</span>(<span class="kw">struct</span> <span class="tp">my_device</span> *dev)
+{
+    <span class="cm">/* proc_mkdir: create /proc/driver/mydriver/ directory */</span>
+    mydrv_proc_dir = <span class="fn">proc_mkdir</span>(<span class="st">"driver/mydriver"</span>, <span class="nm">NULL</span>);
+    <span class="kw">if</span> (!mydrv_proc_dir) <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+    <span class="cm">/* proc_create_data: name, mode, parent, ops, private_data */</span>
+    <span class="hl"><span class="kw">if</span> (!<span class="fn">proc_create_data</span>(<span class="st">"status"</span>, <span class="nm">0444</span>, mydrv_proc_dir,
+                           &amp;mydrv_proc_ops, dev)) {</span>
+        <span class="fn">proc_remove</span>(mydrv_proc_dir);
+        <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+    }
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">mydrv_proc_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">proc_remove</span>(mydrv_proc_dir); <span class="cm">/* recursive: removes dir AND all children */</span>
+}</pre>
+</div>
+<div class="info-box warn">
+  <span class="icon">⚠️</span>
+  <div class="content"><strong>proc_ops vs file_operations</strong>Since kernel 5.6, <code>/proc</code> files use <code>struct proc_ops</code> with fields named <code>.proc_open</code>, <code>.proc_read</code>, etc. Using the old <code>file_operations</code> struct for proc entries on modern kernels causes a compile error. For the iterator pattern use <code>seq_release</code>; for single use <code>single_release</code>.</div>
+</div>
+
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">C — Pattern 2: seq_file Iterator — Large Datasets</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+  <pre><span class="cm">/* Four callbacks: start, next, stop, show — for paginating large lists */</span>
+
+<span class="kw">static void</span> *<span class="fn">mydrv_seq_start</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="tp">loff_t</span> *pos)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = m-&gt;private;
+    <span class="cm">/* Return pointer to element at *pos, or NULL if beyond end */</span>
+    <span class="kw">return</span> <span class="fn">idr_get_next</span>(&amp;dev-&gt;sensor_idr, (<span class="kw">unsigned long</span> *)pos);
+}
+
+<span class="kw">static void</span> *<span class="fn">mydrv_seq_next</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v, <span class="tp">loff_t</span> *pos)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = m-&gt;private;
+    (*pos)++;
+    <span class="kw">return</span> <span class="fn">idr_get_next</span>(&amp;dev-&gt;sensor_idr, (<span class="kw">unsigned long</span> *)pos);
+}
+
+<span class="kw">static void</span>  <span class="fn">mydrv_seq_stop</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v) {}
+<span class="cm">/* stop: release locks/refs held during iteration */</span>
+
+<span class="kw">static int</span> <span class="fn">mydrv_seq_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="kw">struct</span> <span class="tp">sensor</span> *s = v;
+    <span class="fn">seq_printf</span>(m, <span class="st">"%4d  %-16s  %3d C  %s\n"</span>,
+               s-&gt;id, s-&gt;name, s-&gt;value, s-&gt;value &gt; <span class="nm">80</span> ? <span class="st">"ALERT"</span> : <span class="st">"ok"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static const struct</span> <span class="tp">seq_operations</span> mydrv_seq_ops = {
+    .start = <span class="fn">mydrv_seq_start</span>, .next  = <span class="fn">mydrv_seq_next</span>,
+    .stop  = <span class="fn">mydrv_seq_stop</span>,  .show  = <span class="fn">mydrv_seq_show</span>,
+};
+
+<span class="kw">static int</span> <span class="fn">mydrv_sensors_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *file)
+{
+    <span class="kw">int</span> ret = <span class="fn">seq_open</span>(file, &amp;mydrv_seq_ops);   <span class="cm">/* seq_open, not single_open */</span>
+    <span class="kw">if</span> (ret == <span class="nm">0</span>)
+        ((<span class="kw">struct</span> <span class="tp">seq_file</span> *)file-&gt;private_data)-&gt;private =
+            <span class="fn">pde_data</span>(<span class="fn">file_inode</span>(file));
+    <span class="kw">return</span> ret;
+}
+<span class="kw">static const struct</span> <span class="tp">proc_ops</span> mydrv_sensors_ops = {
+    .proc_open    = <span class="fn">mydrv_sensors_open</span>,
+    .proc_read    = <span class="fn">seq_read</span>, .proc_lseek = <span class="fn">seq_lseek</span>,
+    .proc_release = <span class="fn">seq_release</span>,  <span class="cm">/* seq_release (not single_release) for iterator */</span>
+};</pre>
+</div>
+
+<!-- SECTION 3 Writable proc -->
+<div class="section-header"><div class="sn green">3</div><h2>Writable /proc — Accepting Values from Userspace</h2></div>
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">C — Writable /proc Entry — echo value &gt; /proc/.../threshold</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+  <pre><span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">mydrv_threshold_write</span>(<span class="kw">struct</span> <span class="tp">file</span> *file,
+                                       <span class="kw">const</span> <span class="kw">char</span> <span class="kw">__user</span> *ubuf,
+                                       <span class="tp">size_t</span> count, <span class="tp">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = <span class="fn">pde_data</span>(<span class="fn">file_inode</span>(file));
+    <span class="kw">char</span>  buf[<span class="nm">32</span>]; <span class="kw">long</span> val; <span class="kw">int</span> ret;
+
+    <span class="kw">if</span> (count &gt; <span class="kw">sizeof</span>(buf) - <span class="nm">1</span>) <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    <span class="kw">if</span> (<span class="fn">copy_from_user</span>(buf, ubuf, count)) <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+    buf[count] = <span class="st">'\0'</span>;
+
+    <span class="cm">/* kstrtol: safe string-to-long, returns 0 on success.
+     * strim() removes leading/trailing whitespace and the trailing newline. */</span>
+    ret = <span class="fn">kstrtol</span>(<span class="fn">strim</span>(buf), <span class="nm">10</span>, &amp;val);
+    <span class="kw">if</span> (ret) <span class="kw">return</span> ret;
+
+    <span class="kw">if</span> (val &lt; <span class="nm">0</span> || val &gt; <span class="nm">100</span>) <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    dev-&gt;threshold = (<span class="kw">int</span>)val;
+    <span class="fn">pr_info</span>(<span class="st">"mydrv: threshold set to %d\n"</span>, dev-&gt;threshold);
+    <span class="kw">return</span> count;   <span class="cm">/* MUST return count, not 0, to avoid infinite retry */</span>
+}
+
+<span class="kw">static const struct</span> <span class="tp">proc_ops</span> mydrv_threshold_ops = {
+    .proc_open    = <span class="fn">mydrv_proc_open</span>,
+    .proc_read    = <span class="fn">seq_read</span>,
+    .proc_write   = <span class="fn">mydrv_threshold_write</span>,   <span class="cm">/* add this for writability */</span>
+    .proc_lseek   = <span class="fn">seq_lseek</span>,
+    .proc_release = <span class="fn">single_release</span>,
+};
+<span class="cm">/* Create with 0644 so owner can write, everyone can read */</span>
+<span class="fn">proc_create_data</span>(<span class="st">"threshold"</span>, <span class="nm">0644</span>, mydrv_proc_dir, &amp;mydrv_threshold_ops, dev);
+
+<span class="cm">/* ── kstr* parsing helpers ────────────────────────────────────────── */</span>
+<span class="cm">/* kstrtol  (str, base, &long)   kstrtoul (str, base, &ulong)         */</span>
+<span class="cm">/* kstrtoint(str, base, &int)    kstrtou32(str, base, &u32)           */</span>
+<span class="cm">/* kstrtobool(str, &bool)  → "y","1","on","yes","true" → true         */</span>
+<span class="cm">/* All return 0 on success, -EINVAL/-ERANGE on parse error.           */</span></pre>
+</div>
+
+<!-- SECTION 4 sysfs -->
+<div class="section-header"><div class="sn yellow">4</div><h2>sysfs — The Device Model's Filesystem</h2></div>
+<div class="card">
+  <h3>🔧 One Value Per File — The Iron Rule</h3>
+  <p>sysfs has one rule: <strong>one attribute, one value per file</strong>. Every sysfs file holds exactly one value — an integer, a string, a boolean. No multi-column tables. This makes sysfs scriptable: <code>cat /sys/class/thermal/thermal_zone0/temp</code> returns one number that a shell script can read and act on.</p>
+  <p>sysfs is built on the kernel object model (kobject). Every device, bus, driver, and class has a kobject that automatically appears as a directory in /sys. Your driver gets sysfs entries by being part of the device model.</p>
+</div>
+<div class="tree">
+/sys/
+├── <span class="t-dir">bus/platform/devices/mydevice.0/</span>   ← your platform device
+│   ├── <span class="t-file">enable</span>        ← 0 or 1
+│   ├── <span class="t-file">threshold</span>     ← integer value
+│   ├── <span class="t-file">temperature</span>   ← read-only sensor reading
+│   └── <span class="t-link">driver</span>  → ../../drivers/platform/mydriver
+├── <span class="t-dir">class/mydev/mydev0/</span>  ← your device class
+└── <span class="t-dir">kernel/debug/mydriver/</span>  ← debugfs mount point
+    ├── <span class="t-file">regs</span>
+    └── <span class="t-file">stats</span>
+</div>
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">C — DEVICE_ATTR — The Standard sysfs Pattern</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+  <pre><span class="pp">#include &lt;linux/device.h&gt;</span>   <span class="cm">/* DEVICE_ATTR_RO, DEVICE_ATTR_RW, sysfs_emit */</span>
+
+<span class="cm">/* ── DEVICE_ATTR MACROS ───────────────────────────────────────────────
+ * DEVICE_ATTR_RO(name)  → 0444, requires name_show()
+ * DEVICE_ATTR_RW(name)  → 0644, requires name_show() AND name_store()
+ * DEVICE_ATTR_WO(name)  → 0200, requires name_store()
+ * DEVICE_ATTR(name, mode, show_fn, store_fn)  → full control
+ * Each macro creates: struct device_attribute dev_attr_##name
+ * ──────────────────────────────────────────────────────────────────── */</span>
+
+<span class="cm">/* Attribute 1: temperature — read-only sensor reading */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">temperature_show</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                                  <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr, <span class="kw">char</span> *buf)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *mydev = <span class="fn">dev_get_drvdata</span>(dev);
+    <span class="cm">/* sysfs_emit: bounds-checked, replaces sprintf().
+     * buf is PAGE_SIZE bytes. Value MUST end with '\n'. */</span>
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="st">"%d\n"</span>, <span class="fn">read_temperature</span>(mydev));
+}
+<span class="hl"><span class="mc">DEVICE_ATTR_RO</span>(temperature);   <span class="cm">/* creates dev_attr_temperature */</span></span>
+
+<span class="cm">/* Attribute 2: enable — read-write on/off switch */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">enable_show</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                             <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr, <span class="kw">char</span> *buf)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *mydev = <span class="fn">dev_get_drvdata</span>(dev);
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="st">"%d\n"</span>, mydev-&gt;enabled ? <span class="nm">1</span> : <span class="nm">0</span>);
+}
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">enable_store</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                              <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr,
+                              <span class="kw">const</span> <span class="kw">char</span> *buf, <span class="tp">size_t</span> count)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *mydev = <span class="fn">dev_get_drvdata</span>(dev);
+    <span class="kw">bool</span> val;
+    <span class="kw">if</span> (<span class="fn">kstrtobool</span>(buf, &amp;val)) <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    mydev-&gt;enabled = val;
+    val ? <span class="fn">hardware_enable</span>(mydev) : <span class="fn">hardware_disable</span>(mydev);
+    <span class="kw">return</span> count;   <span class="cm">/* ALWAYS return count */</span>
+}
+<span class="hl"><span class="mc">DEVICE_ATTR_RW</span>(enable);   <span class="cm">/* creates dev_attr_enable */</span></span>
+
+<span class="cm">/* Attribute 3: threshold — read-write integer */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">threshold_show</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                                <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr, <span class="kw">char</span> *buf)
+{
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="st">"%u\n"</span>, ((<span class="kw">struct</span> <span class="tp">my_device</span>*)<span class="fn">dev_get_drvdata</span>(dev))-&gt;threshold);
+}
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">threshold_store</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                                 <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr,
+                                 <span class="kw">const</span> <span class="kw">char</span> *buf, <span class="tp">size_t</span> count)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *mydev = <span class="fn">dev_get_drvdata</span>(dev);
+    <span class="kw">unsigned int</span> val;
+    <span class="kw">int</span> ret = <span class="fn">kstrtouint</span>(buf, <span class="nm">10</span>, &amp;val);
+    <span class="kw">if</span> (ret) <span class="kw">return</span> ret;
+    <span class="kw">if</span> (val &gt; <span class="nm">100</span>) <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    mydev-&gt;threshold = val;
+    <span class="kw">return</span> count;
+}
+<span class="mc">DEVICE_ATTR_RW</span>(threshold);
+
+<span class="cm">/* ── Group attributes for atomic create/remove ──────────────────── */</span>
+<span class="kw">static struct</span> <span class="tp">attribute</span> *mydev_attrs[] = {
+    &amp;dev_attr_temperature.attr,
+    &amp;dev_attr_enable.attr,
+    &amp;dev_attr_threshold.attr,
+    <span class="nm">NULL</span>   <span class="cm">/* NULL-terminated */</span>
+};
+<span class="mc">ATTRIBUTE_GROUPS</span>(mydev);   <span class="cm">/* creates mydev_groups[] */</span>
+
+<span class="cm">/* Register/unregister in probe/remove: */</span>
+<span class="fn">sysfs_create_group</span>(&amp;dev-&gt;kobj, &amp;mydev_attr_group);
+<span class="cm">/* OR pass .groups = mydev_groups to struct device_driver (preferred) */</span>
+<span class="fn">sysfs_remove_group</span>(&amp;dev-&gt;kobj, &amp;mydev_attr_group);</pre>
+</div>
+<div class="info-box tip">
+  <span class="icon">💡</span>
+  <div class="content"><strong>sysfs_emit() replaces sprintf()</strong>Since kernel 5.10, always use <code>sysfs_emit(buf, fmt, ...)</code> instead of <code>sprintf(buf, ...)</code> in show callbacks. It's bounds-checked against PAGE_SIZE and handles return values correctly.</div>
+</div>
+
+<!-- SECTION 5 Standalone kobject -->
+<div class="section-header"><div class="sn red">5</div><h2>Standalone kobject — sysfs Without a Device</h2></div>
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">C — kobject under /sys/kernel/mydriver/ — No struct device Needed</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+  <pre><span class="pp">#include &lt;linux/kobject.h&gt;</span>
+
+<span class="kw">static struct</span> <span class="tp">kobject</span> *mydrv_kobj;
+
+<span class="cm">/* kobj_attribute uses __ATTR macro (different from DEVICE_ATTR) */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">verbose_show</span>(<span class="kw">struct</span> <span class="tp">kobject</span> *kobj,
+                              <span class="kw">struct</span> <span class="tp">kobj_attribute</span> *attr, <span class="kw">char</span> *buf)
+{
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="st">"%d\n"</span>, verbose_mode);
+}
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">verbose_store</span>(<span class="kw">struct</span> <span class="tp">kobject</span> *kobj,
+                               <span class="kw">struct</span> <span class="tp">kobj_attribute</span> *attr,
+                               <span class="kw">const</span> <span class="kw">char</span> *buf, <span class="tp">size_t</span> count)
+{
+    <span class="kw">bool</span> val;
+    <span class="kw">if</span> (<span class="fn">kstrtobool</span>(buf, &amp;val)) <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    verbose_mode = val;
+    <span class="kw">return</span> count;
+}
+
+<span class="kw">static struct</span> <span class="tp">kobj_attribute</span> count_attr   = <span class="fn">__ATTR_RO</span>(global_count);
+<span class="kw">static struct</span> <span class="tp">kobj_attribute</span> verbose_attr =
+    <span class="fn">__ATTR</span>(verbose, <span class="nm">0644</span>, <span class="fn">verbose_show</span>, <span class="fn">verbose_store</span>);
+
+<span class="kw">static struct</span> <span class="tp">attribute</span> *mydrv_kobj_attrs[] = {
+    &amp;count_attr.attr, &amp;verbose_attr.attr, <span class="nm">NULL</span>
+};
+<span class="mc">ATTRIBUTE_GROUPS</span>(mydrv_kobj);
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">mydrv_sysfs_init</span>(<span class="kw">void</span>)
+{
+    <span class="cm">/* Creates /sys/kernel/mydriver/ (kernel_kobj = /sys/kernel) */</span>
+    mydrv_kobj = <span class="fn">kobject_create_and_add</span>(<span class="st">"mydriver"</span>, kernel_kobj);
+    <span class="kw">if</span> (!mydrv_kobj) <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+    <span class="kw">int</span> ret = <span class="fn">sysfs_create_group</span>(mydrv_kobj, &amp;mydrv_kobj_attr_group);
+    <span class="kw">if</span> (ret) <span class="fn">kobject_put</span>(mydrv_kobj);
+    <span class="kw">return</span> ret;
+}
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">mydrv_sysfs_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">kobject_put</span>(mydrv_kobj);  <span class="cm">/* dec refcount → removes /sys/kernel/mydriver/ */</span>
+}
+<span class="cm">/* Other kobject parents:  kernel_kobj → /sys/kernel/
+ *   power_kobj → /sys/power/    firmware_kobj → /sys/firmware/
+ *   fs_kobj    → /sys/fs/       mm_kobj       → /sys/kernel/mm/ */</span></pre>
+</div>
+
+<!-- SECTION 6 debugfs -->
+<div class="section-header"><div class="sn purple">6</div><h2>debugfs — Your Development-Time Swiss Army Knife</h2></div>
+<div class="card">
+  <h3>🐛 No ABI Contract, Maximum Convenience</h3>
+  <p>debugfs is the right place for anything useful during development but not suitable as a stable interface: raw register dumps, internal queue state, verbose logging toggles, test injection points. It provides helper functions backed by simple variables — no callbacks needed for basic types.</p>
+  <p>debugfs is disabled by default in production kernels (<code>CONFIG_DEBUG_FS=n</code>). Your driver must handle this with <code>IS_ERR_OR_NULL()</code> checks. Never put critical driver functionality behind debugfs.</p>
+</div>
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">C — debugfs — Complete API Reference</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+  <pre><span class="pp">#include &lt;linux/debugfs.h&gt;</span>
+
+<span class="kw">static struct</span> <span class="tp">dentry</span> *mydrv_dbg_dir;
+
+<span class="kw">static void</span> <span class="fn">mydrv_debugfs_init</span>(<span class="kw">struct</span> <span class="tp">my_device</span> *dev)
+{
+    <span class="cm">/* Creates /sys/kernel/debug/mydriver/
+     * IMPORTANT: Never check individual debugfs_create_* return values.
+     * They silently no-op if debugfs is disabled. Only check the dir. */</span>
+    mydrv_dbg_dir = <span class="fn">debugfs_create_dir</span>(<span class="st">"mydriver"</span>, <span class="nm">NULL</span>);
+
+    <span class="cm">/* ── Simple variable files — zero boilerplate ───────────────────
+     * Signature: debugfs_create_TYPE(name, mode, parent, &variable)  */</span>
+    <span class="fn">debugfs_create_u32</span> (<span class="st">"poll_count"</span>,  <span class="nm">0444</span>, mydrv_dbg_dir, &amp;dev-&gt;poll_count);
+    <span class="fn">debugfs_create_u32</span> (<span class="st">"error_count"</span>, <span class="nm">0444</span>, mydrv_dbg_dir, &amp;dev-&gt;error_count);
+    <span class="fn">debugfs_create_u64</span> (<span class="st">"rx_bytes"</span>,    <span class="nm">0444</span>, mydrv_dbg_dir, &amp;dev-&gt;rx_bytes);
+    <span class="fn">debugfs_create_bool</span>(<span class="st">"verbose"</span>,     <span class="nm">0644</span>, mydrv_dbg_dir, &amp;dev-&gt;verbose);
+    <span class="fn">debugfs_create_x32</span> (<span class="st">"flags"</span>,       <span class="nm">0444</span>, mydrv_dbg_dir, &amp;dev-&gt;flags);
+    <span class="cm">/* x32/x64: display in hex — good for bitmask/register values */</span>
+
+    <span class="cm">/* Atomic counter — lock-free display */</span>
+    <span class="fn">debugfs_create_atomic_t</span>(<span class="st">"open_count"</span>, <span class="nm">0444</span>, mydrv_dbg_dir, &amp;dev-&gt;open_count);
+
+    <span class="cm">/* Blob: expose a binary buffer as a hex dump */</span>
+    <span class="kw">static struct</span> <span class="tp">debugfs_blob_wrapper</span> fw_blob;
+    fw_blob.data = firmware_buf; fw_blob.size = firmware_size;
+    <span class="fn">debugfs_create_blob</span>(<span class="st">"firmware"</span>, <span class="nm">0444</span>, mydrv_dbg_dir, &amp;fw_blob);
+
+    <span class="cm">/* Custom seq_file: for complex output (register dumps, etc.) */</span>
+    <span class="fn">debugfs_create_file</span>(<span class="st">"regs"</span>, <span class="nm">0444</span>, mydrv_dbg_dir, dev, &amp;mydrv_regs_fops);
+
+    <span class="cm">/* regset32: dump named hardware registers in one shot */</span>
+    <span class="kw">static const struct</span> <span class="tp">debugfs_reg32</span> mydrv_regs[] = {
+        { <span class="st">"CTRL"</span>,   <span class="nm">0x00</span> }, { <span class="st">"STATUS"</span>, <span class="nm">0x04</span> },
+        { <span class="st">"DATA"</span>,   <span class="nm">0x08</span> }, { <span class="st">"IRQ"</span>,    <span class="nm">0x0C</span> },
+    };
+    <span class="kw">static struct</span> <span class="tp">debugfs_regset32</span> regset = {
+        .regs = mydrv_regs, .nregs = <span class="mc">ARRAY_SIZE</span>(mydrv_regs),
+        .base = dev-&gt;mmio_base,
+    };
+    <span class="fn">debugfs_create_regset32</span>(<span class="st">"registers"</span>, <span class="nm">0444</span>, mydrv_dbg_dir, &amp;regset);
+}
+
+<span class="kw">static void</span> <span class="fn">mydrv_debugfs_exit</span>(<span class="kw">void</span>)
+{
+    <span class="hl"><span class="fn">debugfs_remove_recursive</span>(mydrv_dbg_dir);</span>
+    <span class="cm">/* One call removes the directory AND every file inside it */</span>
+}</pre>
+</div>
+<div class="terminal">
+  <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash — Using debugfs</div></div>
+  <pre><span class="t-prompt">$</span> <span class="t-cmd">ls /sys/kernel/debug/mydriver/</span>
+<span class="t-out">error_count  firmware  flags  open_count  poll_count  regs  registers  rx_bytes  verbose</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/debug/mydriver/poll_count</span>
+<span class="t-out">42</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/debug/mydriver/flags</span>
+<span class="t-out">0x0000001f</span>
+<span class="t-prompt">$</span> <span class="t-cmd">echo 1 > /sys/kernel/debug/mydriver/verbose</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/debug/mydriver/registers</span>
+<span class="t-out">CTRL   : 0x00000001
+STATUS : 0x00000083
+DATA   : 0x00000042
+IRQ    : 0x00000000</span></pre>
+</div>
+
+<!-- SECTION 7 Practice Project -->
+<div class="section-header"><div class="sn orange">7</div><h2>Day 9 Practice Project — Add All Three Interfaces to pipdev</h2></div>
+<div class="info-box tip">
+  <span class="icon">🎯</span>
+  <div class="content"><strong>Today's Goal</strong>Take yesterday's <code>pipdev</code> driver and add a full observability layer: <code>/proc/driver/pipdev/stats</code> for human-readable statistics, a sysfs <code>/sys/kernel/pipdev/</code> entry for runtime configuration, and <code>/sys/kernel/debug/pipdev/</code> for developer counters — one driver, three interfaces, each serving its proper audience.</div>
+</div>
+<div class="code-block">
+  <div class="code-header"><span class="code-lang">C — pipdev_interfaces.c — Add to pipdev.c from Day 8</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+  <pre><span class="cm">/* Add these includes to pipdev.c: */</span>
+<span class="pp">#include &lt;linux/proc_fs.h&gt;</span>
+<span class="pp">#include &lt;linux/seq_file.h&gt;</span>
+<span class="pp">#include &lt;linux/kobject.h&gt;</span>
+<span class="pp">#include &lt;linux/debugfs.h&gt;</span>
+
+<span class="cm">/* Extended pipdev state — add these fields: */</span>
+<span class="kw">struct</span> <span class="tp">pipdev</span> {
+    <span class="cm">/* ... Day 8 fields (fifo, lock, wait queues, open_count) ... */</span>
+    <span class="tp">u64</span>               total_reads;     <span class="cm">/* increment in pipdev_read() */</span>
+    <span class="tp">u64</span>               total_writes;    <span class="cm">/* increment in pipdev_write() */</span>
+    <span class="tp">u64</span>               total_rx_bytes;  <span class="cm">/* bytes given to readers */</span>
+    <span class="tp">u64</span>               total_tx_bytes;  <span class="cm">/* bytes received from writers */</span>
+    <span class="tp">u64</span>               flush_count;
+    <span class="kw">bool</span>              drop_on_full;    <span class="cm">/* configurable via sysfs */</span>
+    <span class="kw">struct</span> <span class="tp">proc_dir_entry</span> *proc_dir;
+    <span class="kw">struct</span> <span class="tp">kobject</span>        *sysfs_kobj;
+    <span class="kw">struct</span> <span class="tp">dentry</span>         *dbg_dir;
+};
+
+<span class="cm">/* ════ 1. /proc/driver/pipdev/stats ════════════════════════════════ */</span>
+<span class="kw">static int</span> <span class="fn">pipdev_proc_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="kw">struct</span> <span class="tp">pipdev</span> *dev = m-&gt;private;
+    <span class="fn">seq_puts</span>(m, <span class="st">"pipdev Statistics\n=================\n"</span>);
+    <span class="fn">seq_printf</span>(m, <span class="st">"Buffer:     %u / %u bytes used\n"</span>,
+               <span class="fn">kfifo_len</span>(&amp;dev-&gt;fifo), <span class="fn">kfifo_size</span>(&amp;dev-&gt;fifo));
+    <span class="fn">seq_printf</span>(m, <span class="st">"Open fds:   %d\n"</span>, <span class="fn">atomic_read</span>(&amp;dev-&gt;open_count));
+    <span class="fn">seq_printf</span>(m, <span class="st">"Reads:      %llu  (%llu bytes)\n"</span>,
+               dev-&gt;total_reads, dev-&gt;total_rx_bytes);
+    <span class="fn">seq_printf</span>(m, <span class="st">"Writes:     %llu  (%llu bytes)\n"</span>,
+               dev-&gt;total_writes, dev-&gt;total_tx_bytes);
+    <span class="fn">seq_printf</span>(m, <span class="st">"Flushes:    %llu\n"</span>, dev-&gt;flush_count);
+    <span class="fn">seq_printf</span>(m, <span class="st">"DropOnFull: %s\n"</span>, dev-&gt;drop_on_full ? <span class="st">"yes"</span> : <span class="st">"no"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+<span class="kw">static int</span> <span class="fn">pipdev_proc_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *file)
+{
+    <span class="kw">return</span> <span class="fn">single_open</span>(file, <span class="fn">pipdev_proc_show</span>, <span class="fn">pde_data</span>(<span class="fn">file_inode</span>(file)));
+}
+<span class="kw">static const struct</span> <span class="tp">proc_ops</span> pipdev_proc_ops = {
+    .proc_open = <span class="fn">pipdev_proc_open</span>, .proc_read = <span class="fn">seq_read</span>,
+    .proc_lseek = <span class="fn">seq_lseek</span>,       .proc_release = <span class="fn">single_release</span>,
+};
+<span class="kw">static int</span> <span class="fn">pipdev_proc_init</span>(<span class="kw">struct</span> <span class="tp">pipdev</span> *dev)
+{
+    dev-&gt;proc_dir = <span class="fn">proc_mkdir</span>(<span class="st">"driver/pipdev"</span>, <span class="nm">NULL</span>);
+    <span class="kw">if</span> (!dev-&gt;proc_dir) <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+    <span class="kw">if</span> (!<span class="fn">proc_create_data</span>(<span class="st">"stats"</span>, <span class="nm">0444</span>, dev-&gt;proc_dir,
+                           &amp;pipdev_proc_ops, dev)) {
+        <span class="fn">proc_remove</span>(dev-&gt;proc_dir); <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+    }
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ════ 2. /sys/kernel/pipdev/ ═══════════════════════════════════════ */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">buf_avail_show</span>(<span class="kw">struct</span> <span class="tp">kobject</span> *kobj,
+                                <span class="kw">struct</span> <span class="tp">kobj_attribute</span> *attr, <span class="kw">char</span> *buf)
+{ <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="st">"%u\n"</span>, <span class="fn">kfifo_len</span>(&amp;pd-&gt;fifo)); }
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">drop_on_full_show</span>(<span class="kw">struct</span> <span class="tp">kobject</span> *kobj,
+                                   <span class="kw">struct</span> <span class="tp">kobj_attribute</span> *attr, <span class="kw">char</span> *buf)
+{ <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="st">"%d\n"</span>, pd-&gt;drop_on_full); }
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">drop_on_full_store</span>(<span class="kw">struct</span> <span class="tp">kobject</span> *kobj,
+                                    <span class="kw">struct</span> <span class="tp">kobj_attribute</span> *attr,
+                                    <span class="kw">const</span> <span class="kw">char</span> *buf, <span class="tp">size_t</span> count)
+{
+    <span class="kw">bool</span> val;
+    <span class="kw">if</span> (<span class="fn">kstrtobool</span>(buf, &amp;val)) <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    pd-&gt;drop_on_full = val;
+    <span class="kw">return</span> count;
+}
+<span class="kw">static struct</span> <span class="tp">kobj_attribute</span> buf_avail_attr    = <span class="fn">__ATTR_RO</span>(buf_avail);
+<span class="kw">static struct</span> <span class="tp">kobj_attribute</span> drop_on_full_attr =
+    <span class="fn">__ATTR</span>(drop_on_full, <span class="nm">0644</span>, <span class="fn">drop_on_full_show</span>, <span class="fn">drop_on_full_store</span>);
+<span class="kw">static struct</span> <span class="tp">attribute</span> *pipdev_sysfs_attrs[] =
+    { &amp;buf_avail_attr.attr, &amp;drop_on_full_attr.attr, <span class="nm">NULL</span> };
+<span class="mc">ATTRIBUTE_GROUPS</span>(pipdev_sysfs);
+
+<span class="kw">static int</span> <span class="fn">pipdev_sysfs_init</span>(<span class="kw">struct</span> <span class="tp">pipdev</span> *dev)
+{
+    dev-&gt;sysfs_kobj = <span class="fn">kobject_create_and_add</span>(<span class="st">"pipdev"</span>, kernel_kobj);
+    <span class="kw">if</span> (!dev-&gt;sysfs_kobj) <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+    <span class="kw">int</span> ret = <span class="fn">sysfs_create_group</span>(dev-&gt;sysfs_kobj, &amp;pipdev_sysfs_attr_group);
+    <span class="kw">if</span> (ret) <span class="fn">kobject_put</span>(dev-&gt;sysfs_kobj);
+    <span class="kw">return</span> ret;
+}
+
+<span class="cm">/* ════ 3. /sys/kernel/debug/pipdev/ ════════════════════════════════ */</span>
+<span class="kw">static void</span> <span class="fn">pipdev_debugfs_init</span>(<span class="kw">struct</span> <span class="tp">pipdev</span> *dev)
+{
+    dev-&gt;dbg_dir = <span class="fn">debugfs_create_dir</span>(<span class="st">"pipdev"</span>, <span class="nm">NULL</span>);
+    <span class="fn">debugfs_create_u64</span>    (<span class="st">"total_reads"</span>,  <span class="nm">0444</span>, dev-&gt;dbg_dir, &amp;dev-&gt;total_reads);
+    <span class="fn">debugfs_create_u64</span>    (<span class="st">"total_writes"</span>, <span class="nm">0444</span>, dev-&gt;dbg_dir, &amp;dev-&gt;total_writes);
+    <span class="fn">debugfs_create_u64</span>    (<span class="st">"rx_bytes"</span>,     <span class="nm">0444</span>, dev-&gt;dbg_dir, &amp;dev-&gt;total_rx_bytes);
+    <span class="fn">debugfs_create_u64</span>    (<span class="st">"tx_bytes"</span>,     <span class="nm">0444</span>, dev-&gt;dbg_dir, &amp;dev-&gt;total_tx_bytes);
+    <span class="fn">debugfs_create_u64</span>    (<span class="st">"flush_count"</span>,  <span class="nm">0444</span>, dev-&gt;dbg_dir, &amp;dev-&gt;flush_count);
+    <span class="fn">debugfs_create_atomic_t</span>(<span class="st">"open_count"</span>,  <span class="nm">0444</span>, dev-&gt;dbg_dir, &amp;dev-&gt;open_count);
+    <span class="fn">debugfs_create_bool</span>   (<span class="st">"drop_on_full"</span>, <span class="nm">0644</span>, dev-&gt;dbg_dir, &amp;dev-&gt;drop_on_full);
+}
+
+<span class="cm">/* ════ Updated init / exit ══════════════════════════════════════════ */</span>
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">pipdev_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> ret;
+    <span class="cm">/* ... existing Day 8 init ... */</span>
+    ret = <span class="fn">pipdev_proc_init</span>(pd);   <span class="kw">if</span> (ret) <span class="kw">goto</span> <span class="fn">err_proc</span>;
+    ret = <span class="fn">pipdev_sysfs_init</span>(pd);  <span class="kw">if</span> (ret) <span class="kw">goto</span> <span class="fn">err_sysfs</span>;
+    <span class="fn">pipdev_debugfs_init</span>(pd);      <span class="cm">/* non-fatal */</span>
+    <span class="fn">pr_info</span>(<span class="st">"pipdev: /proc/driver/pipdev/stats\n"</span>
+            <span class="st">"        /sys/kernel/pipdev/{buf_avail,drop_on_full}\n"</span>
+            <span class="st">"        /sys/kernel/debug/pipdev/\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+<span class="fn">err_sysfs</span>: <span class="fn">proc_remove</span>(pd-&gt;proc_dir);
+<span class="fn">err_proc</span>:  <span class="cm">/* undo misc_register, kfifo_free, kfree ... */</span>
+    <span class="kw">return</span> ret;
+}
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">pipdev_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">debugfs_remove_recursive</span>(pd-&gt;dbg_dir);
+    <span class="fn">kobject_put</span>(pd-&gt;sysfs_kobj);
+    <span class="fn">proc_remove</span>(pd-&gt;proc_dir);
+    <span class="cm">/* ... misc_deregister, kfifo_free, kfree ... */</span>
+}</pre>
+</div>
+
+<!-- SECTION 8 Testing -->
+<div class="section-header"><div class="sn teal">8</div><h2>Testing — Verifying All Three Interfaces</h2></div>
+<div class="steps">
+  <div class="step">
+    <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+    <div class="step-content">
+      <h4>Build, load, and verify all three interfaces appear</h4>
+      <div class="terminal">
+        <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+        <pre><span class="t-prompt">$</span> <span class="t-cmd">make && sudo insmod pipdev.ko</span>
+
+<span class="cm"># /proc</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/driver/pipdev/stats</span>
+<span class="t-out">pipdev Statistics
+=================
+Buffer:     0 / 4096 bytes used
+Open fds:   0
+Reads:      0  (0 bytes)
+Writes:     0  (0 bytes)
+Flushes:    0
+DropOnFull: no</span>
+
+<span class="cm"># sysfs</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ls /sys/kernel/pipdev/</span>
+<span class="t-out">buf_avail  drop_on_full</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/pipdev/buf_avail</span>
+<span class="t-out">0</span>
+
+<span class="cm"># debugfs</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ls /sys/kernel/debug/pipdev/</span>
+<span class="t-out">drop_on_full  flush_count  open_count  rx_bytes  total_reads  total_writes  tx_bytes</span></pre>
+      </div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+    <div class="step-content">
+      <h4>Write data and observe counters update</h4>
+      <div class="terminal">
+        <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+        <pre><span class="t-prompt">$</span> <span class="t-cmd">echo "hello world" > /dev/pipdev</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/driver/pipdev/stats | grep "Buffer\|Writes"</span>
+<span class="t-out">Buffer:     12 / 4096 bytes used
+Writes:     1  (12 bytes)</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/pipdev/buf_avail</span>
+<span class="t-out">12</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">cat /dev/pipdev</span>
+<span class="t-out">hello world</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/debug/pipdev/total_reads</span>
+<span class="t-out">1</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/debug/pipdev/rx_bytes</span>
+<span class="t-out">12</span>
+
+<span class="cm"># Configure via sysfs</span>
+<span class="t-prompt">$</span> <span class="t-cmd">echo 1 > /sys/kernel/pipdev/drop_on_full</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /sys/kernel/pipdev/drop_on_full</span>
+<span class="t-out">1</span>
+
+<span class="cm"># Watch stats update in real time</span>
+<span class="t-prompt">$</span> <span class="t-cmd">watch -n1 'cat /proc/driver/pipdev/stats'</span></pre>
+      </div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+    <div class="step-content">
+      <h4>Verify /proc/devices and /proc/misc</h4>
+      <div class="terminal">
+        <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+        <pre><span class="t-prompt">$</span> <span class="t-cmd">grep pipdev /proc/misc</span>
+<span class="t-out"> 58 pipdev</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /proc/driver/pipdev/stats</span>
+<span class="t-out">pipdev Statistics   ...</span>
+<span class="cm"># Confirm /proc tree is clean after rmmod</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod pipdev && ls /proc/driver/pipdev/ 2>&1</span>
+<span class="t-out">ls: cannot access '/proc/driver/pipdev/': No such file or directory</span></pre>
+      </div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+    <div class="step-content">
+      <h4>Exercise — Add a writable /proc reset entry</h4>
+      <p>Add <code>/proc/driver/pipdev/reset</code> with a write callback. When the user echoes anything to it, reset all statistics counters (<code>total_reads</code>, <code>total_writes</code>, <code>total_rx_bytes</code>, <code>total_tx_bytes</code>, <code>flush_count</code>) to zero atomically under the mutex. Verify with: write some data, <code>cat stats</code>, then <code>echo 1 &gt; reset</code>, then <code>cat stats</code> again — all counters should be zero.</p>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 9 Summary -->
+<div class="section-header"><div class="sn green" style="background:#22c55e;color:#000;">9</div><h2>Day 9 Summary &amp; Tomorrow's Preview</h2></div>
+
+<div class="table-wrap">
+  <table>
+    <tr><th>Feature</th><th>/proc</th><th>sysfs</th><th>debugfs</th></tr>
+    <tr><td><strong>Purpose</strong></td><td>Human-readable stats &amp; state</td><td>Machine-readable device attributes</td><td>Developer introspection</td></tr>
+    <tr><td><strong>ABI stability</strong></td><td>Soft (prefer not to break)</td><td><strong>Strict</strong> — never change once exported</td><td>None — change freely</td></tr>
+    <tr><td><strong>Format rule</strong></td><td>Free-form text, tables OK</td><td><strong>One value per file</strong>, ends with \n</td><td>Free-form, type helpers available</td></tr>
+    <tr><td><strong>Create API</strong></td><td><code>proc_create_data</code> + seq_file</td><td><code>DEVICE_ATTR</code> + <code>sysfs_create_group</code></td><td><code>debugfs_create_*</code></td></tr>
+    <tr><td><strong>Cleanup</strong></td><td><code>proc_remove()</code> recursive</td><td><code>kobject_put()</code> or <code>sysfs_remove_group()</code></td><td><code>debugfs_remove_recursive()</code></td></tr>
+    <tr><td><strong>In prod kernel</strong></td><td>Yes</td><td>Yes</td><td>No (CONFIG_DEBUG_FS may be off)</td></tr>
+  </table>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h3>✅ What You Mastered Today</h3>
+    <ul class="checklist">
+      <li><span class="chk">☑</span> /proc vs sysfs vs debugfs — audience, rules, and when to use each</li>
+      <li><span class="chk">☑</span> seq_file single pattern — proc_create_data + single_open</li>
+      <li><span class="chk">☑</span> seq_file iterator — start/next/stop/show for large datasets</li>
+      <li><span class="chk">☑</span> proc_ops (kernel 5.6+) vs old file_operations</li>
+      <li><span class="chk">☑</span> Writable /proc — proc_write + kstrtol/kstrtobool</li>
+      <li><span class="chk">☑</span> DEVICE_ATTR_RO/RW/WO — show and store callbacks</li>
+      <li><span class="chk">☑</span> sysfs_emit() — bounds-safe sysfs output</li>
+      <li><span class="chk">☑</span> ATTRIBUTE_GROUPS + sysfs_create_group</li>
+      <li><span class="chk">☑</span> kobject_create_and_add — standalone /sys/kernel/ entries</li>
+      <li><span class="chk">☑</span> debugfs_create_u32/u64/bool/x32/atomic_t/blob/regset32</li>
+      <li><span class="chk">☑</span> debugfs_remove_recursive — one-call teardown</li>
+      <li><span class="chk">☑</span> pde_data() — private data through proc entries</li>
+    </ul>
+  </div>
+  <div>
+    <div class="card">
+      <h3>🔜 Day 10 — Interrupt Handling</h3>
+      <ul class="checklist">
+        <li><span class="chk-no">○</span> request_irq / free_irq + devm_request_irq</li>
+        <li><span class="chk-no">○</span> IRQ handler signature, IRQ_HANDLED / IRQ_NONE</li>
+        <li><span class="chk-no">○</span> Threaded IRQs — request_threaded_irq</li>
+        <li><span class="chk-no">○</span> Shared IRQs — IRQF_SHARED flag</li>
+        <li><span class="chk-no">○</span> IRQ affinity and /proc/irq/</li>
+        <li><span class="chk-no">○</span> Softirqs and the bottom-half model</li>
+        <li><span class="chk-no">○</span> IRQ storm prevention &amp; rate limiting</li>
+      </ul>
+    </div>
+    <div class="info-box tip" style="margin-top:16px">
+      <span class="icon">📚</span>
+      <div class="content"><strong>Tonight's Reading</strong>Browse <code>/sys/bus/platform/devices/</code> on your test system — explore what attributes real drivers expose. Read <code>Documentation/filesystems/sysfs.rst</code> for the official ABI rules explaining why one-value-per-file matters for scripting tools and udev.</div>
+    </div>
+  </div>
+</div>
+
+<div class="quote">
+  "The difference between a driver that works and one that's maintainable is observability. A driver with clean /proc stats, sysfs knobs, and a debugfs dump is a joy to debug in production. One with nothing is a nightmare — you're flying blind at 3am. Today you learned to never fly blind again."
+  <strong>— Day 9 Complete ✓ — Your drivers are now self-documenting.</strong>
+</div>
+
+</div>
+<div class="footer">Day 9 of 30 · Linux Device Driver Roadmap · Week 2: Driver Interfaces &amp; Concurrency</div>
+</body>
+</html>

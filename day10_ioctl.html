@@ -1,0 +1,1873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 10 — ioctl Interface | Linux Driver Dev Roadmap</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #0f1218;
+    --surface2: #141820;
+    --border: #1e2535;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7c3aed;
+    --accent4: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --code-bg: #0d1117;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10,12,16,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-brand {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nav-brand span { color: var(--text-muted); font-weight: 400; }
+
+  .nav-links {
+    display: flex;
+    gap: 0.25rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .nav-links a:hover { color: var(--accent); background: rgba(0,212,255,0.07); }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    padding: 140px 2rem 80px;
+    max-width: 1100px;
+    margin: 0 auto;
+    z-index: 1;
+  }
+
+  .week-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  .week-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+  }
+
+  h1 .line1 { display: block; color: var(--text); }
+  h1 .line2 {
+    display: block;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    max-width: 600px;
+    margin-bottom: 2.5rem;
+    line-height: 1.7;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    background: var(--surface);
+  }
+
+  .meta-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .dot-blue { background: var(--accent); }
+  .dot-orange { background: var(--accent2); }
+  .dot-green { background: var(--accent4); }
+
+  /* ── LAYOUT ── */
+  .main-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem 6rem;
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .content { min-width: 0; }
+
+  /* ── SIDEBAR TOC ── */
+  .sidebar {
+    position: sticky;
+    top: 80px;
+  }
+
+  .toc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .toc-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .toc-list { list-style: none; }
+
+  .toc-list li { margin-bottom: 0.1rem; }
+
+  .toc-list a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.78rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .toc-list a:hover {
+    color: var(--accent);
+    background: rgba(0,212,255,0.05);
+  }
+
+  .toc-list a .toc-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    min-width: 20px;
+  }
+
+  .tip-card {
+    background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(0,212,255,0.05));
+    border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  .tip-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .tip-card p {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  /* ── SECTIONS ── */
+  section { margin-bottom: 4rem; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 2rem 0 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  h3::before {
+    content: '';
+    width: 3px;
+    height: 1em;
+    background: var(--accent2);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  p { margin-bottom: 1rem; color: var(--text-dim); }
+
+  strong { color: var(--text); font-weight: 500; }
+
+  /* ── CODE BLOCKS ── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .code-filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  pre {
+    padding: 1.25rem 1.25rem;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    tab-size: 4;
+  }
+
+  /* Syntax colors */
+  .kw { color: #ff79c6; }
+  .fn { color: #50fa7b; }
+  .type { color: #8be9fd; }
+  .str { color: #f1fa8c; }
+  .num { color: #bd93f9; }
+  .cmt { color: #6272a4; font-style: italic; }
+  .macro { color: #ffb86c; }
+  .prep { color: #ff5555; }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin: 1.5rem 0;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .callout-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 0.1rem; }
+
+  .callout-body { flex: 1; }
+  .callout-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+  .callout p { margin: 0; font-size: 0.85rem; }
+
+  .callout-warning {
+    background: rgba(245,158,11,0.07);
+    border: 1px solid rgba(245,158,11,0.25);
+  }
+  .callout-warning .callout-title { color: var(--warn); }
+
+  .callout-danger {
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.25);
+  }
+  .callout-danger .callout-title { color: var(--danger); }
+
+  .callout-info {
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.2);
+  }
+  .callout-info .callout-title { color: var(--accent); }
+
+  .callout-success {
+    background: rgba(16,185,129,0.07);
+    border: 1px solid rgba(16,185,129,0.25);
+  }
+  .callout-success .callout-title { color: var(--accent4); }
+
+  /* ── MACRO TABLE ── */
+  .macro-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .macro-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    transition: all 0.25s;
+    cursor: default;
+  }
+
+  .macro-card:hover {
+    border-color: rgba(0,212,255,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .macro-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .macro-sig {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+    line-height: 1.5;
+  }
+
+  .macro-desc {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .macro-badge {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255,107,53,0.12);
+    border: 1px solid rgba(255,107,53,0.25);
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+  }
+
+  .flow-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .flow-steps {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .flow-step {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .flow-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    width: 100%;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+  }
+
+  .flow-box.highlight {
+    border-color: rgba(0,212,255,0.4);
+    color: var(--accent);
+    background: rgba(0,212,255,0.05);
+  }
+
+  .flow-box.kernel-box {
+    border-color: rgba(124,58,237,0.4);
+    color: #a78bfa;
+    background: rgba(124,58,237,0.05);
+  }
+
+  .flow-connector {
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    padding-bottom: 2rem;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .flow-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  /* ── ERROR CODE TABLE ── */
+  .err-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .err-table th {
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .err-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+    vertical-align: middle;
+  }
+
+  .err-table tr:last-child td { border-bottom: none; }
+
+  .err-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+  .err-code { color: var(--danger); }
+  .err-val { color: var(--num); }
+  .err-desc { color: var(--text-dim); font-family: 'Inter', sans-serif; font-size: 0.78rem; }
+
+  /* ── CHECKLIST ── */
+  .checklist {
+    list-style: none;
+    margin: 1rem 0;
+  }
+
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  .checklist li::before {
+    content: '▸';
+    color: var(--accent4);
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .checklist li strong { color: var(--text); }
+
+  /* ── INTERVIEW CARDS ── */
+  .interview-grid {
+    display: grid;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .interview-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .interview-q {
+    padding: 1rem 1.25rem;
+    background: rgba(124,58,237,0.07);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #c4b5fd;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .interview-q::before {
+    content: 'Q';
+    background: rgba(124,58,237,0.3);
+    color: #c4b5fd;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .interview-a {
+    padding: 1rem 1.25rem;
+    font-size: 0.83rem;
+    color: var(--text-dim);
+    line-height: 1.65;
+  }
+
+  .interview-a code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 3rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .progress-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+    border-radius: 3px;
+    width: 33.3%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s linear infinite;
+  }
+
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+  }
+
+  .progress-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--accent);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.12);
+    color: var(--accent);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 3rem 0;
+  }
+
+  /* ── FOOTER ── */
+  .page-footer {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+
+  .next-day {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    transition: all 0.2s;
+  }
+
+  .next-day:hover {
+    border-color: var(--accent);
+    transform: translateX(4px);
+  }
+
+  .next-day span:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+  }
+
+  .next-day span:last-child {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .macro-grid { grid-template-columns: 1fr; }
+    nav .nav-links { display: none; }
+    .flow-steps { flex-wrap: wrap; }
+  }
+
+  /* ── SCROLL FADE IN ── */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .fade-in.visible {
+    opacity: 1;
+    transform: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">🐧 LinuxDD <span>/ Week 2 / Day 10</span></div>
+  <ul class="nav-links">
+    <li><a href="#what-is">What is ioctl</a></li>
+    <li><a href="#macros">Macros</a></li>
+    <li><a href="#implement">Implementation</a></li>
+    <li><a href="#compat">compat_ioctl</a></li>
+    <li><a href="#errors">Errors</a></li>
+    <li><a href="#example">Full Example</a></li>
+    <li><a href="#interview">Interview</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero fade-in">
+  <div class="week-badge">WEEK 2 · DAY 10 · DRIVER CORE</div>
+  <h1>
+    <span class="line1">ioctl Interface</span>
+    <span class="line2">&amp; Unlocked ioctl</span>
+  </h1>
+  <p class="hero-sub">
+    Master the kernel's most flexible driver control interface — from designing command macros and handling data payloads to 32-bit compatibility and security best practices.
+  </p>
+  <div class="hero-meta">
+    <div class="meta-pill"><div class="dot dot-blue"></div>Kernel &amp; Userspace ABI</div>
+    <div class="meta-pill"><div class="dot dot-orange"></div>unlocked_ioctl &amp; compat_ioctl</div>
+    <div class="meta-pill"><div class="dot dot-green"></div>Production Patterns</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-layout">
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- Progress -->
+    <div class="progress-banner fade-in">
+      <span class="progress-label">30-DAY ROADMAP PROGRESS</span>
+      <div class="progress-track"><div class="progress-fill"></div></div>
+      <span class="progress-pct">Day 10 / 30</span>
+    </div>
+
+    <!-- ── SECTION 1: WHAT IS IOCTL ── -->
+    <section id="what-is" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">01</span>
+        <h2>What is ioctl?</h2>
+      </div>
+
+      <p>
+        <strong>ioctl</strong> (Input/Output Control) is a system call that provides a flexible, device-specific control channel. When <code>read()</code> and <code>write()</code> aren't enough — when you need to configure hardware, query status, or send commands that don't map to data I/O — ioctl is the answer.
+      </p>
+      <p>
+        Think of it as a Swiss Army knife: one system call with an unlimited number of commands you define, each carrying its own payload type.
+      </p>
+
+      <!-- Flow diagram -->
+      <div class="flow">
+        <div class="flow-title">IOCTL CALL FLOW</div>
+        <div class="flow-steps">
+          <div class="flow-step">
+            <div class="flow-box highlight">Userspace<br>ioctl(fd, CMD, arg)</div>
+            <div class="flow-label">User calls</div>
+          </div>
+          <div class="flow-connector">→</div>
+          <div class="flow-step">
+            <div class="flow-box kernel-box">sys_ioctl()<br>VFS layer</div>
+            <div class="flow-label">Syscall entry</div>
+          </div>
+          <div class="flow-connector">→</div>
+          <div class="flow-step">
+            <div class="flow-box kernel-box">file_operations<br>.unlocked_ioctl</div>
+            <div class="flow-label">Driver dispatch</div>
+          </div>
+          <div class="flow-connector">→</div>
+          <div class="flow-step">
+            <div class="flow-box highlight">Your driver<br>switch(cmd)</div>
+            <div class="flow-label">Handle command</div>
+          </div>
+          <div class="flow-connector">→</div>
+          <div class="flow-step">
+            <div class="flow-box">Return 0<br>or -ERRNO</div>
+            <div class="flow-label">Result back</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>The Three Arguments</h3>
+      <p>Every ioctl call passes three arguments from userspace to your driver:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">userspace call</span>
+        </div>
+        <pre><span class="cmt">/* Userspace: ioctl(fd, cmd, arg) */</span>
+<span class="type">int</span> <span class="fn">ioctl</span>(<span class="type">int</span> fd,         <span class="cmt">/* file descriptor from open() */</span>
+          <span class="type">unsigned long</span> cmd,   <span class="cmt">/* encoded command — direction + type + nr + size */</span>
+          <span class="type">...</span>);               <span class="cmt">/* arg: optional unsigned long OR pointer to struct */</span>
+
+<span class="cmt">/* Examples: */</span>
+<span class="fn">ioctl</span>(fd, RESET_BUFFER, <span class="num">0</span>);                  <span class="cmt">/* no data */</span>
+<span class="fn">ioctl</span>(fd, GET_TEMP, &temp);                   <span class="cmt">/* read data OUT of driver */</span>
+<span class="fn">ioctl</span>(fd, SET_THRESHOLD, &threshold);         <span class="cmt">/* write data INTO driver */</span></pre>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <div class="callout-title">Why not just use read/write?</div>
+          <p>read/write are for data streams. ioctl is for <strong>out-of-band control</strong>: resetting hardware, setting baud rates, querying DMA stats, flushing FIFO, setting interrupt threshold. Conceptually different operations belong in ioctl, not embedded in data streams.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 2: MACROS ── -->
+    <section id="macros" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">02</span>
+        <h2>The Four Command Macros</h2>
+      </div>
+
+      <p>
+        Linux encodes <strong>direction, type, sequence number, and data size</strong> into a single 32-bit <code>unsigned int</code> command value. Never use raw integers — always use these macros from <code>&lt;linux/ioctl.h&gt;</code>.
+      </p>
+
+      <div class="macro-grid">
+        <div class="macro-card">
+          <div class="macro-name">_IO(type, nr)</div>
+          <div class="macro-sig">No data transfer</div>
+          <div class="macro-desc">For commands that carry no argument — pure control signals like reset, flush, start, stop. The <code>arg</code> in the ioctl call is ignored.</div>
+          <div class="macro-badge">NO DATA</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-name">_IOR(type, nr, datatype)</div>
+          <div class="macro-sig">Read: kernel → userspace</div>
+          <div class="macro-desc">Driver sends data <em>to</em> the caller. "R" is from the userspace perspective — the user <em>reads</em> from the driver. You use <code>copy_to_user()</code> inside.</div>
+          <div class="macro-badge">DRIVER → USER</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-name">_IOW(type, nr, datatype)</div>
+          <div class="macro-sig">Write: userspace → kernel</div>
+          <div class="macro-desc">User sends data <em>to</em> the driver. "W" from the user's perspective — the user <em>writes</em> into the driver. You use <code>copy_from_user()</code> inside.</div>
+          <div class="macro-badge">USER → DRIVER</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-name">_IOWR(type, nr, datatype)</div>
+          <div class="macro-sig">Read + Write: bidirectional</div>
+          <div class="macro-desc">Data flows both ways in a single call — user provides input, driver returns modified output in the same buffer. Common for query-and-configure operations.</div>
+          <div class="macro-badge">BIDIRECTIONAL</div>
+        </div>
+      </div>
+
+      <h3>Anatomy of a Command Number</h3>
+      <p>
+        The 32-bit value is laid out precisely. Knowing this layout helps you use the decoder macros <code>_IOC_DIR</code>, <code>_IOC_TYPE</code>, <code>_IOC_NR</code>, <code>_IOC_SIZE</code> for validation inside your driver.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">ioctl cmd bit layout</span>
+        </div>
+        <pre><span class="cmt">/*  Bit layout of a 32-bit ioctl command (architecture-dependent but typically):
+ *
+ *   31       30 29   16 15      8 7        0
+ *  ┌──────────┬─────────┬─────────┬──────────┐
+ *  │ direction│  size   │  type   │  number  │
+ *  │  2 bits  │ 14 bits │  8 bits │  8 bits  │
+ *  └──────────┴─────────┴─────────┴──────────┘
+ *
+ *  direction: 00 = none, 01 = write (user→kernel), 10 = read (kernel→user)
+ *  size:      sizeof(datatype) — kernel validates this automatically
+ *  type:      magic number unique to your driver ('k', 'S', 0xA5, etc.)
+ *  number:    sequential command index 0,1,2,3...
+ */</span>
+
+<span class="prep">#define</span> <span class="macro">MY_DRIVER_MAGIC</span>  <span class="str">'k'</span>   <span class="cmt">/* pick a unique magic byte for your driver */</span>
+
+<span class="cmt">/* Define your commands: */</span>
+<span class="prep">#define</span> <span class="macro">IOCTL_RESET_BUF</span>    <span class="fn">_IO</span>  (<span class="macro">MY_DRIVER_MAGIC</span>, <span class="num">0</span>)
+<span class="prep">#define</span> <span class="macro">IOCTL_GET_BUFSIZE</span>  <span class="fn">_IOR</span> (<span class="macro">MY_DRIVER_MAGIC</span>, <span class="num">1</span>, <span class="type">__u32</span>)
+<span class="prep">#define</span> <span class="macro">IOCTL_SET_THRESHOLD</span> <span class="fn">_IOW</span>(<span class="macro">MY_DRIVER_MAGIC</span>, <span class="num">2</span>, <span class="type">__u32</span>)
+<span class="prep">#define</span> <span class="macro">IOCTL_GET_STATS</span>    <span class="fn">_IOWR</span>(<span class="macro">MY_DRIVER_MAGIC</span>, <span class="num">3</span>, <span class="kw">struct</span> <span class="type">driver_stats</span>)
+
+<span class="cmt">/* Always document the valid range for safety checks: */</span>
+<span class="prep">#define</span> <span class="macro">MY_DRIVER_IOC_MAXNR</span>  <span class="num">3</span></pre>
+      </div>
+
+      <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <div class="callout-title">Magic Number Uniqueness</div>
+          <p>The "type" byte (magic number) must be unique across all drivers in the system. Check <code>Documentation/userspace-api/ioctl/ioctl-number.rst</code> for a registry of allocated values. Using a duplicate magic means ioctls could silently match the wrong driver.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 3: IMPLEMENT ── -->
+    <section id="implement" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">03</span>
+        <h2>Implementing unlocked_ioctl</h2>
+      </div>
+
+      <p>
+        The old <code>.ioctl</code> callback acquired the <strong>Big Kernel Lock (BKL)</strong> — a global mutex that serialized all ioctl calls system-wide, a massive bottleneck. Since kernel 2.6.36, only <code>.unlocked_ioctl</code> exists. You manage your own locking.
+      </p>
+
+      <h3>Shared Header (ABI Contract)</h3>
+      <p>
+        Put all ioctl definitions in a header shared between kernel and userspace. This is your ABI — change it carefully.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">include/mydriver.h  ← shared by kernel + userspace</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="prep">#ifndef</span> _MYDRIVER_H
+<span class="prep">#define</span> _MYDRIVER_H
+
+<span class="prep">#include</span> <span class="str">&lt;linux/ioctl.h&gt;</span>   <span class="cmt">/* kernel; use &lt;sys/ioctl.h&gt; in userspace */</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/types.h&gt;</span>   <span class="cmt">/* __u32, __s32 — portable fixed-width types */</span>
+
+<span class="kw">struct</span> <span class="type">driver_stats</span> {
+    <span class="type">__u32</span> bytes_read;
+    <span class="type">__u32</span> bytes_written;
+    <span class="type">__u32</span> irq_count;
+    <span class="type">__u32</span> current_temp;     <span class="cmt">/* millidegrees Celsius */</span>
+};
+
+<span class="prep">#define</span> <span class="macro">MY_DRV_MAGIC</span>         <span class="str">'k'</span>
+
+<span class="prep">#define</span> <span class="macro">IOCTL_RESET_BUF</span>       <span class="fn">_IO</span>  (<span class="macro">MY_DRV_MAGIC</span>, <span class="num">0</span>)
+<span class="prep">#define</span> <span class="macro">IOCTL_GET_BUFSIZE</span>     <span class="fn">_IOR</span> (<span class="macro">MY_DRV_MAGIC</span>, <span class="num">1</span>, <span class="type">__u32</span>)
+<span class="prep">#define</span> <span class="macro">IOCTL_SET_THRESHOLD</span>  <span class="fn">_IOW</span> (<span class="macro">MY_DRV_MAGIC</span>, <span class="num">2</span>, <span class="type">__u32</span>)
+<span class="prep">#define</span> <span class="macro">IOCTL_GET_STATS</span>      <span class="fn">_IOWR</span>(<span class="macro">MY_DRV_MAGIC</span>, <span class="num">3</span>, <span class="kw">struct</span> <span class="type">driver_stats</span>)
+
+<span class="prep">#define</span> <span class="macro">MY_DRV_IOC_MAXNR</span>     <span class="num">3</span>
+
+<span class="prep">#endif</span></pre>
+      </div>
+
+      <h3>Driver Private State</h3>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">mydriver.c — device state struct</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="prep">#include</span> <span class="str">&lt;linux/module.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/cdev.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/uaccess.h&gt;</span>   <span class="cmt">/* copy_to/from_user */</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/mutex.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/kfifo.h&gt;</span>
+<span class="prep">#include</span> <span class="str">"mydriver.h"</span>
+
+<span class="prep">#define</span> <span class="macro">BUF_SIZE</span>   <span class="num">1024</span>
+<span class="prep">#define</span> <span class="macro">DEVICE_NAME</span> <span class="str">"mydrv"</span>
+
+<span class="kw">struct</span> <span class="type">mydrv_dev</span> {
+    <span class="kw">struct</span> <span class="type">cdev</span>     cdev;
+    <span class="kw">struct</span> <span class="type">mutex</span>    lock;           <span class="cmt">/* protects all fields below */</span>
+    DECLARE_KFIFO_PTR(fifo, <span class="type">u8</span>);
+    <span class="type">u32</span>             threshold;
+    <span class="kw">struct</span> <span class="type">driver_stats</span> stats;
+};</pre>
+      </div>
+
+      <h3>The unlocked_ioctl Handler — Full Pattern</h3>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">mydriver.c — unlocked_ioctl implementation</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="kw">static</span> <span class="type">long</span> <span class="fn">mydrv_ioctl</span>(<span class="kw">struct</span> <span class="type">file</span> *filp,
+                          <span class="type">unsigned int</span>  cmd,
+                          <span class="type">unsigned long</span> arg)
+{
+    <span class="kw">struct</span> <span class="type">mydrv_dev</span> *dev = filp->private_data;
+    <span class="kw">struct</span> <span class="type">driver_stats</span> stats;
+    <span class="type">__u32</span> val;
+    <span class="type">int</span>   ret = <span class="num">0</span>;
+
+    <span class="cmt">/* ── Step 1: Validate magic byte and command number ── */</span>
+    <span class="kw">if</span> (<span class="fn">_IOC_TYPE</span>(cmd) != <span class="macro">MY_DRV_MAGIC</span>)   <span class="kw">return</span> -<span class="macro">ENOTTY</span>;
+    <span class="kw">if</span> (<span class="fn">_IOC_NR</span>(cmd)   > <span class="macro">MY_DRV_IOC_MAXNR</span>) <span class="kw">return</span> -<span class="macro">ENOTTY</span>;
+
+    <span class="cmt">/* ── Step 2: Validate user pointer access rights ── */</span>
+    <span class="kw">if</span> (<span class="fn">_IOC_DIR</span>(cmd) & _IOC_READ)          <span class="cmt">/* driver reads = user writes TO us */</span>
+        ret = !<span class="fn">access_ok</span>((<span class="type">void __user *</span>)arg, <span class="fn">_IOC_SIZE</span>(cmd));
+    <span class="kw">else if</span> (<span class="fn">_IOC_DIR</span>(cmd) & _IOC_WRITE)   <span class="cmt">/* driver writes = user reads FROM us */</span>
+        ret = !<span class="fn">access_ok</span>((<span class="type">void __user *</span>)arg, <span class="fn">_IOC_SIZE</span>(cmd));
+    <span class="kw">if</span> (ret) <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+
+    <span class="cmt">/* ── Step 3: Dispatch command ── */</span>
+    <span class="kw">switch</span> (cmd) {
+
+    <span class="kw">case</span> <span class="macro">IOCTL_RESET_BUF</span>:
+        <span class="fn">mutex_lock</span>(&dev->lock);
+        <span class="fn">kfifo_reset</span>(&dev->fifo);
+        <span class="fn">memset</span>(&dev->stats, <span class="num">0</span>, <span class="kw">sizeof</span>(dev->stats));
+        <span class="fn">mutex_unlock</span>(&dev->lock);
+        <span class="fn">pr_info</span>(<span class="str">"mydrv: buffer reset\n"</span>);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="macro">IOCTL_GET_BUFSIZE</span>:
+        <span class="cmt">/* _IOR: we send __u32 TO userspace */</span>
+        val = <span class="macro">BUF_SIZE</span>;
+        <span class="kw">if</span> (<span class="fn">copy_to_user</span>((<span class="type">__u32 __user *</span>)arg, &val, <span class="kw">sizeof</span>(val)))
+            <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="macro">IOCTL_SET_THRESHOLD</span>:
+        <span class="cmt">/* _IOW: we receive __u32 FROM userspace */</span>
+        <span class="kw">if</span> (<span class="fn">copy_from_user</span>(&val, (<span class="type">__u32 __user *</span>)arg, <span class="kw">sizeof</span>(val)))
+            <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+        <span class="kw">if</span> (val == <span class="num">0</span> || val > <span class="macro">BUF_SIZE</span>)
+            <span class="kw">return</span> -<span class="macro">EINVAL</span>;   <span class="cmt">/* validate BEFORE using! */</span>
+        <span class="fn">mutex_lock</span>(&dev->lock);
+        dev->threshold = val;
+        <span class="fn">mutex_unlock</span>(&dev->lock);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="macro">IOCTL_GET_STATS</span>:
+        <span class="cmt">/* _IOWR: read current stats out to user */</span>
+        <span class="fn">mutex_lock</span>(&dev->lock);
+        stats = dev->stats;
+        <span class="fn">mutex_unlock</span>(&dev->lock);
+        <span class="kw">if</span> (<span class="fn">copy_to_user</span>((<span class="kw">struct</span> <span class="type">driver_stats __user *</span>)arg,
+                         &stats, <span class="kw">sizeof</span>(stats)))
+            <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+        <span class="kw">break</span>;
+
+    <span class="kw">default</span>:
+        <span class="kw">return</span> -<span class="macro">ENOTTY</span>;   <span class="cmt">/* unknown command for this device */</span>
+    }
+
+    <span class="kw">return</span> ret;
+}</pre>
+      </div>
+
+      <div class="callout callout-danger">
+        <div class="callout-icon">🚨</div>
+        <div class="callout-body">
+          <div class="callout-title">NEVER dereference userspace pointers directly</div>
+          <p><code>arg</code> is a userspace address. Doing <code>*(u32*)arg</code> in kernel context is undefined behavior and a critical security hole. The pointer might be invalid, swapped out, or point to a mmap'd device. Always use <code>copy_to_user()</code> / <code>copy_from_user()</code> or <code>get_user()</code> / <code>put_user()</code> for scalar values.</p>
+        </div>
+      </div>
+
+      <h3>Register in file_operations</h3>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">mydriver.c — file_operations registration</span>
+        </div>
+        <pre><span class="kw">static const struct</span> <span class="type">file_operations</span> mydrv_fops = {
+    .owner          = <span class="macro">THIS_MODULE</span>,
+    .open           = mydrv_open,
+    .release        = mydrv_release,
+    .read           = mydrv_read,
+    .write          = mydrv_write,
+    .unlocked_ioctl = mydrv_ioctl,   <span class="cmt">/* ← our handler */</span>
+    .compat_ioctl   = mydrv_compat_ioctl, <span class="cmt">/* ← 32-bit compat (see §5) */</span>
+};</pre>
+      </div>
+
+      <h3>Userspace Side — How to Call</h3>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">test_mydrv.c — userspace test program</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="prep">#include</span> <span class="str">&lt;stdio.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;fcntl.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;sys/ioctl.h&gt;</span>
+<span class="prep">#include</span> <span class="str">"mydriver.h"</span>   <span class="cmt">/* the SAME header — shared ABI */</span>
+
+<span class="type">int</span> <span class="fn">main</span>(<span class="type">void</span>) {
+    <span class="type">int</span> fd = <span class="fn">open</span>(<span class="str">"/dev/mydrv"</span>, O_RDWR);
+    <span class="kw">if</span> (fd < <span class="num">0</span>) { <span class="fn">perror</span>(<span class="str">"open"</span>); <span class="kw">return</span> <span class="num">1</span>; }
+
+    <span class="cmt">/* 1. Reset the buffer */</span>
+    <span class="kw">if</span> (<span class="fn">ioctl</span>(fd, <span class="macro">IOCTL_RESET_BUF</span>, <span class="num">0</span>) < <span class="num">0</span>)
+        <span class="fn">perror</span>(<span class="str">"reset failed"</span>);
+
+    <span class="cmt">/* 2. Read buffer size */</span>
+    <span class="type">uint32_t</span> size;
+    <span class="fn">ioctl</span>(fd, <span class="macro">IOCTL_GET_BUFSIZE</span>, &size);
+    <span class="fn">printf</span>(<span class="str">"Buffer size: %u bytes\n"</span>, size);
+
+    <span class="cmt">/* 3. Set threshold */</span>
+    <span class="type">uint32_t</span> thresh = <span class="num">512</span>;
+    <span class="fn">ioctl</span>(fd, <span class="macro">IOCTL_SET_THRESHOLD</span>, &thresh);
+
+    <span class="cmt">/* 4. Get stats */</span>
+    <span class="kw">struct</span> <span class="type">driver_stats</span> stats;
+    <span class="fn">ioctl</span>(fd, <span class="macro">IOCTL_GET_STATS</span>, &stats);
+    <span class="fn">printf</span>(<span class="str">"Reads: %u  Writes: %u  IRQs: %u  Temp: %u m°C\n"</span>,
+           stats.bytes_read, stats.bytes_written,
+           stats.irq_count,  stats.current_temp);
+
+    <span class="fn">close</span>(fd);
+    <span class="kw">return</span> <span class="num">0</span>;
+}</pre>
+      </div>
+    </section>
+
+    <!-- ── SECTION 4: SCALAR HELPERS ── -->
+    <section id="scalar" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">04</span>
+        <h2>get_user / put_user — Scalar Shortcuts</h2>
+      </div>
+
+      <p>
+        For single scalar values (int, u32, long), the kernel provides optimized helpers that avoid the overhead of a full <code>copy_to/from_user</code> call.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">scalar access pattern</span>
+        </div>
+        <pre><span class="kw">case</span> <span class="macro">IOCTL_GET_BUFSIZE</span>: {
+    <span class="cmt">/* Option A: copy_to_user (for structs or larger types) */</span>
+    <span class="type">__u32</span> val = <span class="macro">BUF_SIZE</span>;
+    <span class="kw">if</span> (<span class="fn">copy_to_user</span>((<span class="type">__u32 __user *</span>)arg, &val, <span class="kw">sizeof</span>(val)))
+        <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+
+    <span class="cmt">/* Option B: put_user — simpler for scalar types */</span>
+    <span class="kw">if</span> (<span class="fn">put_user</span>((<span class="type">__u32</span>)<span class="macro">BUF_SIZE</span>, (<span class="type">__u32 __user *</span>)arg))
+        <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+    <span class="kw">break</span>;
+}
+
+<span class="kw">case</span> <span class="macro">IOCTL_SET_THRESHOLD</span>: {
+    <span class="cmt">/* Option A: copy_from_user */</span>
+    <span class="type">__u32</span> val;
+    <span class="kw">if</span> (<span class="fn">copy_from_user</span>(&val, (<span class="type">__u32 __user *</span>)arg, <span class="kw">sizeof</span>(val)))
+        <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+
+    <span class="cmt">/* Option B: get_user */</span>
+    <span class="type">__u32</span> val2;
+    <span class="kw">if</span> (<span class="fn">get_user</span>(val2, (<span class="type">__u32 __user *</span>)arg))
+        <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+    <span class="kw">break</span>;
+}</pre>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-icon">📖</div>
+        <div class="callout-body">
+          <div class="callout-title">Rule of thumb</div>
+          <p>Use <code>get_user()</code>/<code>put_user()</code> for primitive scalars (int, u32, u64). Use <code>copy_to/from_user()</code> for structs and arrays. Both check the userspace address is valid and return non-zero on fault.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── SECTION 5: COMPAT ── -->
+    <section id="compat" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">05</span>
+        <h2>compat_ioctl — 32-bit on 64-bit Kernel</h2>
+      </div>
+
+      <p>
+        When a <strong>32-bit userspace process</strong> runs on a <strong>64-bit kernel</strong>, pointer sizes differ — a <code>long</code> is 4 bytes in userspace but 8 bytes in kernel. Struct layouts can mismatch. The kernel routes such calls to <code>.compat_ioctl</code> instead of <code>.unlocked_ioctl</code>.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">compat_ioctl implementation</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="prep">#ifdef</span> CONFIG_COMPAT
+<span class="prep">#include</span> <span class="str">&lt;linux/compat.h&gt;</span>
+
+<span class="cmt">/* If the 32-bit struct differs from the 64-bit one, define it: */</span>
+<span class="kw">struct</span> <span class="type">driver_stats32</span> {
+    <span class="type">compat_u32</span> bytes_read;
+    <span class="type">compat_u32</span> bytes_written;
+    <span class="type">compat_u32</span> irq_count;
+    <span class="type">compat_u32</span> current_temp;
+    <span class="cmt">/* NOTE: no pointer fields here — if you had pointers they would differ! */</span>
+};
+
+<span class="kw">static</span> <span class="type">long</span> <span class="fn">mydrv_compat_ioctl</span>(<span class="kw">struct</span> <span class="type">file</span> *filp,
+                                  <span class="type">unsigned int</span>  cmd,
+                                  <span class="type">unsigned long</span> arg)
+{
+    <span class="cmt">/* Case 1: Commands with no pointer args — just forward directly */</span>
+    <span class="kw">switch</span> (cmd) {
+    <span class="kw">case</span> <span class="macro">IOCTL_RESET_BUF</span>:
+    <span class="kw">case</span> <span class="macro">IOCTL_GET_BUFSIZE</span>:
+    <span class="kw">case</span> <span class="macro">IOCTL_SET_THRESHOLD</span>:
+        <span class="cmt">/* These only pass __u32 — same in both 32 and 64 bit */</span>
+        <span class="kw">return</span> <span class="fn">mydrv_ioctl</span>(filp, cmd, arg);
+
+    <span class="kw">case</span> <span class="macro">IOCTL_GET_STATS</span>:
+        <span class="cmt">/* Struct is same layout — safe to call directly in this case */</span>
+        <span class="kw">return</span> <span class="fn">mydrv_ioctl</span>(filp, cmd, arg);
+
+    <span class="kw">default</span>:
+        <span class="kw">return</span> -<span class="macro">ENOTTY</span>;
+    }
+}
+<span class="prep">#endif</span></pre>
+      </div>
+
+      <div class="callout callout-warning">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <div class="callout-title">When structs contain pointers</div>
+          <p>If your ioctl struct has a <code>void *</code> or <code>long</code> field, it will be 4 bytes in 32-bit but 8 bytes in 64-bit. You <strong>must</strong> define a 32-bit version of the struct using <code>compat_uptr_t</code> and <code>compat_long_t</code>, then translate between them in <code>compat_ioctl</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECTION 6: ERRORS ── -->
+    <section id="errors" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">06</span>
+        <h2>ioctl Error Codes — What to Return</h2>
+      </div>
+
+      <p>Return the correct POSIX errno so userspace programs can handle failures meaningfully. This is part of your driver's ABI.</p>
+
+      <table class="err-table">
+        <thead>
+          <tr>
+            <th>Return Value</th>
+            <th>Errno</th>
+            <th>When to Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="err-code">-ENOTTY</td>
+            <td class="err-val">25</td>
+            <td class="err-desc">Wrong device — magic byte mismatch OR unknown command number. This is the "official" ioctl error for unknown commands.</td>
+          </tr>
+          <tr>
+            <td class="err-code">-EINVAL</td>
+            <td class="err-val">22</td>
+            <td class="err-desc">Invalid argument — the command is known but the value passed is out of range or logically invalid (e.g. threshold = 0).</td>
+          </tr>
+          <tr>
+            <td class="err-code">-EFAULT</td>
+            <td class="err-val">14</td>
+            <td class="err-desc">Bad address — copy_to/from_user failed because the userspace pointer is invalid or not accessible.</td>
+          </tr>
+          <tr>
+            <td class="err-code">-EACCES</td>
+            <td class="err-val">13</td>
+            <td class="err-desc">Permission denied — caller lacks required capability (e.g. CAP_SYS_ADMIN) for a privileged command.</td>
+          </tr>
+          <tr>
+            <td class="err-code">-ENOMEM</td>
+            <td class="err-val">12</td>
+            <td class="err-desc">Out of memory — ioctl tried to allocate resources and failed. Rarely needed but legitimate.</td>
+          </tr>
+          <tr>
+            <td class="err-code">-EBUSY</td>
+            <td class="err-val">16</td>
+            <td class="err-desc">Device busy — operation cannot proceed now (e.g. DMA transfer in progress, device locked).</td>
+          </tr>
+          <tr>
+            <td class="err-code">-EINTR</td>
+            <td class="err-val">4</td>
+            <td class="err-desc">Interrupted — command was waiting (e.g. mutex_lock_interruptible) and a signal arrived.</td>
+          </tr>
+          <tr>
+            <td class="err-code">0</td>
+            <td class="err-val">—</td>
+            <td class="err-desc">Success. For _IOR commands the data was written to userspace. For _IOW the data was accepted.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── SECTION 7: FULL EXAMPLE ── -->
+    <section id="example" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">07</span>
+        <h2>Complete Working Example — Circular Buffer Driver</h2>
+      </div>
+
+      <p>
+        Building on Days 8–9, here is a complete character driver with full ioctl support. This is the kind of driver you would submit as a portfolio piece or be asked to write in an interview.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">circbuf_driver.c — complete driver with ioctl</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="cmt">// SPDX-License-Identifier: GPL-2.0
+// Circular Buffer Character Driver with ioctl
+// Day 10 — Linux Device Driver Roadmap</span>
+
+<span class="prep">#include</span> <span class="str">&lt;linux/module.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/kernel.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/fs.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/cdev.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/device.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/mutex.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/kfifo.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/uaccess.h&gt;</span>
+<span class="prep">#include</span> <span class="str">&lt;linux/slab.h&gt;</span>
+<span class="prep">#include</span> <span class="str">"mydriver.h"</span>
+
+<span class="macro">MODULE_LICENSE</span>(<span class="str">"GPL"</span>);
+<span class="macro">MODULE_AUTHOR</span>(<span class="str">"Driver Dev"</span>);
+<span class="macro">MODULE_DESCRIPTION</span>(<span class="str">"Circular buffer char driver with ioctl"</span>);
+
+<span class="prep">#define</span> <span class="macro">BUF_SIZE</span>     <span class="num">4096</span>
+<span class="prep">#define</span> <span class="macro">DEV_NAME</span>     <span class="str">"circbuf"</span>
+<span class="prep">#define</span> <span class="macro">DEV_CLASS</span>    <span class="str">"circbuf_class"</span>
+
+<span class="kw">struct</span> <span class="type">circbuf_dev</span> {
+    <span class="kw">struct</span> <span class="type">cdev</span>         cdev;
+    <span class="kw">struct</span> <span class="type">mutex</span>        lock;
+    DECLARE_KFIFO_PTR(fifo, <span class="type">u8</span>);
+    <span class="type">u32</span>                 threshold;
+    <span class="kw">struct</span> <span class="type">driver_stats</span> stats;
+};
+
+<span class="kw">static</span> <span class="kw">struct</span> <span class="type">circbuf_dev</span>  *gdev;
+<span class="kw">static</span> <span class="type">dev_t</span>               dev_num;
+<span class="kw">static</span> <span class="kw">struct</span> <span class="type">class</span>        *dev_class;
+<span class="kw">static</span> <span class="kw">struct</span> <span class="type">device</span>       *dev_node;
+
+<span class="cmt">/* ── open ── */</span>
+<span class="kw">static</span> <span class="type">int</span> <span class="fn">circbuf_open</span>(<span class="kw">struct</span> <span class="type">inode</span> *inode, <span class="kw">struct</span> <span class="type">file</span> *filp)
+{
+    <span class="kw">struct</span> <span class="type">circbuf_dev</span> *dev = <span class="fn">container_of</span>(inode->i_cdev,
+                                              <span class="kw">struct</span> <span class="type">circbuf_dev</span>, cdev);
+    filp->private_data = dev;
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="cmt">/* ── read ── */</span>
+<span class="kw">static</span> <span class="type">ssize_t</span> <span class="fn">circbuf_read</span>(<span class="kw">struct</span> <span class="type">file</span> *filp, <span class="type">char __user</span> *buf,
+                              <span class="type">size_t</span> count, <span class="type">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="type">circbuf_dev</span> *dev = filp->private_data;
+    <span class="type">unsigned int</span> copied;
+    <span class="type">int</span> ret;
+
+    <span class="fn">mutex_lock</span>(&dev->lock);
+    ret = <span class="fn">kfifo_to_user</span>(&dev->fifo, buf, count, &copied);
+    <span class="kw">if</span> (!ret) dev->stats.bytes_read += copied;
+    <span class="fn">mutex_unlock</span>(&dev->lock);
+
+    <span class="kw">return</span> ret ? ret : copied;
+}
+
+<span class="cmt">/* ── write ── */</span>
+<span class="kw">static</span> <span class="type">ssize_t</span> <span class="fn">circbuf_write</span>(<span class="kw">struct</span> <span class="type">file</span> *filp, <span class="kw">const</span> <span class="type">char __user</span> *buf,
+                               <span class="type">size_t</span> count, <span class="type">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="type">circbuf_dev</span> *dev = filp->private_data;
+    <span class="type">unsigned int</span> copied;
+    <span class="type">int</span> ret;
+
+    <span class="fn">mutex_lock</span>(&dev->lock);
+    ret = <span class="fn">kfifo_from_user</span>(&dev->fifo, buf, count, &copied);
+    <span class="kw">if</span> (!ret) dev->stats.bytes_written += copied;
+    <span class="fn">mutex_unlock</span>(&dev->lock);
+
+    <span class="kw">return</span> ret ? ret : copied;
+}
+
+<span class="cmt">/* ── ioctl ── */</span>
+<span class="kw">static</span> <span class="type">long</span> <span class="fn">circbuf_ioctl</span>(<span class="kw">struct</span> <span class="type">file</span> *filp,
+                             <span class="type">unsigned int</span>  cmd,
+                             <span class="type">unsigned long</span> arg)
+{
+    <span class="kw">struct</span> <span class="type">circbuf_dev</span>  *dev = filp->private_data;
+    <span class="kw">struct</span> <span class="type">driver_stats</span>  stats;
+    <span class="type">__u32</span>                val;
+
+    <span class="kw">if</span> (<span class="fn">_IOC_TYPE</span>(cmd) != <span class="macro">MY_DRV_MAGIC</span>)    <span class="kw">return</span> -<span class="macro">ENOTTY</span>;
+    <span class="kw">if</span> (<span class="fn">_IOC_NR</span>(cmd)   > <span class="macro">MY_DRV_IOC_MAXNR</span>)  <span class="kw">return</span> -<span class="macro">ENOTTY</span>;
+
+    <span class="kw">switch</span> (cmd) {
+
+    <span class="kw">case</span> <span class="macro">IOCTL_RESET_BUF</span>:
+        <span class="fn">mutex_lock</span>(&dev->lock);
+        <span class="fn">kfifo_reset</span>(&dev->fifo);
+        <span class="fn">memset</span>(&dev->stats, <span class="num">0</span>, <span class="kw">sizeof</span>(dev->stats));
+        dev->threshold = <span class="macro">BUF_SIZE</span> / <span class="num">2</span>;
+        <span class="fn">mutex_unlock</span>(&dev->lock);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="macro">IOCTL_GET_BUFSIZE</span>:
+        val = <span class="macro">BUF_SIZE</span>;
+        <span class="kw">return</span> <span class="fn">put_user</span>(val, (<span class="type">__u32 __user *</span>)arg) ? -<span class="macro">EFAULT</span> : <span class="num">0</span>;
+
+    <span class="kw">case</span> <span class="macro">IOCTL_SET_THRESHOLD</span>:
+        <span class="kw">if</span> (<span class="fn">get_user</span>(val, (<span class="type">__u32 __user *</span>)arg))   <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+        <span class="kw">if</span> (val == <span class="num">0</span> || val > <span class="macro">BUF_SIZE</span>)           <span class="kw">return</span> -<span class="macro">EINVAL</span>;
+        <span class="fn">mutex_lock</span>(&dev->lock);
+        dev->threshold = val;
+        <span class="fn">mutex_unlock</span>(&dev->lock);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="macro">IOCTL_GET_STATS</span>:
+        <span class="fn">mutex_lock</span>(&dev->lock);
+        stats = dev->stats;
+        stats.bytes_read   = dev->stats.bytes_read;
+        <span class="fn">mutex_unlock</span>(&dev->lock);
+        <span class="kw">if</span> (<span class="fn">copy_to_user</span>((<span class="kw">struct</span> <span class="type">driver_stats __user *</span>)arg,
+                         &stats, <span class="kw">sizeof</span>(stats)))
+            <span class="kw">return</span> -<span class="macro">EFAULT</span>;
+        <span class="kw">break</span>;
+
+    <span class="kw">default</span>:
+        <span class="kw">return</span> -<span class="macro">ENOTTY</span>;
+    }
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="kw">static const struct</span> <span class="type">file_operations</span> circbuf_fops = {
+    .owner          = <span class="macro">THIS_MODULE</span>,
+    .open           = circbuf_open,
+    .read           = circbuf_read,
+    .write          = circbuf_write,
+    .unlocked_ioctl = circbuf_ioctl,
+};
+
+<span class="cmt">/* ── init ── */</span>
+<span class="kw">static</span> <span class="type">int</span> __init <span class="fn">circbuf_init</span>(<span class="type">void</span>)
+{
+    <span class="type">int</span> ret;
+
+    gdev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*gdev), <span class="macro">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!gdev) <span class="kw">return</span> -<span class="macro">ENOMEM</span>;
+
+    ret = <span class="fn">kfifo_alloc</span>(&gdev->fifo, <span class="macro">BUF_SIZE</span>, <span class="macro">GFP_KERNEL</span>);
+    <span class="kw">if</span> (ret) <span class="kw">goto</span> err_kfree;
+
+    <span class="fn">mutex_init</span>(&gdev->lock);
+    gdev->threshold = <span class="macro">BUF_SIZE</span> / <span class="num">2</span>;
+
+    ret = <span class="fn">alloc_chrdev_region</span>(&dev_num, <span class="num">0</span>, <span class="num">1</span>, <span class="macro">DEV_NAME</span>);
+    <span class="kw">if</span> (ret) <span class="kw">goto</span> err_fifo;
+
+    <span class="fn">cdev_init</span>(&gdev->cdev, &circbuf_fops);
+    gdev->cdev.owner = <span class="macro">THIS_MODULE</span>;
+    ret = <span class="fn">cdev_add</span>(&gdev->cdev, dev_num, <span class="num">1</span>);
+    <span class="kw">if</span> (ret) <span class="kw">goto</span> err_chrdev;
+
+    dev_class = <span class="fn">class_create</span>(<span class="macro">THIS_MODULE</span>, <span class="macro">DEV_CLASS</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(dev_class)) { ret = <span class="fn">PTR_ERR</span>(dev_class); <span class="kw">goto</span> err_cdev; }
+
+    dev_node = <span class="fn">device_create</span>(dev_class, <span class="macro">NULL</span>, dev_num, <span class="macro">NULL</span>, <span class="macro">DEV_NAME</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(dev_node)) { ret = <span class="fn">PTR_ERR</span>(dev_node); <span class="kw">goto</span> err_class; }
+
+    <span class="fn">pr_info</span>(<span class="str">"circbuf: registered /dev/%s (major %d)\n"</span>, <span class="macro">DEV_NAME</span>, <span class="macro">MAJOR</span>(dev_num));
+    <span class="kw">return</span> <span class="num">0</span>;
+
+err_class:  <span class="fn">class_destroy</span>(dev_class);
+err_cdev:   <span class="fn">cdev_del</span>(&gdev->cdev);
+err_chrdev: <span class="fn">unregister_chrdev_region</span>(dev_num, <span class="num">1</span>);
+err_fifo:   <span class="fn">kfifo_free</span>(&gdev->fifo);
+err_kfree:  <span class="fn">kfree</span>(gdev);
+    <span class="kw">return</span> ret;
+}
+
+<span class="cmt">/* ── exit ── */</span>
+<span class="kw">static</span> <span class="type">void</span> __exit <span class="fn">circbuf_exit</span>(<span class="type">void</span>)
+{
+    <span class="fn">device_destroy</span>(dev_class, dev_num);
+    <span class="fn">class_destroy</span>(dev_class);
+    <span class="fn">cdev_del</span>(&gdev->cdev);
+    <span class="fn">unregister_chrdev_region</span>(dev_num, <span class="num">1</span>);
+    <span class="fn">kfifo_free</span>(&gdev->fifo);
+    <span class="fn">kfree</span>(gdev);
+    <span class="fn">pr_info</span>(<span class="str">"circbuf: unregistered\n"</span>);
+}
+
+<span class="fn">module_init</span>(circbuf_init);
+<span class="fn">module_exit</span>(circbuf_exit);</pre>
+      </div>
+
+      <h3>Makefile</h3>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">MAKEFILE</span>
+          <span class="code-filename">Makefile</span>
+        </div>
+        <pre>obj-m += circbuf_driver.o
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean</pre>
+      </div>
+
+      <h3>Test &amp; Verify in QEMU</h3>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">BASH</span>
+          <span class="code-filename">shell session</span>
+        </div>
+        <pre><span class="cmt"># Build and load</span>
+make
+sudo insmod circbuf_driver.ko
+dmesg | tail -3
+<span class="cmt"># → circbuf: registered /dev/circbuf (major 240)</span>
+
+<span class="cmt"># Verify device exists</span>
+ls -l /dev/circbuf
+cat /proc/devices | grep circbuf
+
+<span class="cmt"># Test with our userspace program</span>
+gcc -o test_circbuf test_mydrv.c
+sudo ./test_circbuf
+<span class="cmt"># → Buffer size: 4096 bytes</span>
+<span class="cmt"># → Reads: 0  Writes: 0  IRQs: 0  Temp: 0 m°C</span>
+
+<span class="cmt"># Test write then stats</span>
+echo "hello driver" | sudo tee /dev/circbuf
+sudo ./test_circbuf
+<span class="cmt"># → Reads: 0  Writes: 13  IRQs: 0  Temp: 0 m°C</span>
+
+<span class="cmt"># Unload cleanly</span>
+sudo rmmod circbuf_driver
+dmesg | tail -1
+<span class="cmt"># → circbuf: unregistered</span></pre>
+      </div>
+    </section>
+
+    <!-- ── SECTION 8: BEST PRACTICES ── -->
+    <section id="best" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">08</span>
+        <h2>Production Best Practices</h2>
+      </div>
+
+      <ul class="checklist">
+        <li><strong>Always validate with _IOC_TYPE and _IOC_NR first.</strong> Reject unknown commands with -ENOTTY before touching any data.</li>
+        <li><strong>Never use BKL-era .ioctl.</strong> Always use <code>.unlocked_ioctl</code>. The BKL was removed in 2.6.39.</li>
+        <li><strong>Shared header = shared ABI.</strong> Put all struct and macro definitions in a header both kernel and userspace include. Never duplicate or inline.</li>
+        <li><strong>Validate input before use.</strong> Range-check values from <code>copy_from_user</code> before passing to hardware or using as array indices.</li>
+        <li><strong>Always protect shared state with a mutex.</strong> Even a simple flag needs protection — two CPUs can call ioctl simultaneously.</li>
+        <li><strong>Use mutex_lock_interruptible() in ioctl handlers.</strong> Return -EINTR if a signal arrives while waiting. Allows Ctrl+C to work in userspace.</li>
+        <li><strong>Implement .compat_ioctl</strong> if your driver will run on x86_64 systems where 32-bit binaries may call it.</li>
+        <li><strong>Keep ioctl handlers focused.</strong> Each command should do one thing. Complex logic belongs in separate functions called from the switch.</li>
+        <li><strong>Add capability checks for privileged operations.</strong> Use <code>capable(CAP_SYS_ADMIN)</code> for commands that configure hardware or affect system-wide state.</li>
+        <li><strong>Document every command in a comment block.</strong> State direction, argument type, possible return values, and side effects.</li>
+      </ul>
+    </section>
+
+    <!-- ── SECTION 9: INTERVIEW ── -->
+    <section id="interview" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">09</span>
+        <h2>Interview Questions — ioctl</h2>
+      </div>
+
+      <div class="interview-grid">
+        <div class="interview-card">
+          <div class="interview-q">What is the difference between .ioctl and .unlocked_ioctl?</div>
+          <div class="interview-a">The original <code>.ioctl</code> callback acquired the Big Kernel Lock (BKL) before calling your handler, serializing all ioctl calls across the entire kernel — a massive SMP scalability bottleneck. <code>.unlocked_ioctl</code> (introduced in 2.6.11, mandatory since 2.6.39) removes this global lock entirely. You are responsible for your own fine-grained locking using mutex, spinlock, or other primitives as appropriate for your driver.</div>
+        </div>
+
+        <div class="interview-card">
+          <div class="interview-q">Why use _IO/_IOR/_IOW macros instead of raw integers for command numbers?</div>
+          <div class="interview-a">The macros encode the direction, data size, and a magic "type" byte into the 32-bit command value. The kernel uses <code>_IOC_SIZE(cmd)</code> for automatic argument size validation. The magic byte prevents accidental command number collisions between unrelated drivers. It also makes code self-documenting — you can immediately see whether a command reads, writes, or transfers no data.</div>
+        </div>
+
+        <div class="interview-card">
+          <div class="interview-q">When would you return -ENOTTY vs -EINVAL from ioctl?</div>
+          <div class="interview-a">Return <code>-ENOTTY</code> ("not a typewriter") when the command is unknown to your driver — either the magic byte doesn't match or the number is out of range. This tells userspace "this file descriptor does not support this command." Return <code>-EINVAL</code> when the command is recognized but the argument value is logically invalid (e.g. a threshold of 0 or greater than buffer size).</div>
+        </div>
+
+        <div class="interview-card">
+          <div class="interview-q">Why can't you just dereference the arg pointer directly in kernel ioctl?</div>
+          <div class="interview-a">The <code>arg</code> is a userspace virtual address. Directly dereferencing it in kernel space is dangerous for several reasons: the page may not be present (swapped out), the address may be invalid, it may map to MMIO that would fault differently, or an attacker could race to change it between validation and use (TOCTOU). <code>copy_from_user()</code> / <code>copy_to_user()</code> handle page faults safely, verify the address is accessible, and prevent kernel privilege escalation via bad pointers.</div>
+        </div>
+
+        <div class="interview-card">
+          <div class="interview-q">What is compat_ioctl and when is it called?</div>
+          <div class="interview-a">When a 32-bit process runs on a 64-bit kernel, the kernel calls <code>.compat_ioctl</code> instead of <code>.unlocked_ioctl</code>. Pointer and <code>long</code> fields in structs are 4 bytes wide in 32-bit userspace but 8 bytes in the 64-bit kernel, so struct layouts may not match. In <code>compat_ioctl</code> you use <code>compat_uptr_t</code> and <code>compat_long_t</code> to translate between the two representations before forwarding to the main handler. If your structs only contain fixed-width types (<code>__u32</code>, <code>__s64</code>), you can often just forward directly.</div>
+        </div>
+
+        <div class="interview-card">
+          <div class="interview-q">Walk me through writing an ioctl from scratch — what steps in order?</div>
+          <div class="interview-a">1) Choose a unique magic byte. 2) Define a shared header with the struct(s) and command macros using <code>_IO/_IOR/_IOW/_IOWR</code>. 3) Implement the handler: validate magic/nr, check access_ok, switch on command, use copy_to/from_user, handle errors. 4) Register in file_operations as <code>.unlocked_ioctl</code>. 5) Implement <code>.compat_ioctl</code> for 32-bit compatibility. 6) Write a userspace test program using <code>&lt;sys/ioctl.h&gt;</code> and the shared header.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key APIs Quick Ref -->
+    <section id="apis" class="fade-in">
+      <div class="section-header">
+        <span class="section-number">10</span>
+        <h2>Quick API Reference</h2>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">C</span>
+          <span class="code-filename">ioctl API cheat sheet</span>
+        </div>
+        <pre><span class="cmt">/* ── Macro constructors ── */</span>
+<span class="fn">_IO</span>  (type, nr)              <span class="cmt">// no data</span>
+<span class="fn">_IOR</span> (type, nr, datatype)   <span class="cmt">// kernel → user (user reads)</span>
+<span class="fn">_IOW</span> (type, nr, datatype)   <span class="cmt">// user → kernel (user writes)</span>
+<span class="fn">_IOWR</span>(type, nr, datatype)  <span class="cmt">// bidirectional</span>
+
+<span class="cmt">/* ── Decoder macros ── */</span>
+<span class="fn">_IOC_TYPE</span>(cmd)              <span class="cmt">// extract magic byte</span>
+<span class="fn">_IOC_NR</span>(cmd)                <span class="cmt">// extract sequence number</span>
+<span class="fn">_IOC_SIZE</span>(cmd)              <span class="cmt">// extract data size in bytes</span>
+<span class="fn">_IOC_DIR</span>(cmd)               <span class="cmt">// extract direction flags</span>
+
+<span class="cmt">/* ── Userspace pointer access ── */</span>
+<span class="fn">copy_to_user</span>(to, from, n)    <span class="cmt">// kernel → user, returns 0 on success</span>
+<span class="fn">copy_from_user</span>(to, from, n)  <span class="cmt">// user → kernel, returns 0 on success</span>
+<span class="fn">put_user</span>(val, ptr)           <span class="cmt">// scalar: kernel → user</span>
+<span class="fn">get_user</span>(val, ptr)           <span class="cmt">// scalar: user → kernel</span>
+<span class="fn">access_ok</span>(addr, size)        <span class="cmt">// validate userspace address (optional manual check)</span>
+
+<span class="cmt">/* ── 32-bit compat helpers ── */</span>
+<span class="fn">compat_ptr</span>(uptr)             <span class="cmt">// convert compat_uptr_t to void *</span>
+<span class="fn">ptr_to_compat</span>(ptr)           <span class="cmt">// convert pointer to compat_uptr_t</span>
+
+<span class="cmt">/* ── Capability check ── */</span>
+<span class="fn">capable</span>(CAP_SYS_ADMIN)       <span class="cmt">// returns true if caller has CAP_SYS_ADMIN</span></pre>
+      </div>
+    </section>
+
+  </div><!-- /content -->
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="toc-card">
+      <div class="toc-title">On This Page</div>
+      <ul class="toc-list">
+        <li><a href="#what-is"><span class="toc-num">01</span>What is ioctl</a></li>
+        <li><a href="#macros"><span class="toc-num">02</span>Command Macros</a></li>
+        <li><a href="#implement"><span class="toc-num">03</span>Implementation</a></li>
+        <li><a href="#scalar"><span class="toc-num">04</span>get/put_user</a></li>
+        <li><a href="#compat"><span class="toc-num">05</span>compat_ioctl</a></li>
+        <li><a href="#errors"><span class="toc-num">06</span>Error Codes</a></li>
+        <li><a href="#example"><span class="toc-num">07</span>Full Example</a></li>
+        <li><a href="#best"><span class="toc-num">08</span>Best Practices</a></li>
+        <li><a href="#interview"><span class="toc-num">09</span>Interview Prep</a></li>
+        <li><a href="#apis"><span class="toc-num">10</span>API Cheat Sheet</a></li>
+      </ul>
+    </div>
+
+    <div class="tip-card">
+      <div class="tip-label">📌 Day 10 Summary</div>
+      <p>ioctl is the kernel's flexible command channel. Always: validate magic + nr, use copy_to/from_user, implement .compat_ioctl, return -ENOTTY for unknown commands, and share your header.</p>
+    </div>
+
+    <div class="toc-card" style="margin-top:1rem">
+      <div class="toc-title">Week 2 Progress</div>
+      <ul class="toc-list">
+        <li><a href="#">Day 8 — Major/Minor & cdev ✅</a></li>
+        <li><a href="#">Day 9 — read/write/open ✅</a></li>
+        <li><a href="#" style="color:var(--accent)">Day 10 — ioctl ← you are here</a></li>
+        <li><a href="#">Day 11 — procfs/sysfs/debugfs</a></li>
+        <li><a href="#">Day 12 — Interrupt Handling</a></li>
+        <li><a href="#">Day 13 — Concurrency</a></li>
+        <li><a href="#">Day 14 — Timers</a></li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /main-layout -->
+
+<!-- FOOTER -->
+<footer class="page-footer">
+  <div class="footer-text">Linux Device Driver Roadmap · Day 10 of 30</div>
+  <a class="next-day" href="#">
+    <span>Next →</span>
+    <span>Day 11: procfs, sysfs &amp; debugfs</span>
+  </a>
+</footer>
+
+<script>
+  // Scroll fade-in
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.07 });
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  // Copy button
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'copied!';
+      setTimeout(() => btn.textContent = 'copy', 2000);
+    });
+  }
+
+  // Active nav on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 100) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.style.color = a.getAttribute('href') === '#' + current
+        ? 'var(--accent)' : '';
+    });
+  }, { passive: true });
+</script>
+</body>
+</html>

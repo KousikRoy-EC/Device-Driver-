@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 8 — Character Devices &amp; File Operations</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0a0b14;
+    --bg2:     #0e1020;
+    --bg3:     #12152a;
+    --card:    #0e1020;
+    --border:  #1e2240;
+    --accent:  #818cf8;
+    --accent2: #a5b4fc;
+    --blue:    #3b82f6;
+    --blue2:   #60a5fa;
+    --green:   #10b981;
+    --green2:  #34d399;
+    --yellow:  #eab308;
+    --yellow2: #facc15;
+    --red:     #ef4444;
+    --red2:    #f87171;
+    --purple:  #a855f7;
+    --purple2: #c084fc;
+    --orange:  #f97316;
+    --cyan:    #06b6d4;
+    --teal:    #14b8a6;
+    --text:    #e2e8f0;
+    --text2:   #94a3b8;
+    --text3:   #64748b;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:15px;}
+
+  .hero{background:linear-gradient(135deg,#0a0b14 0%,#0d0f20 50%,#0a0b14 100%);border-bottom:1px solid var(--border);padding:60px 40px 50px;position:relative;overflow:hidden;}
+  .hero::before{content:'';position:absolute;top:-80px;right:-60px;width:520px;height:520px;background:radial-gradient(circle,rgba(129,140,248,0.11) 0%,transparent 70%);pointer-events:none;}
+  .hero::after{content:'';position:absolute;bottom:-60px;left:150px;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.06) 0%,transparent 70%);pointer-events:none;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(129,140,248,0.12);border:1px solid rgba(129,140,248,0.35);color:var(--accent2);padding:5px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;margin-bottom:20px;}
+  .badge .dot{width:6px;height:6px;background:var(--cyan);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+  .hero h1{font-family:var(--display);font-size:clamp(28px,4vw,46px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;}
+  .hero h1 span{color:var(--accent2);}
+  .hero .sub{color:var(--text2);font-size:16px;max-width:660px;margin-bottom:28px;}
+  .hero-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;font-size:12px;font-family:var(--mono);}
+
+  .container{max-width:980px;margin:0 auto;padding:40px 24px;}
+
+  .section-header{display:flex;align-items:center;gap:12px;margin:52px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .sn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;}
+  .sn.indigo{background:var(--accent);color:#000;}
+  .sn.blue{background:var(--blue);color:#fff;}
+  .sn.green{background:var(--green);color:#000;}
+  .sn.yellow{background:var(--yellow);color:#000;}
+  .sn.red{background:var(--red);color:#fff;}
+  .sn.purple{background:var(--purple);color:#fff;}
+  .sn.orange{background:var(--orange);color:#fff;}
+  .sn.cyan{background:var(--cyan);color:#000;}
+  .sn.teal{background:var(--teal);color:#000;}
+  .section-header h2{font-family:var(--display);font-size:22px;font-weight:700;color:#fff;}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+  .card h3{font-family:var(--display);font-size:16px;font-weight:700;color:var(--accent2);margin-bottom:12px;}
+  .card p{color:var(--text2);margin-bottom:10px;font-size:14.5px;}
+  .card p:last-child{margin-bottom:0;}
+  .card ul{padding-left:20px;}
+  .card ul li{color:var(--text2);margin-bottom:7px;font-size:14.5px;}
+  .card ul li strong{color:var(--text);}
+
+  .code-block{background:#07080f;border:1px solid var(--border);border-radius:10px;margin:16px 0;overflow:hidden;}
+  .code-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0c0e1c;border-bottom:1px solid var(--border);}
+  .code-lang{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
+  .code-dots{display:flex;gap:6px;}
+  .code-dots span{width:10px;height:10px;border-radius:50%;}
+  .code-dots span:nth-child(1){background:#ef4444;}.code-dots span:nth-child(2){background:#f59e0b;}.code-dots span:nth-child(3){background:#10b981;}
+  .code-block pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.85;color:#cdd6f4;}
+  .kw{color:#cba6f7;}.fn{color:#89b4fa;}.st{color:#a6e3a1;}.cm{color:#4a5568;font-style:italic;}
+  .nm{color:#fab387;}.tp{color:#89dceb;}.pp{color:#f38ba8;}.mc{color:#f9e2af;}
+  .hl    {background:rgba(129,140,248,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-ok {background:rgba(16,185,129,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--green);}
+  .hl-warn{background:rgba(234,179,8,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--yellow);}
+  .hl-red{background:rgba(239,68,68,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--red);}
+
+  .terminal{background:#050505;border:1px solid #1e2240;border-radius:10px;overflow:hidden;margin:16px 0;}
+  .terminal-header{background:#0a0a0a;padding:10px 16px;display:flex;align-items:center;gap:8px;}
+  .terminal-header span{width:12px;height:12px;border-radius:50%;}
+  .terminal-header span:nth-child(1){background:#ff5f57;}.terminal-header span:nth-child(2){background:#ffbd2e;}.terminal-header span:nth-child(3){background:#28c840;}
+  .t-title{margin-left:8px;font-family:var(--mono);font-size:12px;color:#444;}
+  .terminal pre{padding:18px 20px;font-family:var(--mono);font-size:13px;line-height:1.85;color:#d4d4d4;}
+  .t-prompt{color:#818cf8;}.t-cmd{color:#e2e8f0;}.t-out{color:#6b7280;}
+  .t-green{color:#10b981;}.t-yellow{color:#eab308;}.t-red{color:#ef4444;}
+  .t-blue{color:#60a5fa;}.t-cyan{color:#22d3ee;}
+
+  .diagram{background:#07080f;border:1px solid var(--border);border-radius:10px;padding:24px;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.9;overflow-x:auto;white-space:pre;color:#cdd6f4;}
+
+  .info-box{display:flex;gap:14px;padding:16px 20px;border-radius:10px;margin:16px 0;font-size:14px;}
+  .info-box.note  {background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);}
+  .info-box.warn  {background:rgba(234,179,8,.07); border:1px solid rgba(234,179,8,.25);}
+  .info-box.tip   {background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.2);}
+  .info-box.danger{background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);}
+  .info-box.green {background:rgba(16,185,129,.07); border:1px solid rgba(16,185,129,.2);}
+  .info-box .icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .info-box .content{color:var(--text2);}
+  .info-box .content strong{color:var(--text);display:block;margin-bottom:4px;}
+
+  .table-wrap{overflow-x:auto;margin:16px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{background:var(--bg3);color:var(--accent2);font-family:var(--display);font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;}
+  td{padding:11px 16px;border-bottom:1px solid rgba(30,34,64,.5);color:var(--text2);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:nth-child(even) td{background:rgba(255,255,255,.013);}
+  td strong{color:var(--text);}
+  td code{background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0;}
+  @media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr;}}
+
+  .mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;}
+  .mini-card h4{color:#fff;font-weight:600;font-size:14px;margin-bottom:6px;font-family:var(--display);}
+  .mini-card p{color:var(--text2);font-size:13px;line-height:1.6;}
+
+  .steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+  .step{display:flex;gap:16px;position:relative;padding-bottom:28px;}
+  .step:last-child{padding-bottom:0;}
+  .step-left{display:flex;flex-direction:column;align-items:center;}
+  .step-num{width:32px;height:32px;background:var(--accent);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;z-index:1;}
+  .step-line{width:2px;flex:1;background:var(--border);margin-top:6px;}
+  .step:last-child .step-line{display:none;}
+  .step-content{padding-top:4px;flex:1;}
+  .step-content h4{color:#fff;font-weight:600;font-size:15px;margin-bottom:8px;font-family:var(--display);}
+  .step-content p{color:var(--text2);font-size:14px;margin-bottom:8px;}
+
+  code{background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12.5px;}
+
+  .nav-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:12px;color:var(--text3);position:sticky;top:0;z-index:100;}
+  .nav-bar .crumb{color:var(--text2);}.nav-bar .sep{color:var(--border);}.nav-bar .current{color:var(--accent2);}
+
+  .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;color:var(--text2);}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:18px;}
+  .progress-fill{height:100%;border-radius:3px;}
+
+  .quote{border-left:3px solid var(--accent);padding:14px 20px;margin:20px 0;background:rgba(129,140,248,0.04);border-radius:0 8px 8px 0;color:var(--text2);font-style:italic;font-size:14.5px;}
+  .quote strong{color:var(--accent2);font-style:normal;display:block;margin-top:6px;font-size:12px;}
+
+  .footer{margin-top:60px;padding:30px 24px;border-top:1px solid var(--border);text-align:center;color:var(--text3);font-size:13px;font-family:var(--mono);}
+
+  .checklist{list-style:none;padding:0;margin:12px 0;}
+  .checklist li{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(30,34,64,.4);color:var(--text2);font-size:14px;}
+  .checklist li:last-child{border-bottom:none;}
+  .chk{color:var(--accent2);font-size:15px;flex-shrink:0;margin-top:1px;}
+  .chk-no{color:var(--text3);font-size:15px;flex-shrink:0;margin-top:1px;}
+
+  /* fops table */
+  .fops-grid{display:grid;grid-template-columns:180px 1fr;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:16px 0;}
+  .fg-key{font-family:var(--mono);font-size:12.5px;color:var(--accent2);background:var(--bg3);padding:10px 14px;border-bottom:1px solid var(--border);}
+  .fg-val{font-size:13.5px;color:var(--text2);padding:10px 16px;border-bottom:1px solid rgba(30,34,64,.4);}
+  .fg-val strong{color:var(--text);}
+  .fg-key:nth-last-child(2),.fg-val:last-child{border-bottom:none;}
+
+  /* dev number diagram */
+  .devnum{display:flex;gap:0;height:52px;border-radius:8px;overflow:hidden;margin:16px 0;border:1px solid var(--border);}
+  .devnum-major{background:rgba(129,140,248,0.15);border-right:2px solid var(--accent);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:8px;}
+  .devnum-minor{background:rgba(16,185,129,0.1);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:8px;}
+  .devnum .dn-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;}
+  .devnum .dn-val{font-family:var(--mono);font-size:16px;font-weight:700;color:#fff;}
+  .devnum .dn-bits{font-family:var(--mono);font-size:10px;color:var(--text3);}
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 2: Driver Interfaces</span>
+  <span class="sep">›</span>
+  <span class="current">Day 8 — Character Devices &amp; File Operations</span>
+</nav>
+
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 2 · Day 8 of 30</div>
+  <h1>Character Devices<br><span>&amp; File Operations</span></h1>
+  <p class="sub">Build your first real device driver — one that userspace can open like a file, read from, write to, and control via ioctl. Master major/minor numbers, cdev registration, the file_operations table, safe userspace memory transfers, and the misc device shortcut.</p>
+  <div class="hero-tags">
+    <span class="tag">register_chrdev_region</span>
+    <span class="tag">cdev_add</span>
+    <span class="tag">file_operations</span>
+    <span class="tag">copy_to/from_user</span>
+    <span class="tag">unlocked_ioctl</span>
+    <span class="tag">struct file / inode</span>
+    <span class="tag">misc_register</span>
+    <span class="tag">/dev node</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 8 / 30</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:26.6%;background:linear-gradient(90deg,#818cf8,#a5b4fc)"></div></div>
+    <div class="progress-header"><span>Week 2 Progress</span><span>Day 1 / 7</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:14.3%;background:linear-gradient(90deg,#818cf8,#a5b4fc)"></div></div>
+  </div>
+
+<!-- ═══════════════════ SECTION 1 — The Big Picture ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn indigo">1</div>
+    <h2>The Big Picture — How a Character Device Works</h2>
+  </div>
+
+  <div class="card">
+    <h3>📁 Everything in Linux Is a File</h3>
+    <p>The Unix design philosophy — "everything is a file" — means hardware devices appear as entries in <code>/dev/</code>. A user process does <code>open("/dev/mydevice", O_RDWR)</code> and gets back a file descriptor. Every <code>read()</code>, <code>write()</code>, <code>ioctl()</code> on that fd flows through the VFS (Virtual File System) and into your driver's function pointers defined in <code>struct file_operations</code>.</p>
+    <p>A <strong>character device</strong> transfers data character-by-character (stream-based), unlike block devices which transfer in fixed-size blocks. Serial ports, sensors, GPIO controllers, custom hardware — these are all character devices.</p>
+  </div>
+
+  <div class="diagram">USERSPACE                          KERNEL
+─────────────────────────────────────────────────────────────────────────
+  int fd = open("/dev/mydev", O_RDWR)
+                  │
+                  ▼
+            VFS layer                  ← kernel/fs/open.c
+            looks up /dev/mydev
+            finds it's a char device
+            with major:minor X:Y
+                  │
+                  ▼
+          struct file created           ← allocated per open() call
+          file->f_op = &mydev_fops      ← YOUR file_operations table
+          your .open() called
+                  │
+    read(fd, buf, 100)                  ← user calls read
+                  ▼
+            VFS calls file->f_op->read()
+                  ▼
+          your .read() handler          ← runs in process context
+          copy_to_user(buf, kbuf, n)    ← safe kernel→user copy
+                  │
+                  ▼
+    ioctl(fd, MY_CMD, arg)              ← user calls ioctl
+                  ▼
+          your .unlocked_ioctl()
+                  │
+    close(fd)     ▼
+          your .release() called
+          struct file freed</div>
+
+  <div class="diagram">DEVICE NUMBER ANATOMY: dev_t (32-bit value)
+─────────────────────────────────────────────────────────────────────────
+  dev_t is a u32:  [ MAJOR (12 bits) | MINOR (20 bits) ]
+
+  MAJOR number → identifies the DRIVER (which driver handles this device)
+  MINOR number → identifies the DEVICE INSTANCE (which device within the driver)
+
+  Examples from a real system:
+    ls -la /dev/tty*
+    crw-rw-rw- 1 root dialout 4, 64 /dev/ttyS0   ← major=4, minor=64
+    crw-rw-rw- 1 root dialout 4, 65 /dev/ttyS1   ← major=4, minor=65
+    crw-rw-rw- 1 root dialout 4, 66 /dev/ttyS2   ← major=4, minor=66
+
+  The 'c' prefix means character device ('b' = block device)
+
+  Macros:
+    MAJOR(dev)          → extract major from dev_t
+    MINOR(dev)          → extract minor from dev_t
+    MKDEV(major, minor) → compose dev_t from major + minor</div>
+
+<!-- ═══════════════════ SECTION 2 — Registration ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">2</div>
+    <h2>Device Number Registration &amp; cdev Setup</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔢 Two-Step Registration Process</h3>
+    <p>Registering a character device is a deliberate two-step process in the kernel. First you claim device numbers (major:minor range). Then you register a <code>struct cdev</code> that binds those numbers to your <code>file_operations</code>. The separation lets you set up data structures between the two steps before any userspace access can reach your driver.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — Device Registration — The Complete Pattern</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/fs.h&gt;</span>       <span class="cm">/* file_operations, register_chrdev_region */</span>
+<span class="pp">#include &lt;linux/cdev.h&gt;</span>     <span class="cm">/* struct cdev, cdev_init, cdev_add */</span>
+
+<span class="cm">/* ── Device state ─────────────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">my_device</span> {
+    <span class="kw">struct</span> <span class="tp">cdev</span>   cdev;        <span class="cm">/* embed cdev — connects numbers to fops */</span>
+    <span class="kw">dev_t</span>         devno;       <span class="cm">/* our major:minor */</span>
+    <span class="cm">/* ... driver-specific fields ... */</span>
+};
+
+<span class="kw">static struct</span> <span class="tp">my_device</span> *mydev;
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">class</span>    *mydev_class;  <span class="cm">/* for auto /dev node creation */</span>
+<span class="kw">static</span> <span class="tp">dev_t</span>            mydev_devno;  <span class="cm">/* our device number base */</span>
+
+<span class="cm">/* forward declaration — defined in section 4 */</span>
+<span class="kw">static const struct</span> <span class="tp">file_operations</span> mydev_fops;
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">mydev_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> ret;
+
+    mydev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*mydev), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!mydev)
+        <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+    <span class="cm">/* ── STEP 1: Claim device numbers ──────────────────────────────
+     *
+     * Option A — alloc_chrdev_region: kernel assigns a free major number
+     *   Use this in new drivers — don't hardcode major numbers.
+     *   alloc_chrdev_region(&devno, first_minor, count, name)
+     *     devno:       output — the allocated dev_t
+     *     first_minor: first minor number you want (usually 0)
+     *     count:       how many consecutive minors to reserve
+     *     name:        appears in /proc/devices
+     */</span>
+    <span class="hl">ret = <span class="fn">alloc_chrdev_region</span>(&amp;mydev_devno, <span class="nm">0</span>, <span class="nm">1</span>, <span class="st">"mydev"</span>);</span>
+    <span class="kw">if</span> (ret &lt; <span class="nm">0</span>) {
+        <span class="fn">pr_err</span>(<span class="st">"mydev: alloc_chrdev_region failed: %d\n"</span>, ret);
+        <span class="kw">goto</span> <span class="fn">err_alloc</span>;
+    }
+    <span class="fn">pr_info</span>(<span class="st">"mydev: allocated major=%d minor=%d\n"</span>,
+            <span class="fn">MAJOR</span>(mydev_devno), <span class="fn">MINOR</span>(mydev_devno));
+
+    <span class="cm">/*
+     * Option B — register_chrdev_region: you choose the major number
+     *   Use only when a fixed major is required (legacy hardware, ABI compat)
+     *   register_chrdev_region(MKDEV(major, 0), count, name)
+     */</span>
+    <span class="cm">/* register_chrdev_region(MKDEV(42, 0), 1, "mydev"); */</span>
+
+    <span class="cm">/* ── STEP 2: Initialise and add the cdev ───────────────────────
+     * cdev_init: links cdev to its file_operations table
+     * cdev_add:  makes the device live — after this, opens can arrive! */</span>
+    <span class="hl"><span class="fn">cdev_init</span>(&amp;mydev-&gt;cdev, &amp;mydev_fops);</span>
+    mydev-&gt;cdev.owner = <span class="mc">THIS_MODULE</span>;
+
+    <span class="hl">ret = <span class="fn">cdev_add</span>(&amp;mydev-&gt;cdev, mydev_devno, <span class="nm">1</span>);</span>
+    <span class="kw">if</span> (ret) {
+        <span class="fn">pr_err</span>(<span class="st">"mydev: cdev_add failed: %d\n"</span>, ret);
+        <span class="kw">goto</span> <span class="fn">err_cdev</span>;
+    }
+
+    <span class="cm">/* ── STEP 3: Create /dev/mydev automatically ───────────────────
+     * class_create: creates /sys/class/mydev/
+     * device_create: creates /sys/class/mydev/mydev0/ and triggers
+     *   udev/mdev to create the /dev/mydev node automatically.
+     * Without this, the user must manually run mknod. */</span>
+    mydev_class = <span class="fn">class_create</span>(<span class="st">"mydev"</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(mydev_class)) {
+        ret = <span class="fn">PTR_ERR</span>(mydev_class);
+        <span class="kw">goto</span> <span class="fn">err_class</span>;
+    }
+
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(<span class="fn">device_create</span>(mydev_class, <span class="nm">NULL</span>, mydev_devno,
+                               <span class="nm">NULL</span>, <span class="st">"mydev"</span>))) {
+        ret = -<span class="nm">ENOMEM</span>;
+        <span class="kw">goto</span> <span class="fn">err_device</span>;
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"mydev: /dev/mydev created, ready\n"</span>);
+    <span class="kw">return</span> <span class="nm">0</span>;
+
+<span class="fn">err_device</span>:
+    <span class="fn">class_destroy</span>(mydev_class);
+<span class="fn">err_class</span>:
+    <span class="fn">cdev_del</span>(&amp;mydev-&gt;cdev);
+<span class="fn">err_cdev</span>:
+    <span class="fn">unregister_chrdev_region</span>(mydev_devno, <span class="nm">1</span>);
+<span class="fn">err_alloc</span>:
+    <span class="fn">kfree</span>(mydev);
+    <span class="kw">return</span> ret;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">mydev_exit</span>(<span class="kw">void</span>)
+{
+    <span class="cm">/* Teardown in REVERSE order of setup */</span>
+    <span class="fn">device_destroy</span>(mydev_class, mydev_devno);     <span class="cm">/* remove /dev/mydev */</span>
+    <span class="fn">class_destroy</span>(mydev_class);                   <span class="cm">/* remove /sys/class/mydev */</span>
+    <span class="fn">cdev_del</span>(&amp;mydev-&gt;cdev);                       <span class="cm">/* unlink fops from numbers */</span>
+    <span class="fn">unregister_chrdev_region</span>(mydev_devno, <span class="nm">1</span>);     <span class="cm">/* release major:minor */</span>
+    <span class="fn">kfree</span>(mydev);
+    <span class="fn">pr_info</span>(<span class="st">"mydev: removed\n"</span>);
+}</pre>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">💡</span>
+    <div class="content"><strong>cdev_add is the Point of No Return</strong>Once <code>cdev_add()</code> returns successfully, the kernel can immediately route open() calls to your driver. Make sure all your data structures are initialised <em>before</em> calling <code>cdev_add()</code>. In the error path, <code>cdev_del()</code> removes the device atomically.</div>
+  </div>
+
+<!-- ═══════════════════ SECTION 3 — struct file & inode ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn green">3</div>
+    <h2>struct file &amp; struct inode — The Two Key Kernel Objects</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>📄 struct inode — The Device Node</h3>
+      <p>Represents the <code>/dev/mydev</code> file <em>on disk</em> (in devtmpfs). There is exactly <strong>one inode per device node</strong>, regardless of how many processes have it open. Your driver uses it during <code>.open()</code> to identify which device (via <code>iminor(inode)</code> / <code>imajor(inode)</code>) and to stash your private data pointer.</p>
+      <ul>
+        <li><code>inode->i_rdev</code> — the <code>dev_t</code> of this device node</li>
+        <li><code>inode->i_cdev</code> — pointer to the <code>struct cdev</code></li>
+        <li><code>imajor(inode)</code> — extract major number</li>
+        <li><code>iminor(inode)</code> — extract minor number</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📂 struct file — The Open File Descriptor</h3>
+      <p>Created fresh for each <code>open()</code> call. <strong>One per open file descriptor</strong> — two processes opening the same device get separate <code>struct file</code> instances. This is where you store per-open-instance state.</p>
+      <ul>
+        <li><code>file->private_data</code> — <strong>your driver's per-open pointer</strong>, set in .open(), used in all other ops</li>
+        <li><code>file->f_flags</code> — <code>O_RDONLY</code>, <code>O_WRONLY</code>, <code>O_NONBLOCK</code>, etc.</li>
+        <li><code>file->f_pos</code> — current file position (loff_t)</li>
+        <li><code>file->f_mode</code> — <code>FMODE_READ</code>, <code>FMODE_WRITE</code></li>
+      </ul>
+    </div>
+  </div>
+
+<!-- ═══════════════════ SECTION 4 — file_operations ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn yellow">4</div>
+    <h2>struct file_operations — Your Driver's Function Table</h2>
+  </div>
+
+  <div class="card">
+    <h3>🗂️ The VFS-to-Driver Bridge</h3>
+    <p><code>struct file_operations</code> is a table of function pointers that the VFS calls when userspace performs operations on your device's file descriptor. You only implement the operations you need — unimplemented fields are NULL, and the VFS returns <code>-EINVAL</code> or a sensible default for those operations.</p>
+  </div>
+
+  <div class="fops-grid">
+    <div class="fg-key">.owner</div>
+    <div class="fg-val"><strong>THIS_MODULE</strong> — prevents module unload while device is open. Always set this.</div>
+    <div class="fg-key">.open</div>
+    <div class="fg-val"><strong>int (*open)(struct inode *, struct file *)</strong> — called on open(). Use to allocate per-open state and set <code>file->private_data</code>. Return 0 on success.</div>
+    <div class="fg-key">.release</div>
+    <div class="fg-val"><strong>int (*release)(struct inode *, struct file *)</strong> — called on close(). Free per-open state. Called once per open, even if multiple file descriptors point to the same open (dup'd fds).</div>
+    <div class="fg-key">.read</div>
+    <div class="fg-val"><strong>ssize_t (*read)(struct file *, char __user *, size_t, loff_t *)</strong> — copy data from kernel to userspace. Use <code>copy_to_user()</code>. Return bytes copied, 0 for EOF, negative errno on error.</div>
+    <div class="fg-key">.write</div>
+    <div class="fg-val"><strong>ssize_t (*write)(struct file *, const char __user *, size_t, loff_t *)</strong> — receive data from userspace. Use <code>copy_from_user()</code>. Return bytes consumed, negative errno on error.</div>
+    <div class="fg-key">.unlocked_ioctl</div>
+    <div class="fg-val"><strong>long (*unlocked_ioctl)(struct file *, unsigned int cmd, unsigned long arg)</strong> — out-of-band control commands. The modern ioctl (no BKL). Use for device-specific configuration.</div>
+    <div class="fg-key">.poll</div>
+    <div class="fg-val"><strong>__poll_t (*poll)(struct file *, poll_table *)</strong> — called by select/poll/epoll. Call <code>poll_wait()</code> and return EPOLLIN/EPOLLOUT masks based on data readiness.</div>
+    <div class="fg-key">.llseek</div>
+    <div class="fg-val"><strong>loff_t (*llseek)(struct file *, loff_t, int)</strong> — handle lseek(). If your device doesn't support seeking, set to <code>no_llseek</code>. Default is <code>default_llseek</code> which updates <code>f_pos</code>.</div>
+    <div class="fg-key">.mmap</div>
+    <div class="fg-val"><strong>int (*mmap)(struct file *, struct vm_area_struct *)</strong> — map device memory into userspace address space. Advanced — covered in Week 3.</div>
+    <div class="fg-key">.fasync</div>
+    <div class="fg-val"><strong>int (*fasync)(int, struct file *, int)</strong> — SIGIO/SIGPOLL async notification support. Calls <code>fasync_helper()</code>.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — file_operations — Canonical Declaration</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/* Forward declarations of handler functions (defined further down) */</span>
+<span class="kw">static int</span>     <span class="fn">mydev_open</span>   (<span class="kw">struct</span> <span class="tp">inode</span> *, <span class="kw">struct</span> <span class="tp">file</span> *);
+<span class="kw">static int</span>     <span class="fn">mydev_release</span>(<span class="kw">struct</span> <span class="tp">inode</span> *, <span class="kw">struct</span> <span class="tp">file</span> *);
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">mydev_read</span>   (<span class="kw">struct</span> <span class="tp">file</span> *, <span class="kw">char</span> <span class="kw">__user</span> *, <span class="tp">size_t</span>, <span class="tp">loff_t</span> *);
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">mydev_write</span>  (<span class="kw">struct</span> <span class="tp">file</span> *, <span class="kw">const</span> <span class="kw">char</span> <span class="kw">__user</span> *, <span class="tp">size_t</span>, <span class="tp">loff_t</span> *);
+<span class="kw">static long</span>    <span class="fn">mydev_ioctl</span>  (<span class="kw">struct</span> <span class="tp">file</span> *, <span class="kw">unsigned int</span>, <span class="kw">unsigned long</span>);
+
+<span class="kw">static const struct</span> <span class="tp">file_operations</span> mydev_fops = {
+    .owner          = <span class="mc">THIS_MODULE</span>,
+    .open           = <span class="fn">mydev_open</span>,
+    .release        = <span class="fn">mydev_release</span>,
+    .read           = <span class="fn">mydev_read</span>,
+    .write          = <span class="fn">mydev_write</span>,
+    .unlocked_ioctl = <span class="fn">mydev_ioctl</span>,
+    .llseek         = <span class="fn">no_llseek</span>,    <span class="cm">/* this device doesn't support seeking */</span>
+};</pre>
+  </div>
+
+<!-- ═══════════════════ SECTION 5 — copy_to/from_user ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn red">5</div>
+    <h2>copy_to_user / copy_from_user — Safe Userspace Transfers</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔒 Why You Can Never Directly Dereference User Pointers</h3>
+    <p>Userspace passes you pointers (<code>char __user *buf</code>). You <strong>cannot</strong> directly dereference these in kernel code for three reasons: (1) the pointer might be invalid or NULL, (2) the user may not have the right permissions, (3) the user's page might not be in physical memory (page fault needed). <code>copy_to_user()</code> and <code>copy_from_user()</code> handle all of this — they verify access rights, handle page faults, and return the number of bytes that could <em>not</em> be copied.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — copy_to_user / copy_from_user — Every Variant</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/uaccess.h&gt;</span>    <span class="cm">/* copy_to/from_user, get_user, put_user */</span>
+
+<span class="cm">/* ── copy_to_user: kernel buffer → userspace ──────────────────────── */</span>
+<span class="cm">/* Returns: 0 on success, number of bytes NOT copied on failure.
+ * ALWAYS check the return value — partial copies are errors! */</span>
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">mydev_read</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="kw">char</span> <span class="kw">__user</span> *ubuf,
+                           <span class="tp">size_t</span> count, <span class="tp">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = filp-&gt;private_data;
+    <span class="kw">char</span>  kbuf[<span class="nm">256</span>];
+    <span class="tp">ssize_t</span> to_copy, not_copied;
+
+    <span class="cm">/* Clamp to available data and user's requested size */</span>
+    to_copy = <span class="fn">min</span>((<span class="tp">size_t</span>)dev-&gt;data_len, count);
+    <span class="kw">if</span> (to_copy == <span class="nm">0</span>)
+        <span class="kw">return</span> <span class="nm">0</span>;   <span class="cm">/* EOF */</span>
+
+    <span class="cm">/* Prepare kernel buffer */</span>
+    <span class="fn">memcpy</span>(kbuf, dev-&gt;data, to_copy);
+
+    <span class="hl">not_copied = <span class="fn">copy_to_user</span>(ubuf, kbuf, to_copy);</span>
+    <span class="kw">if</span> (not_copied) {
+        <span class="fn">pr_err</span>(<span class="st">"mydev: copy_to_user failed: %zd bytes not copied\n"</span>, not_copied);
+        <span class="kw">return</span> -<span class="nm">EFAULT</span>;  <span class="cm">/* bad user pointer */</span>
+    }
+
+    <span class="cm">/* Advance file position */</span>
+    *ppos += to_copy;
+    <span class="kw">return</span> to_copy;   <span class="cm">/* bytes successfully copied */</span>
+}
+
+<span class="cm">/* ── copy_from_user: userspace → kernel buffer ────────────────────── */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">mydev_write</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="kw">const</span> <span class="kw">char</span> <span class="kw">__user</span> *ubuf,
+                            <span class="tp">size_t</span> count, <span class="tp">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *dev = filp-&gt;private_data;
+    <span class="kw">char</span>  kbuf[<span class="nm">256</span>];
+    <span class="tp">size_t</span> to_copy = <span class="fn">min</span>(count, <span class="kw">sizeof</span>(kbuf));
+    <span class="tp">size_t</span> not_copied;
+
+    <span class="hl">not_copied = <span class="fn">copy_from_user</span>(kbuf, ubuf, to_copy);</span>
+    <span class="kw">if</span> (not_copied)
+        <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+
+    <span class="cm">/* Process the received data */</span>
+    <span class="fn">memcpy</span>(dev-&gt;data, kbuf, to_copy);
+    dev-&gt;data_len = to_copy;
+
+    *ppos += to_copy;
+    <span class="kw">return</span> to_copy;
+}
+
+<span class="cm">/* ── Single value transfers (more efficient than copy_ for scalars) ── */</span>
+
+<span class="cm">/* get_user: read a single value FROM userspace into a kernel variable */</span>
+<span class="kw">int</span> user_val;
+<span class="kw">if</span> (<span class="fn">get_user</span>(user_val, (<span class="kw">int</span> <span class="kw">__user</span> *)uarg))   <span class="cm">/* uarg is user pointer to int */</span>
+    <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+<span class="fn">pr_info</span>(<span class="st">"Got value %d from user\n"</span>, user_val);
+
+<span class="cm">/* put_user: write a single kernel value TO userspace */</span>
+<span class="kw">int</span> kernel_val = <span class="nm">42</span>;
+<span class="kw">if</span> (<span class="fn">put_user</span>(kernel_val, (<span class="kw">int</span> <span class="kw">__user</span> *)uarg))
+    <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+
+<span class="cm">/* ── access_ok: check before a batch of transfers ────────────────── */</span>
+<span class="cm">/* copy_to/from_user call this internally, but you can call it upfront
+ * to avoid checking mid-operation for large transfers: */</span>
+<span class="kw">if</span> (!<span class="fn">access_ok</span>(ubuf, count))
+    <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+<span class="cm">/* access_ok only checks that the pointer range looks like a valid
+ * user address. It does NOT check if the pages are actually mapped. */</span>
+
+<span class="cm">/* ── __user annotation ───────────────────────────────────────────── */</span>
+<span class="cm">/* __user is a sparse annotation — it has no runtime effect.
+ * It marks a pointer as pointing to user memory.
+ * sparse (static analysis tool) warns if you dereference it directly.
+ * Always annotate user pointers with __user in your function signatures. */</span></pre>
+  </div>
+
+  <div class="info-box danger">
+    <span class="icon">🚨</span>
+    <div class="content"><strong>Never Dereference User Pointers Directly</strong>Writing <code>*ubuf = 'A'</code> or <code>memcpy(dst, ubuf, n)</code> where <code>ubuf</code> is a <code>char __user *</code> is a severe kernel security vulnerability. The user controls that pointer — it could point to kernel memory, causing a privilege escalation. Always use <code>copy_to_user()</code> / <code>copy_from_user()</code>. The kernel's <code>sparse</code> static analyzer will warn if you miss this.</div>
+  </div>
+
+<!-- ═══════════════════ SECTION 6 — ioctl ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">6</div>
+    <h2>ioctl — Out-of-Band Device Control</h2>
+  </div>
+
+  <div class="card">
+    <h3>⚙️ Device-Specific Commands Beyond Read/Write</h3>
+    <p><code>ioctl()</code> is the escape hatch for device-specific commands that don't fit the read/write data model — setting baud rate, querying status, triggering a hardware reset, configuring DMA settings, etc. The kernel provides a convention for defining ioctl command numbers that encodes the direction (read/write), data size, and a magic number to avoid collisions.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — ioctl — Command Definitions &amp; Handler</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/ioctl.h&gt;</span>
+
+<span class="cm">/* ── DEFINING IOCTL COMMANDS ─────────────────────────────────────────
+ * Use the _IO / _IOR / _IOW / _IOWR macros. They encode:
+ *   magic:  8-bit identifying byte for YOUR driver (pick one not in
+ *           Documentation/userspace-api/ioctl/ioctl-number.rst)
+ *   nr:     sequential command number within your driver (0, 1, 2...)
+ *   type:   C type of the argument (for size calculation)
+ *
+ * _IO  (magic, nr)         — no argument (just a command)
+ * _IOR (magic, nr, type)   — kernel reads FROM user  (user writes to kernel)
+ * _IOW (magic, nr, type)   — kernel writes TO user   (user reads from kernel)
+ * _IOWR(magic, nr, type)   — bidirectional
+ *
+ * Naming convention: put these in a shared header used by both driver
+ * and userspace application.
+ */</span>
+
+<span class="pp">#define</span> <span class="nm">MYDEV_IOC_MAGIC</span>   <span class="st">'M'</span>   <span class="cm">/* unique magic byte for this driver */</span>
+
+<span class="cm">/* Command 0: reset the device (no argument) */</span>
+<span class="pp">#define</span> <span class="nm">MYDEV_RESET</span>       <span class="fn">_IO</span>  (<span class="nm">MYDEV_IOC_MAGIC</span>, <span class="nm">0</span>)
+
+<span class="cm">/* Command 1: set configuration — user writes a struct to kernel */</span>
+<span class="kw">struct</span> <span class="tp">mydev_config</span> {
+    <span class="kw">int</span>  baud_rate;
+    <span class="kw">int</span>  data_bits;
+    <span class="kw">bool</span> parity;
+};
+<span class="pp">#define</span> <span class="nm">MYDEV_SET_CONFIG</span>  <span class="fn">_IOW</span> (<span class="nm">MYDEV_IOC_MAGIC</span>, <span class="nm">1</span>, <span class="kw">struct</span> <span class="tp">mydev_config</span>)
+
+<span class="cm">/* Command 2: get current config — kernel writes a struct to user */</span>
+<span class="pp">#define</span> <span class="nm">MYDEV_GET_CONFIG</span>  <span class="fn">_IOR</span> (<span class="nm">MYDEV_IOC_MAGIC</span>, <span class="nm">2</span>, <span class="kw">struct</span> <span class="tp">mydev_config</span>)
+
+<span class="cm">/* Command 3: get status (a single int) */</span>
+<span class="pp">#define</span> <span class="nm">MYDEV_GET_STATUS</span>  <span class="fn">_IOR</span> (<span class="nm">MYDEV_IOC_MAGIC</span>, <span class="nm">3</span>, <span class="kw">int</span>)
+
+<span class="cm">/* Guard: max command number */</span>
+<span class="pp">#define</span> <span class="nm">MYDEV_IOC_MAXNR</span>   <span class="nm">3</span>
+
+<span class="cm">/* ── IOCTL HANDLER ────────────────────────────────────────────────── */</span>
+<span class="kw">static long</span> <span class="fn">mydev_ioctl</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="kw">unsigned int</span> cmd,
+                         <span class="kw">unsigned long</span> arg)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span>  *dev = filp-&gt;private_data;
+    <span class="kw">struct</span> <span class="tp">mydev_config</span> cfg;
+    <span class="kw">int</span> status;
+    <span class="kw">int</span> ret = <span class="nm">0</span>;
+
+    <span class="cm">/* Verify the command belongs to this driver */</span>
+    <span class="kw">if</span> (<span class="fn">_IOC_TYPE</span>(cmd) != <span class="nm">MYDEV_IOC_MAGIC</span>)  <span class="kw">return</span> -<span class="nm">ENOTTY</span>;
+    <span class="kw">if</span> (<span class="fn">_IOC_NR</span>(cmd) > <span class="nm">MYDEV_IOC_MAXNR</span>)      <span class="kw">return</span> -<span class="nm">ENOTTY</span>;
+
+    <span class="cm">/* Check userspace pointer validity for commands that need it */</span>
+    <span class="kw">if</span> (<span class="fn">_IOC_DIR</span>(cmd) & <span class="nm">_IOC_READ</span>)   <span class="cm">/* kernel will write to user */</span>
+        <span class="kw">if</span> (!<span class="fn">access_ok</span>((<span class="kw">void</span> <span class="kw">__user</span> *)arg, <span class="fn">_IOC_SIZE</span>(cmd)))
+            <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+    <span class="kw">if</span> (<span class="fn">_IOC_DIR</span>(cmd) & <span class="nm">_IOC_WRITE</span>)  <span class="cm">/* kernel will read from user */</span>
+        <span class="kw">if</span> (!<span class="fn">access_ok</span>((<span class="kw">void</span> <span class="kw">__user</span> *)arg, <span class="fn">_IOC_SIZE</span>(cmd)))
+            <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+
+    <span class="kw">switch</span> (cmd) {
+
+    <span class="kw">case</span> <span class="nm">MYDEV_RESET</span>:
+        <span class="fn">pr_info</span>(<span class="st">"mydev: reset requested by pid %d\n"</span>, <span class="mc">current</span>-&gt;pid);
+        <span class="fn">hardware_reset</span>(dev);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="nm">MYDEV_SET_CONFIG</span>:
+        <span class="kw">if</span> (<span class="fn">copy_from_user</span>(&amp;cfg, (<span class="kw">struct</span> <span class="tp">mydev_config</span> <span class="kw">__user</span> *)arg,
+                           <span class="kw">sizeof</span>(cfg)))
+            <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+        <span class="kw">if</span> (cfg.baud_rate &lt; <span class="nm">9600</span> || cfg.baud_rate &gt; <span class="nm">4000000</span>)
+            <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+        dev-&gt;config = cfg;
+        <span class="fn">apply_config</span>(dev);
+        <span class="fn">pr_info</span>(<span class="st">"mydev: config set: baud=%d bits=%d\n"</span>,
+                cfg.baud_rate, cfg.data_bits);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="nm">MYDEV_GET_CONFIG</span>:
+        <span class="kw">if</span> (<span class="fn">copy_to_user</span>((<span class="kw">struct</span> <span class="tp">mydev_config</span> <span class="kw">__user</span> *)arg,
+                         &amp;dev-&gt;config, <span class="kw">sizeof</span>(dev-&gt;config)))
+            <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="nm">MYDEV_GET_STATUS</span>:
+        status = <span class="fn">read_hw_status</span>(dev);
+        <span class="kw">if</span> (<span class="fn">put_user</span>(status, (<span class="kw">int</span> <span class="kw">__user</span> *)arg))
+            <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+        <span class="kw">break</span>;
+
+    <span class="kw">default</span>:
+        <span class="kw">return</span> -<span class="nm">ENOTTY</span>;   <span class="cm">/* unknown command — ENOTTY is convention */</span>
+    }
+
+    <span class="kw">return</span> ret;
+}</pre>
+  </div>
+
+<!-- ═══════════════════ SECTION 7 — misc_register ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn orange">7</div>
+    <h2>misc_register — The Simple Path</h2>
+  </div>
+
+  <div class="card">
+    <h3>🪄 One Call Instead of Six — for Simple Devices</h3>
+    <p>For most drivers that only need a single character device node, the <strong>misc device</strong> API is far simpler. It handles device number allocation, cdev setup, class creation, and device node creation in a single <code>misc_register()</code> call. All misc devices share major number <strong>10</strong>, differentiated by their minor number. This is the recommended approach for simple drivers that don't need multiple device nodes.</p>
+    <p>Real kernel drivers using misc: <code>/dev/random</code>, <code>/dev/urandom</code>, <code>/dev/null</code>, <code>/dev/tpm0</code>, <code>/dev/watchdog</code>.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — misc_register — 90% Less Boilerplate</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="pp">#include &lt;linux/miscdevice.h&gt;</span>  <span class="cm">/* struct miscdevice, misc_register */</span>
+<span class="pp">#include &lt;linux/fs.h&gt;</span>
+
+<span class="cm">/* Your file_operations are the same as before */</span>
+<span class="kw">static const struct</span> <span class="tp">file_operations</span> mydev_fops = {
+    .owner          = <span class="mc">THIS_MODULE</span>,
+    .open           = <span class="fn">mydev_open</span>,
+    .release        = <span class="fn">mydev_release</span>,
+    .read           = <span class="fn">mydev_read</span>,
+    .write          = <span class="fn">mydev_write</span>,
+    .unlocked_ioctl = <span class="fn">mydev_ioctl</span>,
+    .llseek         = <span class="fn">no_llseek</span>,
+};
+
+<span class="cm">/* Define the misc device */</span>
+<span class="kw">static struct</span> <span class="tp">miscdevice</span> mydev_misc = {
+    .minor = <span class="nm">MISC_DYNAMIC_MINOR</span>,  <span class="cm">/* kernel assigns a free minor */</span>
+    .name  = <span class="st">"mydev"</span>,              <span class="cm">/* creates /dev/mydev */</span>
+    .fops  = &amp;mydev_fops,
+    .mode  = <span class="nm">0666</span>,                 <span class="cm">/* optional: default permissions */</span>
+};
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">mydev_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> ret;
+
+    <span class="cm">/* Allocate driver state */</span>
+    mydev = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*mydev), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!mydev)
+        <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+    <span class="cm">/* One call replaces: alloc_chrdev_region + cdev_init + cdev_add
+     *                    + class_create + device_create             */</span>
+    <span class="hl">ret = <span class="fn">misc_register</span>(&amp;mydev_misc);</span>
+    <span class="kw">if</span> (ret) {
+        <span class="fn">pr_err</span>(<span class="st">"mydev: misc_register failed: %d\n"</span>, ret);
+        <span class="fn">kfree</span>(mydev);
+        <span class="kw">return</span> ret;
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"mydev: registered as /dev/mydev (minor=%d)\n"</span>,
+            mydev_misc.minor);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">mydev_exit</span>(<span class="kw">void</span>)
+{
+    <span class="hl"><span class="fn">misc_deregister</span>(&amp;mydev_misc);</span>    <span class="cm">/* one call tears it all down */</span>
+    <span class="fn">kfree</span>(mydev);
+    <span class="fn">pr_info</span>(<span class="st">"mydev: deregistered\n"</span>);
+}</pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Approach</th><th>When to Use</th><th>Complexity</th><th>Multiple Nodes?</th></tr>
+      <tr>
+        <td><strong>misc_register</strong></td>
+        <td>Single /dev/name node, simple drivers, quick prototyping</td>
+        <td>Low — 1 call</td>
+        <td>No (one node per misc device)</td>
+      </tr>
+      <tr>
+        <td><strong>alloc_chrdev_region + cdev_add</strong></td>
+        <td>Multiple device instances (e.g., /dev/mydev0, /dev/mydev1...), full control needed</td>
+        <td>Medium — 6 calls</td>
+        <td>Yes — reserve a range of minors</td>
+      </tr>
+      <tr>
+        <td><strong>register_chrdev (legacy)</strong></td>
+        <td>Don't use in new drivers — old API</td>
+        <td>Low but outdated</td>
+        <td>Technically yes, but wastes 256 minors</td>
+      </tr>
+    </table>
+  </div>
+
+<!-- ═══════════════════ SECTION 8 — Complete Driver ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">8</div>
+    <h2>Day 8 Practice Project — "Pipe" Character Device</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>Today's Goal</strong>Build a complete character device driver called <strong>pipdev</strong> — a kernel-space circular buffer exposed as <code>/dev/pipdev</code>. One process writes data in, another reads it out. Uses <code>misc_register</code>, a <code>kfifo</code> as the backing store, a <code>mutex</code> for thread safety, a <code>wait_queue</code> for blocking reads, and a full <code>ioctl</code> for buffer management. This is the canonical Day 8 driver — everything you need for Week 2 and beyond.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — pipdev.c — Complete Character Device Driver</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * pipdev.c — Day 8: Character Device Driver
+ *
+ * A kernel-space pipe: write bytes in, read bytes out.
+ * Backed by a kfifo. Supports blocking reads and ioctl.
+ *
+ * Build: make
+ * Load:  sudo insmod pipdev.ko
+ * Use:   echo "hello kernel" > /dev/pipdev
+ *        cat /dev/pipdev
+ *        sudo insmod pipdev.ko buf_size=8192
+ */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="pp">#include &lt;linux/fs.h&gt;</span>
+<span class="pp">#include &lt;linux/miscdevice.h&gt;</span>
+<span class="pp">#include &lt;linux/slab.h&gt;</span>
+<span class="pp">#include &lt;linux/uaccess.h&gt;</span>
+<span class="pp">#include &lt;linux/kfifo.h&gt;</span>
+<span class="pp">#include &lt;linux/mutex.h&gt;</span>
+<span class="pp">#include &lt;linux/wait.h&gt;</span>
+<span class="pp">#include &lt;linux/poll.h&gt;</span>
+<span class="pp">#include &lt;linux/ioctl.h&gt;</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Day 8: pipdev - character device pipe driver"</span>);
+
+<span class="cm">/* ── Module parameters ─────────────────────────────────────────────── */</span>
+<span class="kw">static int</span> buf_size = <span class="nm">4096</span>;
+<span class="mc">module_param</span>(buf_size, int, <span class="nm">0444</span>);
+<span class="mc">MODULE_PARM_DESC</span>(buf_size, <span class="st">"Pipe buffer size in bytes (default: 4096, must be power-of-2)"</span>);
+
+<span class="cm">/* ── ioctl commands ────────────────────────────────────────────────── */</span>
+<span class="pp">#define</span> <span class="nm">PIPDEV_IOC_MAGIC</span>  <span class="st">'P'</span>
+<span class="pp">#define</span> <span class="nm">PIPDEV_FLUSH</span>      <span class="fn">_IO</span>  (<span class="nm">PIPDEV_IOC_MAGIC</span>, <span class="nm">0</span>)          <span class="cm">/* clear buffer */</span>
+<span class="pp">#define</span> <span class="nm">PIPDEV_GET_AVAIL</span>  <span class="fn">_IOR</span> (<span class="nm">PIPDEV_IOC_MAGIC</span>, <span class="nm">1</span>, <span class="kw">int</span>)   <span class="cm">/* bytes available to read */</span>
+<span class="pp">#define</span> <span class="nm">PIPDEV_GET_FREE</span>   <span class="fn">_IOR</span> (<span class="nm">PIPDEV_IOC_MAGIC</span>, <span class="nm">2</span>, <span class="kw">int</span>)   <span class="cm">/* free space in buffer */</span>
+<span class="pp">#define</span> <span class="nm">PIPDEV_IOC_MAXNR</span>  <span class="nm">2</span>
+
+<span class="cm">/* ── Device state ──────────────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">pipdev</span> {
+    <span class="kw">struct</span> <span class="tp">kfifo</span>        fifo;         <span class="cm">/* circular buffer */</span>
+    <span class="kw">struct</span> <span class="tp">mutex</span>        lock;         <span class="cm">/* protects fifo access */</span>
+    <span class="kw">wait_queue_head_t</span>   read_wq;      <span class="cm">/* readers wait here */</span>
+    <span class="kw">wait_queue_head_t</span>   write_wq;     <span class="cm">/* writers wait here (for space) */</span>
+    <span class="tp">atomic_t</span>            open_count;   <span class="cm">/* number of current opens */</span>
+};
+
+<span class="kw">static struct</span> <span class="tp">pipdev</span> *pd;   <span class="cm">/* global device instance */</span>
+
+<span class="cm">/* ── open ─────────────────────────────────────────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">pipdev_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *filp)
+{
+    <span class="fn">pr_debug</span>(<span class="st">"pipdev: open by pid=%d flags=0x%x\n"</span>,
+             <span class="mc">current</span>-&gt;pid, filp-&gt;f_flags);
+
+    <span class="cm">/* Store device pointer for use in read/write/ioctl */</span>
+    filp-&gt;private_data = pd;
+    <span class="fn">atomic_inc</span>(&amp;pd-&gt;open_count);
+
+    <span class="kw">return</span> <span class="fn">nonseekable_open</span>(inode, filp);  <span class="cm">/* mark as non-seekable */</span>
+}
+
+<span class="cm">/* ── release ──────────────────────────────────────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">pipdev_release</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *filp)
+{
+    <span class="fn">atomic_dec</span>(&amp;pd-&gt;open_count);
+    <span class="fn">pr_debug</span>(<span class="st">"pipdev: closed by pid=%d, open_count=%d\n"</span>,
+             <span class="mc">current</span>-&gt;pid, <span class="fn">atomic_read</span>(&amp;pd-&gt;open_count));
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── read ─────────────────────────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">pipdev_read</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="kw">char</span> <span class="kw">__user</span> *ubuf,
+                            <span class="tp">size_t</span> count, <span class="tp">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="tp">pipdev</span> *dev = filp-&gt;private_data;
+    <span class="kw">unsigned int</span> copied;
+    <span class="kw">int</span> ret;
+
+    <span class="kw">if</span> (count == <span class="nm">0</span>)
+        <span class="kw">return</span> <span class="nm">0</span>;
+
+    <span class="cm">/* Non-blocking: return immediately if no data */</span>
+    <span class="kw">if</span> (filp-&gt;f_flags &amp; <span class="nm">O_NONBLOCK</span>) {
+        <span class="kw">if</span> (<span class="fn">kfifo_is_empty</span>(&amp;dev-&gt;fifo))
+            <span class="kw">return</span> -<span class="nm">EAGAIN</span>;
+    } <span class="kw">else</span> {
+        <span class="cm">/* Blocking read: sleep until data is available */</span>
+        ret = <span class="fn">wait_event_interruptible</span>(dev-&gt;read_wq,
+                                       !<span class="fn">kfifo_is_empty</span>(&amp;dev-&gt;fifo));
+        <span class="kw">if</span> (ret)
+            <span class="kw">return</span> -<span class="nm">EINTR</span>;
+    }
+
+    <span class="cm">/* Acquire lock and drain kfifo to userspace */</span>
+    <span class="kw">if</span> (<span class="fn">mutex_lock_interruptible</span>(&amp;dev-&gt;lock))
+        <span class="kw">return</span> -<span class="nm">EINTR</span>;
+
+    ret = <span class="fn">kfifo_to_user</span>(&amp;dev-&gt;fifo, ubuf, count, &amp;copied);
+
+    <span class="fn">mutex_unlock</span>(&amp;dev-&gt;lock);
+
+    <span class="kw">if</span> (ret)
+        <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+
+    <span class="cm">/* Wake any waiting writers — there's space now */</span>
+    <span class="kw">if</span> (copied &gt; <span class="nm">0</span>)
+        <span class="fn">wake_up_interruptible</span>(&amp;dev-&gt;write_wq);
+
+    <span class="fn">pr_debug</span>(<span class="st">"pipdev: read %u bytes\n"</span>, copied);
+    <span class="kw">return</span> copied;
+}
+
+<span class="cm">/* ── write ────────────────────────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">pipdev_write</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="kw">const</span> <span class="kw">char</span> <span class="kw">__user</span> *ubuf,
+                             <span class="tp">size_t</span> count, <span class="tp">loff_t</span> *ppos)
+{
+    <span class="kw">struct</span> <span class="tp">pipdev</span> *dev = filp-&gt;private_data;
+    <span class="kw">unsigned int</span> copied;
+    <span class="kw">int</span> ret;
+
+    <span class="kw">if</span> (count == <span class="nm">0</span>)
+        <span class="kw">return</span> <span class="nm">0</span>;
+
+    <span class="cm">/* Non-blocking: fail immediately if buffer full */</span>
+    <span class="kw">if</span> (filp-&gt;f_flags &amp; <span class="nm">O_NONBLOCK</span>) {
+        <span class="kw">if</span> (<span class="fn">kfifo_is_full</span>(&amp;dev-&gt;fifo))
+            <span class="kw">return</span> -<span class="nm">EAGAIN</span>;
+    } <span class="kw">else</span> {
+        <span class="cm">/* Blocking write: sleep until space is available */</span>
+        ret = <span class="fn">wait_event_interruptible</span>(dev-&gt;write_wq,
+                                       !<span class="fn">kfifo_is_full</span>(&amp;dev-&gt;fifo));
+        <span class="kw">if</span> (ret)
+            <span class="kw">return</span> -<span class="nm">EINTR</span>;
+    }
+
+    <span class="kw">if</span> (<span class="fn">mutex_lock_interruptible</span>(&amp;dev-&gt;lock))
+        <span class="kw">return</span> -<span class="nm">EINTR</span>;
+
+    ret = <span class="fn">kfifo_from_user</span>(&amp;dev-&gt;fifo, ubuf, count, &amp;copied);
+
+    <span class="fn">mutex_unlock</span>(&amp;dev-&gt;lock);
+
+    <span class="kw">if</span> (ret)
+        <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+
+    <span class="cm">/* Wake any readers — data is now available */</span>
+    <span class="kw">if</span> (copied &gt; <span class="nm">0</span>)
+        <span class="fn">wake_up_interruptible</span>(&amp;dev-&gt;read_wq);
+
+    <span class="fn">pr_debug</span>(<span class="st">"pipdev: wrote %u bytes (%u avail)\n"</span>,
+             copied, <span class="fn">kfifo_len</span>(&amp;dev-&gt;fifo));
+    <span class="kw">return</span> copied;
+}
+
+<span class="cm">/* ── poll ─────────────────────────────────────────────────────────── */</span>
+<span class="kw">static</span> <span class="tp">__poll_t</span> <span class="fn">pipdev_poll</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="tp">poll_table</span> *wait)
+{
+    <span class="kw">struct</span> <span class="tp">pipdev</span> *dev = filp-&gt;private_data;
+    <span class="tp">__poll_t</span> mask = <span class="nm">0</span>;
+
+    <span class="cm">/* Register with both wait queues — poll will call us again when either fires */</span>
+    <span class="fn">poll_wait</span>(filp, &amp;dev-&gt;read_wq,  wait);
+    <span class="fn">poll_wait</span>(filp, &amp;dev-&gt;write_wq, wait);
+
+    <span class="kw">if</span> (!<span class="fn">kfifo_is_empty</span>(&amp;dev-&gt;fifo))
+        mask |= <span class="nm">EPOLLIN</span> | <span class="nm">EPOLLRDNORM</span>;   <span class="cm">/* data available to read */</span>
+    <span class="kw">if</span> (!<span class="fn">kfifo_is_full</span>(&amp;dev-&gt;fifo))
+        mask |= <span class="nm">EPOLLOUT</span> | <span class="nm">EPOLLWRNORM</span>;  <span class="cm">/* space available to write */</span>
+
+    <span class="kw">return</span> mask;
+}
+
+<span class="cm">/* ── ioctl ────────────────────────────────────────────────────────── */</span>
+<span class="kw">static long</span> <span class="fn">pipdev_ioctl</span>(<span class="kw">struct</span> <span class="tp">file</span> *filp, <span class="kw">unsigned int</span> cmd,
+                          <span class="kw">unsigned long</span> arg)
+{
+    <span class="kw">struct</span> <span class="tp">pipdev</span> *dev = filp-&gt;private_data;
+    <span class="kw">int</span> val;
+
+    <span class="kw">if</span> (<span class="fn">_IOC_TYPE</span>(cmd) != <span class="nm">PIPDEV_IOC_MAGIC</span>)  <span class="kw">return</span> -<span class="nm">ENOTTY</span>;
+    <span class="kw">if</span> (<span class="fn">_IOC_NR</span>(cmd) > <span class="nm">PIPDEV_IOC_MAXNR</span>)      <span class="kw">return</span> -<span class="nm">ENOTTY</span>;
+
+    <span class="kw">switch</span> (cmd) {
+    <span class="kw">case</span> <span class="nm">PIPDEV_FLUSH</span>:
+        <span class="fn">mutex_lock</span>(&amp;dev-&gt;lock);
+        <span class="fn">kfifo_reset</span>(&amp;dev-&gt;fifo);
+        <span class="fn">mutex_unlock</span>(&amp;dev-&gt;lock);
+        <span class="fn">wake_up_interruptible</span>(&amp;dev-&gt;write_wq);
+        <span class="fn">pr_info</span>(<span class="st">"pipdev: buffer flushed by pid=%d\n"</span>, <span class="mc">current</span>-&gt;pid);
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="nm">PIPDEV_GET_AVAIL</span>:
+        val = <span class="fn">kfifo_len</span>(&amp;dev-&gt;fifo);
+        <span class="kw">if</span> (<span class="fn">put_user</span>(val, (<span class="kw">int</span> <span class="kw">__user</span> *)arg))
+            <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+        <span class="kw">break</span>;
+
+    <span class="kw">case</span> <span class="nm">PIPDEV_GET_FREE</span>:
+        val = <span class="fn">kfifo_avail</span>(&amp;dev-&gt;fifo);
+        <span class="kw">if</span> (<span class="fn">put_user</span>(val, (<span class="kw">int</span> <span class="kw">__user</span> *)arg))
+            <span class="kw">return</span> -<span class="nm">EFAULT</span>;
+        <span class="kw">break</span>;
+
+    <span class="kw">default</span>:
+        <span class="kw">return</span> -<span class="nm">ENOTTY</span>;
+    }
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="kw">static const struct</span> <span class="tp">file_operations</span> pipdev_fops = {
+    .owner          = <span class="mc">THIS_MODULE</span>,
+    .open           = <span class="fn">pipdev_open</span>,
+    .release        = <span class="fn">pipdev_release</span>,
+    .read           = <span class="fn">pipdev_read</span>,
+    .write          = <span class="fn">pipdev_write</span>,
+    .poll           = <span class="fn">pipdev_poll</span>,
+    .unlocked_ioctl = <span class="fn">pipdev_ioctl</span>,
+    .llseek         = <span class="fn">no_llseek</span>,
+};
+
+<span class="kw">static struct</span> <span class="tp">miscdevice</span> pipdev_misc = {
+    .minor = <span class="nm">MISC_DYNAMIC_MINOR</span>,
+    .name  = <span class="st">"pipdev"</span>,
+    .fops  = &amp;pipdev_fops,
+    .mode  = <span class="nm">0666</span>,
+};
+
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">pipdev_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> ret;
+
+    <span class="kw">if</span> (!<span class="fn">is_power_of_2</span>(buf_size)) {
+        <span class="fn">pr_err</span>(<span class="st">"pipdev: buf_size must be a power of 2\n"</span>);
+        <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    }
+
+    pd = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*pd), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!pd)
+        <span class="kw">return</span> -<span class="nm">ENOMEM</span>;
+
+    ret = <span class="fn">kfifo_alloc</span>(&amp;pd-&gt;fifo, buf_size, <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (ret)
+        <span class="kw">goto</span> <span class="fn">err_fifo</span>;
+
+    <span class="fn">mutex_init</span>(&amp;pd-&gt;lock);
+    <span class="fn">init_waitqueue_head</span>(&amp;pd-&gt;read_wq);
+    <span class="fn">init_waitqueue_head</span>(&amp;pd-&gt;write_wq);
+    <span class="fn">atomic_set</span>(&amp;pd-&gt;open_count, <span class="nm">0</span>);
+
+    ret = <span class="fn">misc_register</span>(&amp;pipdev_misc);
+    <span class="kw">if</span> (ret)
+        <span class="kw">goto</span> <span class="fn">err_misc</span>;
+
+    <span class="fn">pr_info</span>(<span class="st">"pipdev: /dev/pipdev ready (buf=%d bytes, minor=%d)\n"</span>,
+            buf_size, pipdev_misc.minor);
+    <span class="kw">return</span> <span class="nm">0</span>;
+
+<span class="fn">err_misc</span>:
+    <span class="fn">kfifo_free</span>(&amp;pd-&gt;fifo);
+<span class="fn">err_fifo</span>:
+    <span class="fn">kfree</span>(pd);
+    <span class="kw">return</span> ret;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">pipdev_exit</span>(<span class="kw">void</span>)
+{
+    <span class="fn">misc_deregister</span>(&amp;pipdev_misc);
+    <span class="fn">kfifo_free</span>(&amp;pd-&gt;fifo);
+    <span class="fn">kfree</span>(pd);
+    <span class="fn">pr_info</span>(<span class="st">"pipdev: removed\n"</span>);
+}
+
+<span class="mc">module_init</span>(<span class="fn">pipdev_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">pipdev_exit</span>);</pre>
+  </div>
+
+<!-- ═══════════════════ SECTION 9 — Testing ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn teal">9</div>
+    <h2>Testing — From Shell &amp; C Userspace Program</h2>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Basic shell test</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make && sudo insmod pipdev.ko</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ls -la /dev/pipdev</span>
+<span class="t-out">crw-rw-rw- 1 root root 10, 58 Mar 02 10:00 /dev/pipdev</span>
+<span class="cm"># 'c' = char device, major=10 (misc), minor=58 (auto-assigned)</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">echo "Hello, kernel!" > /dev/pipdev</span>
+<span class="t-prompt">$</span> <span class="t-cmd">cat /dev/pipdev</span>
+<span class="t-out">Hello, kernel!</span>
+
+<span class="cm"># Write more than can be read in one shot</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dd if=/dev/urandom bs=1024 count=4 > /dev/pipdev 2>/dev/null &</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dd of=/dev/null bs=256 count=16 if=/dev/pipdev 2>&1 | tail -1</span>
+<span class="t-out">4096 bytes (4.1 kB) copied</span>
+
+<span class="cm"># Read /proc/devices to confirm major number</span>
+<span class="t-prompt">$</span> <span class="t-cmd">grep -E "10 misc|pipdev" /proc/devices</span>
+<span class="t-out"> 10 misc</span>
+<span class="t-prompt">$</span> <span class="t-cmd">grep pipdev /proc/misc</span>
+<span class="t-out"> 58 pipdev</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Userspace C test program — test_pipdev.c</h4>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">C — test_pipdev.c (compile and run in userspace)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+          <pre><span class="pp">#include &lt;stdio.h&gt;</span>
+<span class="pp">#include &lt;fcntl.h&gt;</span>
+<span class="pp">#include &lt;unistd.h&gt;</span>
+<span class="pp">#include &lt;string.h&gt;</span>
+<span class="pp">#include &lt;sys/ioctl.h&gt;</span>
+
+<span class="cm">/* Must match the definitions in pipdev.c */</span>
+<span class="pp">#define</span> PIPDEV_IOC_MAGIC  <span class="st">'P'</span>
+<span class="pp">#define</span> PIPDEV_FLUSH      _IO  (PIPDEV_IOC_MAGIC, 0)
+<span class="pp">#define</span> PIPDEV_GET_AVAIL  _IOR (PIPDEV_IOC_MAGIC, 1, int)
+<span class="pp">#define</span> PIPDEV_GET_FREE   _IOR (PIPDEV_IOC_MAGIC, 2, int)
+
+<span class="kw">int</span> <span class="fn">main</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> fd, avail, free_space;
+    <span class="kw">char</span> buf[<span class="nm">64</span>];
+
+    fd = <span class="fn">open</span>(<span class="st">"/dev/pipdev"</span>, O_RDWR);
+    <span class="kw">if</span> (fd &lt; <span class="nm">0</span>) { <span class="fn">perror</span>(<span class="st">"open"</span>); <span class="kw">return</span> <span class="nm">1</span>; }
+
+    <span class="cm">/* Query free space before writing */</span>
+    <span class="fn">ioctl</span>(fd, PIPDEV_GET_FREE, &amp;free_space);
+    <span class="fn">printf</span>(<span class="st">"Free before write: %d bytes\n"</span>, free_space);
+
+    <span class="cm">/* Write a message */</span>
+    <span class="kw">const</span> <span class="kw">char</span> *msg = <span class="st">"Hello from userspace!"</span>;
+    <span class="fn">write</span>(fd, msg, <span class="fn">strlen</span>(msg));
+
+    <span class="cm">/* Query available data */</span>
+    <span class="fn">ioctl</span>(fd, PIPDEV_GET_AVAIL, &amp;avail);
+    <span class="fn">printf</span>(<span class="st">"Available after write: %d bytes\n"</span>, avail);
+
+    <span class="cm">/* Read it back */</span>
+    <span class="kw">int</span> n = <span class="fn">read</span>(fd, buf, <span class="kw">sizeof</span>(buf) - <span class="nm">1</span>);
+    buf[n] = <span class="st">'\0'</span>;
+    <span class="fn">printf</span>(<span class="st">"Read: '%s'\n"</span>, buf);
+
+    <span class="cm">/* Flush the buffer */</span>
+    <span class="fn">ioctl</span>(fd, PIPDEV_FLUSH);
+    <span class="fn">ioctl</span>(fd, PIPDEV_GET_AVAIL, &amp;avail);
+    <span class="fn">printf</span>(<span class="st">"Available after flush: %d bytes\n"</span>, avail);
+
+    <span class="fn">close</span>(fd);
+    <span class="kw">return</span> <span class="nm">0</span>;
+}</pre>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">gcc test_pipdev.c -o test_pipdev && ./test_pipdev</span>
+<span class="t-out">Free before write: 4096 bytes
+Available after write: 21 bytes
+Read: 'Hello from userspace!'
+Available after flush: 0 bytes</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Test blocking behaviour with two terminals</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">Terminal 1 — Reader (blocks until data arrives)</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">cat /dev/pipdev</span>
+<span class="t-out">&lt;blocks here until Terminal 2 writes&gt;</span></pre>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">Terminal 2 — Writer</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">echo "wake up!" > /dev/pipdev</span>
+<span class="cm"># Terminal 1 immediately unblocks and prints "wake up!"</span></pre>
+        </div>
+        <p>This is the core blocking I/O pattern that powers every terminal, serial port, and character device in Linux.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Test with strace — see all syscalls entering your driver</h4>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">echo "test" > /dev/pipdev</span>
+<span class="t-prompt">$</span> <span class="t-cmd">strace cat /dev/pipdev 2>&1 | grep -E "open|read|close"</span>
+<span class="t-out">openat(AT_FDCWD, "/dev/pipdev", O_RDONLY)   = 3
+read(3, "test\n", 131072)                    = 5
+read(3, "", 131072)                          = 0    &lt;-- EOF / blocks
+close(3)                                     = 0</span>
+<span class="cm"># Each of these syscalls called YOUR driver's .open/.read/.release</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ═══════════════════ SECTION 10 — Summary ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn green">10</div>
+    <h2>Day 8 Summary &amp; Tomorrow's Preview</h2>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h3>✅ What You Mastered Today</h3>
+      <ul class="checklist">
+        <li><span class="chk">☑</span> Major:minor device numbers — anatomy and allocation</li>
+        <li><span class="chk">☑</span> alloc_chrdev_region + cdev_init + cdev_add</li>
+        <li><span class="chk">☑</span> class_create + device_create → auto /dev node</li>
+        <li><span class="chk">☑</span> struct file vs struct inode — one per open vs one per node</li>
+        <li><span class="chk">☑</span> file_operations — every function pointer and its signature</li>
+        <li><span class="chk">☑</span> copy_to_user / copy_from_user — safe userspace transfers</li>
+        <li><span class="chk">☑</span> get_user / put_user — single-value transfers</li>
+        <li><span class="chk">☑</span> ioctl — _IO/_IOR/_IOW/_IOWR macros, command handler pattern</li>
+        <li><span class="chk">☑</span> poll — EPOLLIN/EPOLLOUT masks for select/poll/epoll</li>
+        <li><span class="chk">☑</span> misc_register — simpler single-node registration</li>
+        <li><span class="chk">☑</span> Complete driver: blocking read/write, mutex, wait queue</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card">
+        <h3>🔜 Day 9 Preview — /proc &amp; sysfs Interfaces</h3>
+        <ul class="checklist">
+          <li><span class="chk-no">○</span> proc_create + seq_file for /proc entries</li>
+          <li><span class="chk-no">○</span> seq_printf, seq_read — multi-page /proc files</li>
+          <li><span class="chk-no">○</span> kobject and sysfs fundamentals</li>
+          <li><span class="chk-no">○</span> sysfs_create_file, device_create_file</li>
+          <li><span class="chk-no">○</span> show/store callbacks for sysfs attributes</li>
+          <li><span class="chk-no">○</span> DEVICE_ATTR_RO / DEVICE_ATTR_RW macros</li>
+          <li><span class="chk-no">○</span> debugfs — /sys/kernel/debug/ entries</li>
+        </ul>
+      </div>
+      <div class="info-box tip" style="margin-top:16px">
+        <span class="icon">📚</span>
+        <div class="content"><strong>Tonight's Reading</strong>LDD3 Chapter 3 ("Char Drivers") and read <code>drivers/char/mem.c</code> in the kernel source — it implements <code>/dev/null</code>, <code>/dev/zero</code>, and <code>/dev/mem</code>. You can understand 90% of it right now.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="quote">
+    "The file_operations table is one of the most elegant designs in the kernel. By mapping a hardware device to a set of file operations, Linux gives every program ever written the ability to talk to your device — without knowing anything about it. <code>cat</code>, <code>echo</code>, <code>dd</code>, Python's <code>open()</code>, Rust's <code>File::open()</code> — they all work on your driver unchanged. That's the power of 'everything is a file'."
+    <strong>— Day 8 Complete ✓ — You've written your first real userspace-facing kernel driver.</strong>
+  </div>
+
+</div>
+<div class="footer">
+  Day 8 of 30 · Linux Device Driver Roadmap · Week 2: Driver Interfaces &amp; Concurrency
+</div>
+</body>
+</html>

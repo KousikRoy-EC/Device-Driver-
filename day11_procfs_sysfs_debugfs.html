@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 11 — procfs, sysfs & debugfs | Linux Driver Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --bg2: #0d1117;
+    --bg3: #111820;
+    --panel: #141c25;
+    --border: #1e2d3d;
+    --border2: #243547;
+    --green: #39d98a;
+    --green-dim: #1f7a4d;
+    --amber: #ffa94d;
+    --amber-dim: #7a4d1f;
+    --blue: #4fc3f7;
+    --blue-dim: #1a4a6a;
+    --red: #ff6b6b;
+    --purple: #c792ea;
+    --purple-dim: #4a2070;
+    --yellow: #f4e04d;
+    --text: #cdd9e5;
+    --text-dim: #768a9e;
+    --text-faint: #3d5166;
+    --code-bg: #0a1520;
+    --tag-bg: #162030;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ───── HEADER ───── */
+  .hero {
+    position: relative;
+    padding: 70px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(57,217,138,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57,217,138,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridpulse 8s ease-in-out infinite;
+  }
+  @keyframes gridpulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+  .hero-glow {
+    position: absolute;
+    top: -100px; left: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(57,217,138,0.08) 0%, transparent 70%);
+    animation: glowmove 12s ease-in-out infinite;
+  }
+  @keyframes glowmove { 0%,100%{transform:translate(0,0)} 50%{transform:translate(60px,30px)} }
+
+  .hero-inner { position: relative; max-width: 1100px; margin: 0 auto; }
+
+  .week-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--tag-bg); border: 1px solid var(--border2);
+    padding: 5px 14px; border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--green);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 22px;
+  }
+  .week-badge .dot { width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.4s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(32px, 5vw, 58px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+  h1 span { color: var(--green); }
+
+  .hero-subtitle {
+    font-size: 16px; color: var(--text-dim);
+    max-width: 560px; margin-bottom: 32px;
+  }
+
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; padding: 5px 12px;
+    border-radius: 4px; border: 1px solid;
+    letter-spacing: 0.05em;
+  }
+  .tag-green { color: var(--green); border-color: var(--green-dim); background: rgba(57,217,138,0.06); }
+  .tag-amber { color: var(--amber); border-color: var(--amber-dim); background: rgba(255,169,77,0.06); }
+  .tag-blue  { color: var(--blue);  border-color: var(--blue-dim);  background: rgba(79,195,247,0.06); }
+  .tag-purple{ color: var(--purple);border-color: var(--purple-dim);background: rgba(199,146,234,0.06); }
+
+  /* ───── LAYOUT ───── */
+  .layout { display: grid; grid-template-columns: 240px 1fr; max-width: 1200px; margin: 0 auto; gap: 0; }
+
+  /* ───── SIDEBAR ───── */
+  .sidebar {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    border-right: 1px solid var(--border);
+    padding: 30px 0;
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+  .sidebar-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-faint); padding: 0 20px 12px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px; cursor: pointer;
+    font-size: 13px; color: var(--text-dim);
+    border-left: 2px solid transparent;
+    transition: all 0.2s; text-decoration: none;
+  }
+  .nav-item:hover, .nav-item.active {
+    color: var(--green); border-left-color: var(--green);
+    background: rgba(57,217,138,0.04);
+  }
+  .nav-item .nav-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text-faint);
+    min-width: 20px;
+  }
+  .nav-section {
+    margin-top: 16px; padding: 0 20px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  /* ───── MAIN CONTENT ───── */
+  .content { padding: 50px 48px; min-width: 0; }
+
+  /* Section headers */
+  .section { margin-bottom: 70px; }
+  .section-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 28px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .icon-green { background: rgba(57,217,138,0.12); border: 1px solid var(--green-dim); }
+  .icon-amber { background: rgba(255,169,77,0.12);  border: 1px solid var(--amber-dim); }
+  .icon-blue  { background: rgba(79,195,247,0.12);  border: 1px solid var(--blue-dim); }
+  .icon-purple{ background: rgba(199,146,234,0.12); border: 1px solid var(--purple-dim); }
+  .icon-red   { background: rgba(255,107,107,0.12); border: 1px solid #7a2020; }
+
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px; font-weight: 700;
+    color: #fff; letter-spacing: -0.01em;
+  }
+  h2 small {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 400;
+    color: var(--text-faint); margin-top: 2px;
+    letter-spacing: 0.05em;
+  }
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px; font-weight: 600;
+    color: var(--text); margin: 28px 0 12px;
+  }
+  p { color: var(--text-dim); margin-bottom: 14px; }
+
+  /* ───── CODE BLOCKS ───── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 18px 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .code-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+  }
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .code-filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--amber);
+  }
+  .copy-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text-faint);
+    background: none; border: 1px solid var(--border2);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.05em;
+  }
+  .copy-btn:hover { color: var(--green); border-color: var(--green-dim); }
+  .copy-btn.copied { color: var(--green); }
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+  /* Syntax colors */
+  .kw  { color: #c792ea; }   /* keywords */
+  .fn  { color: #82aaff; }   /* functions */
+  .str { color: #c3e88d; }   /* strings */
+  .num { color: #f78c6c; }   /* numbers */
+  .cmt { color: #546e7a; font-style: italic; } /* comments */
+  .inc { color: #89ddff; }   /* includes/macros */
+  .tp  { color: #ffcb6b; }   /* types */
+  .op  { color: var(--text-dim); } /* operators */
+  .lbl { color: var(--green); }    /* labels / proc entries */
+
+  /* ───── CALLOUT BOXES ───── */
+  .callout {
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin: 18px 0;
+    border-left: 3px solid;
+    display: flex; gap: 14px;
+  }
+  .callout-icon { font-size: 18px; flex-shrink: 0; line-height: 1.6; }
+  .callout-body { flex: 1; }
+  .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 6px; font-weight: 600;
+  }
+  .callout-body p { margin: 0; font-size: 13.5px; }
+  .callout.warn  { background: rgba(255,169,77,0.06); border-color: var(--amber); }
+  .callout.warn .callout-title { color: var(--amber); }
+  .callout.info  { background: rgba(79,195,247,0.06); border-color: var(--blue); }
+  .callout.info .callout-title { color: var(--blue); }
+  .callout.tip   { background: rgba(57,217,138,0.06); border-color: var(--green); }
+  .callout.tip .callout-title { color: var(--green); }
+  .callout.danger{ background: rgba(255,107,107,0.06);border-color: var(--red); }
+  .callout.danger .callout-title { color: var(--red); }
+
+  /* ───── API CARDS ───── */
+  .api-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin: 20px 0; }
+  .api-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: default;
+  }
+  .api-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+  .api-card-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--blue);
+    margin-bottom: 6px; word-break: break-all;
+  }
+  .api-card-sig {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; color: var(--text-faint);
+    margin-bottom: 8px; word-break: break-all;
+  }
+  .api-card-desc { font-size: 12.5px; color: var(--text-dim); }
+
+  /* ───── COMPARISON TABLE ───── */
+  .compare-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
+  .compare-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-faint); padding: 10px 16px; text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--code-bg);
+  }
+  .compare-table td {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    color: var(--text-dim); vertical-align: top;
+  }
+  .compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .compare-table td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--green); font-weight: 600;
+    white-space: nowrap;
+  }
+  .check { color: var(--green); }
+  .cross { color: var(--red); }
+  .maybe { color: var(--amber); }
+
+  /* ───── FLOW DIAGRAM ───── */
+  .flow {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0;
+    margin: 20px 0; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px 24px; overflow-x: auto;
+  }
+  .flow-node {
+    background: var(--panel); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 10px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; text-align: center;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .flow-node.green { border-color: var(--green-dim); color: var(--green); }
+  .flow-node.amber { border-color: var(--amber-dim); color: var(--amber); }
+  .flow-node.blue  { border-color: var(--blue-dim);  color: var(--blue); }
+  .flow-node.purple{ border-color: var(--purple-dim);color: var(--purple); }
+  .flow-arrow { padding: 0 10px; color: var(--text-faint); font-size: 16px; }
+
+  /* ───── QUIZ SECTION ───── */
+  .quiz-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin: 16px 0;
+  }
+  .quiz-q {
+    font-family: 'Syne', sans-serif; font-size: 15px; color: #fff;
+    margin-bottom: 16px;
+  }
+  .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+  .quiz-option {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px;
+    font-size: 13px; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; gap: 12px;
+    color: var(--text-dim);
+  }
+  .quiz-option:hover { border-color: var(--border2); color: var(--text); }
+  .quiz-option.correct { border-color: var(--green); background: rgba(57,217,138,0.08); color: var(--green); }
+  .quiz-option.wrong   { border-color: var(--red);   background: rgba(255,107,107,0.08); color: var(--red); }
+  .quiz-option .opt-letter {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    width: 22px; height: 22px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--border); flex-shrink: 0; font-weight: 700;
+  }
+  .quiz-result {
+    margin-top: 14px; padding: 12px 16px; border-radius: 8px;
+    font-size: 13px; display: none;
+  }
+  .quiz-result.show { display: block; }
+  .quiz-result.right { background: rgba(57,217,138,0.1); color: var(--green); border: 1px solid var(--green-dim); }
+  .quiz-result.wrong { background: rgba(255,107,107,0.1); color: var(--red);   border: 1px solid #7a2020; }
+
+  /* ───── CHECKLIST ───── */
+  .checklist { list-style: none; margin: 14px 0; }
+  .checklist li {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 13.5px; color: var(--text-dim);
+    border: 1px solid transparent; margin-bottom: 6px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .checklist li:hover { background: var(--panel); border-color: var(--border); }
+  .checklist li.done { color: var(--text-faint); text-decoration: line-through; }
+  .checklist li.done .check-box { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+  .check-box {
+    width: 20px; height: 20px; border-radius: 4px;
+    border: 1px solid var(--border2); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: transparent; transition: all 0.2s;
+  }
+
+  /* ───── TABS ───── */
+  .tabs { margin: 20px 0; }
+  .tab-list { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 0; }
+  .tab-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; padding: 10px 18px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-faint); border-bottom: 2px solid transparent;
+    margin-bottom: -1px; transition: all 0.2s; letter-spacing: 0.04em;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ───── PROGRESS BAR ───── */
+  .progress-bar {
+    width: 100%; height: 4px; background: var(--border);
+    border-radius: 2px; margin-bottom: 40px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+    border-radius: 2px;
+    animation: fillprogress 1.5s ease forwards;
+    width: 0;
+  }
+  @keyframes fillprogress { to { width: 36.67%; } } /* day 11 of 30 */
+
+  /* ───── INLINE CODE ───── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; background: var(--tag-bg);
+    border: 1px solid var(--border2); border-radius: 4px;
+    padding: 1px 6px; color: var(--amber);
+  }
+
+  /* ───── SUMMARY BOX ───── */
+  .summary-box {
+    background: linear-gradient(135deg, rgba(57,217,138,0.06), rgba(79,195,247,0.06));
+    border: 1px solid var(--border2); border-radius: 12px;
+    padding: 28px 32px; margin: 30px 0;
+  }
+  .summary-box h3 { color: var(--green); margin-top: 0; }
+
+  /* ───── FOOTER ───── */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 30px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1200px; margin: 0 auto;
+  }
+  .footer-nav {
+    display: flex; gap: 12px;
+  }
+  .nav-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; padding: 8px 16px;
+    border-radius: 6px; border: 1px solid var(--border2);
+    color: var(--text-dim); cursor: pointer; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .nav-link:hover { border-color: var(--green); color: var(--green); }
+  .footer-day {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text-faint);
+  }
+
+  /* ───── RESPONSIVE ───── */
+  @media(max-width:768px){
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .content { padding: 28px 20px; }
+    .hero { padding: 40px 20px; }
+    .api-grid { grid-template-columns: 1fr; }
+    .footer { flex-direction: column; gap: 16px; padding: 24px 20px; }
+  }
+
+  /* ───── ANIMATIONS ───── */
+  .fade-in {
+    opacity: 0; transform: translateY(16px);
+    animation: fadein 0.5s ease forwards;
+  }
+  @keyframes fadein { to { opacity:1; transform:translateY(0); } }
+  .delay-1 { animation-delay: 0.1s; }
+  .delay-2 { animation-delay: 0.2s; }
+  .delay-3 { animation-delay: 0.3s; }
+  .delay-4 { animation-delay: 0.4s; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ───── KERNEL PATH DISPLAY ───── */
+  .kpath {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--code-bg); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 3px 10px; color: var(--blue);
+  }
+  .kpath::before { content: '📁'; font-size: 11px; }
+
+  /* ───── STEP BOXES ───── */
+  .steps { display: flex; flex-direction: column; gap: 0; margin: 20px 0; }
+  .step {
+    display: flex; gap: 20px; position: relative;
+    padding-bottom: 24px;
+  }
+  .step:last-child { padding-bottom: 0; }
+  .step-num {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--panel); border: 2px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--green); font-weight: 700; z-index: 1;
+  }
+  .step-line {
+    position: absolute; left: 15px; top: 32px; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .step:last-child .step-line { display: none; }
+  .step-content { padding-top: 5px; flex: 1; }
+  .step-title { font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .step-desc { font-size: 13px; color: var(--text-dim); }
+
+  /* ─── BEST PRACTICES GRID ─── */
+  .bp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 20px 0; }
+  .bp-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+  }
+  .bp-card .bp-icon { font-size: 22px; margin-bottom: 10px; }
+  .bp-card .bp-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .bp-card .bp-text { font-size: 12px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════ HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <div class="week-badge"><span class="dot"></span> Week 2 · Day 11</div>
+    <h1>procfs, sysfs<br>&amp; <span>debugfs</span></h1>
+    <p class="hero-subtitle">Master the three kernel filesystems that expose your driver's internals to userspace — and learn exactly when to use each one.</p>
+    <div class="hero-tags">
+      <span class="tag tag-green">/proc</span>
+      <span class="tag tag-amber">/sys</span>
+      <span class="tag tag-blue">/sys/kernel/debug</span>
+      <span class="tag tag-purple">seq_file</span>
+      <span class="tag tag-green">sysfs attributes</span>
+      <span class="tag tag-amber">kobject</span>
+    </div>
+  </div>
+</div>
+
+<!-- Progress -->
+<div style="max-width:1200px;margin:0 auto;padding:0 40px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 4px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);">
+    <span>ROADMAP PROGRESS</span><span>Day 11 / 30 — 36.7%</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════════ MAIN LAYOUT -->
+<div class="layout">
+
+  <!-- ──────────────────────── SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-title">On This Page</div>
+    <a class="nav-item active" href="#overview"><span class="nav-num">00</span>Overview</a>
+    <a class="nav-item" href="#procfs"><span class="nav-num">01</span>procfs</a>
+    <a class="nav-item" href="#seqfile"><span class="nav-num">02</span>seq_file API</a>
+    <a class="nav-item" href="#sysfs"><span class="nav-num">03</span>sysfs</a>
+    <a class="nav-item" href="#kobject"><span class="nav-num">04</span>kobject & kset</a>
+    <a class="nav-item" href="#debugfs"><span class="nav-num">05</span>debugfs</a>
+    <a class="nav-item" href="#comparison"><span class="nav-num">06</span>Comparison</a>
+    <a class="nav-item" href="#examples"><span class="nav-num">07</span>Full Example</a>
+    <a class="nav-item" href="#patterns"><span class="nav-num">08</span>Best Practices</a>
+    <a class="nav-item" href="#quiz"><span class="nav-num">09</span>Quiz</a>
+    <div class="nav-section">Checklist</div>
+    <a class="nav-item" href="#checklist"><span class="nav-num">✓</span>Day Checklist</a>
+  </aside>
+
+  <!-- ──────────────────────── CONTENT -->
+  <main class="content">
+
+    <!-- ════════════════════ OVERVIEW -->
+    <section class="section fade-in" id="overview">
+      <div class="section-header">
+        <div class="section-icon icon-green">🗂️</div>
+        <h2>Overview <small>Why virtual filesystems matter for drivers</small></h2>
+      </div>
+
+      <p>The Linux kernel provides three pseudo-filesystems that let drivers expose information and accept configuration from userspace <em>without</em> using custom ioctl calls or reading raw device files. Each serves a distinct purpose:</p>
+
+      <div class="flow">
+        <div class="flow-node green">/proc<br><small style="color:var(--text-faint)">procfs</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node amber">/sys<br><small style="color:var(--text-faint)">sysfs</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node blue">/sys/kernel/debug<br><small style="color:var(--text-faint)">debugfs</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node purple">userspace<br><small style="color:var(--text-faint)">cat / echo / tools</small></div>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-icon">💡</div>
+        <div class="callout-body">
+          <div class="callout-title">Mental Model</div>
+          <p><strong style="color:var(--text)">procfs</strong> = runtime diagnostics &amp; process info &nbsp;|&nbsp; <strong style="color:var(--text)">sysfs</strong> = stable device attributes the user can read/write &nbsp;|&nbsp; <strong style="color:var(--text)">debugfs</strong> = internal debug dumps, never ship in production</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ PROCFS -->
+    <section class="section fade-in delay-1" id="procfs">
+      <div class="section-header">
+        <div class="section-icon icon-green">📋</div>
+        <h2>procfs <small>/proc — the original kernel window</small></h2>
+      </div>
+
+      <p>procfs is one of the oldest kernel interfaces. It was originally designed to expose process information (hence the name) but drivers have long used it to publish runtime statistics. It lives at <span class="kpath">/proc</span>.</p>
+
+      <h3>Core API Functions</h3>
+      <div class="api-grid">
+        <div class="api-card">
+          <div class="api-card-name">proc_create()</div>
+          <div class="api-card-sig">proc_create(name, mode, parent, fops)</div>
+          <div class="api-card-desc">Create a /proc file with given name, permissions, parent directory, and file_operations. Returns <code>struct proc_dir_entry*</code> or NULL on failure.</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">proc_mkdir()</div>
+          <div class="api-card-sig">proc_mkdir(name, parent)</div>
+          <div class="api-card-desc">Create a /proc directory. Pass NULL as parent to create directly under /proc. Returns a <code>proc_dir_entry</code> you use as parent for children.</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">proc_remove()</div>
+          <div class="api-card-sig">proc_remove(pde)</div>
+          <div class="api-card-desc">Recursively removes the proc entry and all children. Call this in your module_exit(). Replaces the old remove_proc_entry().</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">struct proc_ops</div>
+          <div class="api-card-sig">proc_ops { .proc_open, .proc_read, .proc_write, .proc_release }</div>
+          <div class="api-card-desc">Modern replacement for file_operations when used with /proc (since 5.6+). Use this, not the old file_operations struct.</div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-icon">⚠️</div>
+        <div class="callout-body">
+          <div class="callout-title">Kernel 5.6+ Change</div>
+          <p>The proc_ops struct replaced <code>file_operations</code> in procfs since Linux 5.6. If you see old code using <code>file_operations</code> with proc_create, it still works but the new <code>struct proc_ops</code> is preferred.</p>
+        </div>
+      </div>
+
+      <h3>Minimal procfs Entry Example</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">mydriver_proc.c</span>
+          <span class="code-lang">C</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="inc">#include &lt;linux/module.h&gt;
+#include &lt;linux/proc_fs.h&gt;
+#include &lt;linux/uaccess.h&gt;
+#include &lt;linux/seq_file.h&gt;</span>
+
+<span class="kw">static struct</span> <span class="tp">proc_dir_entry</span> *proc_dir, *proc_file;
+<span class="kw">static</span> <span class="tp">int</span>  read_count = <span class="num">0</span>;
+<span class="kw">static</span> <span class="tp">int</span>  write_count = <span class="num">0</span>;
+
+<span class="cmt">/* Called when userspace opens /proc/mydriver/stats */</span>
+<span class="kw">static int</span> <span class="fn">proc_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="fn">seq_printf</span>(m, <span class="str">"reads  : %d\n"</span>, read_count);
+    <span class="fn">seq_printf</span>(m, <span class="str">"writes : %d\n"</span>, write_count);
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="kw">static int</span> <span class="fn">proc_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *file)
+{
+    <span class="kw">return</span> <span class="fn">single_open</span>(file, proc_show, NULL);
+}
+
+<span class="kw">static const struct</span> <span class="tp">proc_ops</span> my_proc_ops = {
+    .proc_open    = proc_open,
+    .proc_read    = <span class="fn">seq_read</span>,      <span class="cmt">/* provided by seq_file */</span>
+    .proc_lseek   = <span class="fn">seq_lseek</span>,
+    .proc_release = <span class="fn">single_release</span>,
+};
+
+<span class="kw">static int</span> <span class="fn">__init</span> mydrv_init(<span class="kw">void</span>)
+{
+    <span class="cmt">/* Create /proc/mydriver/ directory */</span>
+    proc_dir = <span class="fn">proc_mkdir</span>(<span class="str">"mydriver"</span>, NULL);
+    <span class="kw">if</span> (!proc_dir)
+        <span class="kw">return</span> -<span class="lbl">ENOMEM</span>;
+
+    <span class="cmt">/* Create /proc/mydriver/stats file */</span>
+    proc_file = <span class="fn">proc_create</span>(<span class="str">"stats"</span>, <span class="num">0444</span>, proc_dir, &amp;my_proc_ops);
+    <span class="kw">if</span> (!proc_file) {
+        <span class="fn">proc_remove</span>(proc_dir);
+        <span class="kw">return</span> -<span class="lbl">ENOMEM</span>;
+    }
+
+    <span class="fn">pr_info</span>(<span class="str">"mydriver: /proc/mydriver/stats created\n"</span>);
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> mydrv_exit(<span class="kw">void</span>)
+{
+    <span class="fn">proc_remove</span>(proc_dir);  <span class="cmt">/* removes dir AND all children */</span>
+    <span class="fn">pr_info</span>(<span class="str">"mydriver: proc entries removed\n"</span>);
+}</pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">✅</div>
+        <div class="callout-body">
+          <div class="callout-title">Test It</div>
+          <p><code>cat /proc/mydriver/stats</code> &nbsp;→ reads/writes counters. No reboot needed, just <code>insmod</code> your module.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ SEQ_FILE -->
+    <section class="section" id="seqfile">
+      <div class="section-header">
+        <div class="section-icon icon-amber">📜</div>
+        <h2>seq_file API <small>The correct way to write /proc files</small></h2>
+      </div>
+
+      <p>Never write a /proc file using raw <code>read()</code> implementations. The <code>seq_file</code> interface handles the critical problem of <strong style="color:var(--amber)">partial reads</strong> — when userspace's buffer is smaller than your output. Raw read implementations frequently break with large output or when <code>cat</code> makes multiple read() calls.</p>
+
+      <div class="tabs">
+        <div class="tab-list">
+          <button class="tab-btn active" onclick="switchTab(this,'tab-single')">single_open (simple)</button>
+          <button class="tab-btn" onclick="switchTab(this,'tab-iter')">seq_operations (iterator)</button>
+        </div>
+        <div class="tab-content active" id="tab-single">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-filename">simple_seq.c</span>
+              <span class="code-lang">C — single_open pattern</span>
+              <button class="copy-btn" onclick="copyCode(this)">copy</button>
+            </div>
+            <pre><span class="cmt">/* Use single_open when your entire output fits in one show() call.
+   Most driver statistics files use this pattern. */</span>
+
+<span class="kw">static int</span> <span class="fn">my_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="fn">seq_printf</span>(m, <span class="str">"irq_count   : %lu\n"</span>, drv.irq_count);
+    <span class="fn">seq_printf</span>(m, <span class="str">"bytes_rx    : %lu\n"</span>, drv.bytes_rx);
+    <span class="fn">seq_printf</span>(m, <span class="str">"bytes_tx    : %lu\n"</span>, drv.bytes_tx);
+    <span class="fn">seq_printf</span>(m, <span class="str">"error_count : %lu\n"</span>, drv.errors);
+    <span class="kw">return</span> <span class="num">0</span>;  <span class="cmt">/* 0 = success */</span>
+}
+
+<span class="kw">static int</span> <span class="fn">my_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *file)
+{
+    <span class="kw">return</span> <span class="fn">single_open</span>(file, my_show, NULL);
+    <span class="cmt">/* 3rd arg is "private data" passed as v to show() */</span>
+}
+
+<span class="kw">static const struct</span> <span class="tp">proc_ops</span> fops = {
+    .proc_open    = my_open,
+    .proc_read    = <span class="fn">seq_read</span>,
+    .proc_lseek   = <span class="fn">seq_lseek</span>,
+    .proc_release = <span class="fn">single_release</span>,
+};</pre>
+          </div>
+        </div>
+        <div class="tab-content" id="tab-iter">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-filename">iter_seq.c</span>
+              <span class="code-lang">C — seq_operations iterator</span>
+              <button class="copy-btn" onclick="copyCode(this)">copy</button>
+            </div>
+            <pre><span class="cmt">/* Use seq_operations when iterating over a list/array —
+   e.g., printing all entries in a linked list or table. */</span>
+
+<span class="kw">static void</span> *<span class="fn">my_seq_start</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *s, <span class="tp">loff_t</span> *pos)
+{
+    <span class="kw">if</span> (*pos >= drv.entry_count) <span class="kw">return</span> NULL; <span class="cmt">/* EOF */</span>
+    <span class="kw">return</span> &amp;drv.entries[*pos];  <span class="cmt">/* return pointer to current item */</span>
+}
+
+<span class="kw">static void</span> *<span class="fn">my_seq_next</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *s, <span class="kw">void</span> *v, <span class="tp">loff_t</span> *pos)
+{
+    (*pos)++;
+    <span class="kw">if</span> (*pos >= drv.entry_count) <span class="kw">return</span> NULL;
+    <span class="kw">return</span> &amp;drv.entries[*pos];
+}
+
+<span class="kw">static void</span> <span class="fn">my_seq_stop</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *s, <span class="kw">void</span> *v) { <span class="cmt">/* cleanup if needed */</span> }
+
+<span class="kw">static int</span> <span class="fn">my_seq_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *s, <span class="kw">void</span> *v)
+{
+    <span class="kw">struct</span> <span class="tp">my_entry</span> *e = v;
+    <span class="fn">seq_printf</span>(s, <span class="str">"%s : %d\n"</span>, e->name, e->value);
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="kw">static const struct</span> <span class="tp">seq_operations</span> my_seq_ops = {
+    .start = my_seq_start,
+    .next  = my_seq_next,
+    .stop  = my_seq_stop,
+    .show  = my_seq_show,
+};
+
+<span class="kw">static int</span> <span class="fn">my_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *inode, <span class="kw">struct</span> <span class="tp">file</span> *file)
+{
+    <span class="kw">return</span> <span class="fn">seq_open</span>(file, &amp;my_seq_ops);
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <h3>Key seq_file Output Functions</h3>
+      <div class="api-grid">
+        <div class="api-card">
+          <div class="api-card-name">seq_printf()</div>
+          <div class="api-card-sig">seq_printf(m, fmt, ...)</div>
+          <div class="api-card-desc">Printf-style output into the seq buffer. Does NOT truncate — the buffer grows automatically. Most common function you'll use.</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">seq_puts() / seq_putc()</div>
+          <div class="api-card-sig">seq_puts(m, str), seq_putc(m, ch)</div>
+          <div class="api-card-desc">Write a string or single char. Faster than seq_printf when no formatting needed.</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">seq_write()</div>
+          <div class="api-card-sig">seq_write(m, buf, size)</div>
+          <div class="api-card-desc">Write raw binary data. Useful for hex dumps or binary-format debug output.</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">seq_hex_dump()</div>
+          <div class="api-card-sig">seq_hex_dump(m, prefix, style, rowsize, groupsize, buf, len, ascii)</div>
+          <div class="api-card-desc">Formatted hex dump — ideal for register dumps and buffer inspection.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ SYSFS -->
+    <section class="section" id="sysfs">
+      <div class="section-header">
+        <div class="section-icon icon-amber">⚙️</div>
+        <h2>sysfs <small>/sys — the modern, structured interface</small></h2>
+      </div>
+
+      <p>sysfs is the <strong style="color:var(--amber)">preferred interface</strong> for exporting device attributes. Unlike procfs (which is freeform), sysfs enforces a one-value-per-file rule. This makes it scriptable, discoverable by udev, and the official ABI for driver configuration.</p>
+
+      <div class="callout tip">
+        <div class="callout-icon">📌</div>
+        <div class="callout-body">
+          <div class="callout-title">The One-Value Rule</div>
+          <p>Each sysfs file should contain <strong style="color:var(--text)">exactly one value</strong> (a number, string, or on/off). This is a strict kernel ABI rule. If you need to expose multiple values, use multiple sysfs files or use debugfs.</p>
+        </div>
+      </div>
+
+      <h3>Creating Sysfs Attributes — Three Approaches</h3>
+
+      <div class="tabs">
+        <div class="tab-list">
+          <button class="tab-btn active" onclick="switchTab(this,'sys-device')">device_attribute (most common)</button>
+          <button class="tab-btn" onclick="switchTab(this,'sys-class')">class_attribute</button>
+          <button class="tab-btn" onclick="switchTab(this,'sys-kobject')">kobject direct</button>
+        </div>
+        <div class="tab-content active" id="sys-device">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-filename">sysfs_device_attr.c</span>
+              <span class="code-lang">C</span>
+              <button class="copy-btn" onclick="copyCode(this)">copy</button>
+            </div>
+            <pre><span class="inc">#include &lt;linux/device.h&gt;</span>
+
+<span class="cmt">/* ── SHOW (read): called when user does: cat /sys/class/mydev/mydev0/threshold ── */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">threshold_show</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                               <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr,
+                               <span class="tp">char</span> *buf)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *mydev = <span class="fn">dev_get_drvdata</span>(dev);
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="str">"%d\n"</span>, mydev->threshold);
+    <span class="cmt">/* sysfs_emit() is the modern, safe replacement for sprintf(buf,...) */</span>
+}
+
+<span class="cmt">/* ── STORE (write): called when user does: echo 50 > /sys/.../threshold ── */</span>
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">threshold_store</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                                <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr,
+                                <span class="kw">const</span> <span class="tp">char</span> *buf, <span class="tp">size_t</span> count)
+{
+    <span class="kw">struct</span> <span class="tp">my_device</span> *mydev = <span class="fn">dev_get_drvdata</span>(dev);
+    <span class="tp">int</span> val;
+
+    <span class="kw">if</span> (<span class="fn">kstrtoint</span>(buf, <span class="num">10</span>, &amp;val))  <span class="cmt">/* safe string-to-int conversion */</span>
+        <span class="kw">return</span> -<span class="lbl">EINVAL</span>;
+
+    <span class="kw">if</span> (val &lt; <span class="num">0</span> || val &gt; <span class="num">100</span>)
+        <span class="kw">return</span> -<span class="lbl">EINVAL</span>;  <span class="cmt">/* validate before applying */</span>
+
+    mydev->threshold = val;
+    <span class="kw">return</span> count;  <span class="cmt">/* MUST return count on success, not 0 */</span>
+}
+
+<span class="cmt">/* ── Macro to declare the attribute ── */</span>
+<span class="kw">static</span> <span class="lbl">DEVICE_ATTR_RW</span>(threshold);  <span class="cmt">/* creates dev_attr_threshold, mode 0644 */</span>
+<span class="kw">static</span> <span class="lbl">DEVICE_ATTR_RO</span>(status);     <span class="cmt">/* read-only,  mode 0444 */</span>
+
+<span class="cmt">/* ── Group attributes together (cleaner than adding one by one) ── */</span>
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">attribute</span> *mydev_attrs[] = {
+    &amp;dev_attr_threshold.attr,
+    &amp;dev_attr_status.attr,
+    NULL,  <span class="cmt">/* MUST be NULL-terminated */</span>
+};
+<span class="lbl">ATTRIBUTE_GROUPS</span>(mydev);  <span class="cmt">/* creates mydev_groups[] */</span>
+
+<span class="cmt">/* ── In device creation: pass the group ── */</span>
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">device</span> *dev = <span class="fn">device_create_with_groups</span>(
+    cls, NULL, devnum, mydev_ptr, mydev_groups, <span class="str">"mydev%d"</span>, minor);</pre>
+          </div>
+        </div>
+        <div class="tab-content" id="sys-class">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-filename">sysfs_class_attr.c</span>
+              <span class="code-lang">C — class_attribute</span>
+              <button class="copy-btn" onclick="copyCode(this)">copy</button>
+            </div>
+            <pre><span class="cmt">/* Class attributes appear under /sys/class/myclass/
+   and are shared across all instances of the class. */</span>
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">version_show</span>(<span class="kw">struct</span> <span class="tp">class</span> *cls,
+                             <span class="kw">struct</span> <span class="tp">class_attribute</span> *attr,
+                             <span class="tp">char</span> *buf)
+{
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="str">"1.2.3\n"</span>);
+}
+
+<span class="kw">static</span> <span class="lbl">CLASS_ATTR_RO</span>(version);  <span class="cmt">/* creates class_attr_version */</span>
+
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">attribute</span> *myclass_attrs[] = {
+    &amp;class_attr_version.attr,
+    NULL
+};
+<span class="lbl">ATTRIBUTE_GROUPS</span>(myclass);
+
+<span class="kw">struct</span> <span class="tp">class</span> my_class = {
+    .name           = <span class="str">"myclass"</span>,
+    .class_groups   = myclass_groups,
+};</pre>
+          </div>
+        </div>
+        <div class="tab-content" id="sys-kobject">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-filename">sysfs_kobject.c</span>
+              <span class="code-lang">C — raw kobject (advanced)</span>
+              <button class="copy-btn" onclick="copyCode(this)">copy</button>
+            </div>
+            <pre"><span class="cmt">/* Use kobject_create_and_add() when you want a sysfs dir
+   that isn't tied to a device or class. */</span>
+
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">kobject</span> *my_kobj;
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">foo_show</span>(<span class="kw">struct</span> <span class="tp">kobject</span> *kobj,
+                         <span class="kw">struct</span> <span class="tp">kobj_attribute</span> *attr,
+                         <span class="tp">char</span> *buf)
+{
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="str">"%d\n"</span>, my_val);
+}
+<span class="kw">static</span> <span class="lbl">struct kobj_attribute</span> foo_attr = <span class="fn">__ATTR_RO</span>(foo);
+
+<span class="kw">static int</span> <span class="fn">__init</span> init(<span class="kw">void</span>) {
+    <span class="cmt">/* Creates /sys/kernel/mydriver/ */</span>
+    my_kobj = <span class="fn">kobject_create_and_add</span>(<span class="str">"mydriver"</span>, kernel_kobj);
+    <span class="kw">if</span> (!my_kobj) <span class="kw">return</span> -<span class="lbl">ENOMEM</span>;
+
+    <span class="kw">return</span> <span class="fn">sysfs_create_file</span>(my_kobj, &amp;foo_attr.attr);
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> cleanup(<span class="kw">void</span>) {
+    <span class="fn">kobject_put</span>(my_kobj);  <span class="cmt">/* decrements refcount, frees when 0 */</span>
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout danger">
+        <div class="callout-icon">🚫</div>
+        <div class="callout-body">
+          <div class="callout-title">Common Mistakes in sysfs store()</div>
+          <p>1) Using <code>sscanf()</code> instead of <code>kstrtoint()</code> — sscanf doesn't detect overflow.<br>
+          2) Returning <code>0</code> on success instead of <code>count</code> — causes infinite write loops in userspace.<br>
+          3) Not validating input range — never trust userspace data.</p>
+        </div>
+      </div>
+
+      <h3>Important Macros Reference</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">attribute_macros.c</span>
+          <span class="code-lang">C — reference</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="cmt">/* ── Device Attribute Macros ── */</span>
+<span class="lbl">DEVICE_ATTR_RO</span>(name);          <span class="cmt">/* mode 0444, requires name_show() */</span>
+<span class="lbl">DEVICE_ATTR_WO</span>(name);          <span class="cmt">/* mode 0200, requires name_store() */</span>
+<span class="lbl">DEVICE_ATTR_RW</span>(name);          <span class="cmt">/* mode 0644, requires both */</span>
+<span class="lbl">DEVICE_ATTR</span>(name, mode, show, store); <span class="cmt">/* full control */</span>
+
+<span class="cmt">/* ── kobj_attribute Macros ── */</span>
+<span class="fn">__ATTR_RO</span>(name);               <span class="cmt">/* for kobject-based attrs */</span>
+<span class="fn">__ATTR_RW</span>(name);
+<span class="fn">__ATTR</span>(name, mode, show, store);
+
+<span class="cmt">/* ── Safe string conversions (always use these in store()) ── */</span>
+<span class="fn">kstrtoint</span>(buf, base, &amp;result);   <span class="cmt">/* string → int */</span>
+<span class="fn">kstrtoul</span>(buf, base, &amp;result);    <span class="cmt">/* string → unsigned long */</span>
+<span class="fn">kstrtobool</span>(buf, &amp;result);        <span class="cmt">/* "1","y","on","true" → true */</span>
+<span class="fn">sysfs_emit</span>(buf, fmt, ...);       <span class="cmt">/* modern show() output (replaces sprintf) */</span></pre>
+      </div>
+    </section>
+
+    <!-- ════════════════════ KOBJECT -->
+    <section class="section" id="kobject">
+      <div class="section-header">
+        <div class="section-icon icon-purple">🔗</div>
+        <h2>kobject &amp; kset <small>The foundation of the device model</small></h2>
+      </div>
+
+      <p>Every directory in <span class="kpath">/sys</span> is backed by a <code>kobject</code>. Understanding this helps you navigate the kernel object hierarchy and write well-integrated drivers.</p>
+
+      <div class="flow" style="flex-direction:column;align-items:flex-start;gap:8px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);margin-bottom:8px;">HIERARCHY</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="flow-node purple">kset<br><small style="color:var(--text-faint)">/sys/bus/</small></div>
+          <div class="flow-arrow">contains</div>
+          <div class="flow-node amber">kobject<br><small style="color:var(--text-faint)">/sys/bus/i2c/</small></div>
+          <div class="flow-arrow">has</div>
+          <div class="flow-node green">kobj_attribute<br><small style="color:var(--text-faint)">/sys/bus/i2c/uevent</small></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+          <div class="flow-node blue">struct device<br><small style="color:var(--text-faint)">embeds kobject</small></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node green">device_attribute<br><small style="color:var(--text-faint)">dev_attr_*</small></div>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">kobject_lifecycle.c</span>
+          <span class="code-lang">C</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="cmt">/* kobject lifecycle — reference counting matters */</span>
+
+<span class="cmt">/* Create a kobject under /sys/kernel/mydir/ */</span>
+kobj = <span class="fn">kobject_create_and_add</span>(<span class="str">"mydir"</span>, kernel_kobj);
+
+<span class="cmt">/* kobjects use reference counting — never free directly */</span>
+<span class="fn">kobject_get</span>(kobj);     <span class="cmt">/* increment refcount */</span>
+<span class="fn">kobject_put</span>(kobj);     <span class="cmt">/* decrement; frees when count hits 0 */</span>
+
+<span class="cmt">/* Add/remove individual attribute files */</span>
+<span class="fn">sysfs_create_file</span>(kobj, &amp;my_attr.attr);
+<span class="fn">sysfs_remove_file</span>(kobj, &amp;my_attr.attr);
+
+<span class="cmt">/* Create a symlink in sysfs (used by driver model) */</span>
+<span class="fn">sysfs_create_link</span>(kobj, target_kobj, <span class="str">"link_name"</span>);
+<span class="fn">sysfs_remove_link</span>(kobj, <span class="str">"link_name"</span>);
+
+<span class="cmt">/* Send a uevent (triggers udev rules) */</span>
+<span class="fn">kobject_uevent</span>(kobj, <span class="lbl">KOBJ_ADD</span>);    <span class="cmt">/* triggers udev SUBSYSTEM add */</span>
+<span class="fn">kobject_uevent</span>(kobj, <span class="lbl">KOBJ_REMOVE</span>); <span class="cmt">/* triggers udev SUBSYSTEM remove */</span>
+<span class="fn">kobject_uevent</span>(kobj, <span class="lbl">KOBJ_CHANGE</span>); <span class="cmt">/* triggers udev CHANGE event */</span></pre>
+      </div>
+    </section>
+
+    <!-- ════════════════════ DEBUGFS -->
+    <section class="section" id="debugfs">
+      <div class="section-header">
+        <div class="section-icon icon-blue">🔬</div>
+        <h2>debugfs <small>/sys/kernel/debug — your private lab</small></h2>
+      </div>
+
+      <p>debugfs is an <em>informal</em> filesystem with no ABI requirements. You can dump anything here — full register maps, internal state machines, performance histograms. It is mounted at <span class="kpath">/sys/kernel/debug</span> and is available only when <code>CONFIG_DEBUG_FS=y</code>.</p>
+
+      <div class="callout danger">
+        <div class="callout-icon">🔒</div>
+        <div class="callout-body">
+          <div class="callout-title">Never Ship debugfs in Production</div>
+          <p>debugfs files expose raw internals. They can be read by root and may leak security-sensitive info (register values, internal pointers). Use <code>#ifdef DEBUG</code> guards or ensure you remove debugfs entries in release builds.</p>
+        </div>
+      </div>
+
+      <h3>debugfs API</h3>
+      <div class="api-grid">
+        <div class="api-card">
+          <div class="api-card-name">debugfs_create_dir()</div>
+          <div class="api-card-sig">debugfs_create_dir(name, parent)</div>
+          <div class="api-card-desc">Create a directory. Pass NULL as parent to create directly under /sys/kernel/debug. Returns a <code>dentry</code> pointer — never NULL (on failure returns error pointer).</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">debugfs_create_file()</div>
+          <div class="api-card-sig">debugfs_create_file(name, mode, parent, data, fops)</div>
+          <div class="api-card-desc">Create a file with full control via file_operations. Use for complex outputs like register dumps.</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">debugfs_create_u32()</div>
+          <div class="api-card-sig">debugfs_create_u32(name, mode, parent, &val)</div>
+          <div class="api-card-desc">Create a file that directly exposes a u32 variable. Kernel handles the read/write. Variants: u8, u16, u64, ulong, bool, atomic_t.</div>
+        </div>
+        <div class="api-card">
+          <div class="api-card-name">debugfs_remove_recursive()</div>
+          <div class="api-card-sig">debugfs_remove_recursive(dentry)</div>
+          <div class="api-card-desc">Remove a directory and all its contents. Call in module_exit() with your root dentry.</div>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">debugfs_example.c</span>
+          <span class="code-lang">C</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="inc">#include &lt;linux/debugfs.h&gt;</span>
+
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">dentry</span> *dbg_root;
+
+<span class="cmt">/* Custom file: full register dump */</span>
+<span class="kw">static int</span> <span class="fn">regdump_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="fn">seq_printf</span>(m, <span class="str">"REG_CTRL   = 0x%08x\n"</span>, <span class="fn">readl</span>(drv.base + <span class="num">0x00</span>));
+    <span class="fn">seq_printf</span>(m, <span class="str">"REG_STATUS = 0x%08x\n"</span>, <span class="fn">readl</span>(drv.base + <span class="num">0x04</span>));
+    <span class="fn">seq_printf</span>(m, <span class="str">"REG_IRQ    = 0x%08x\n"</span>, <span class="fn">readl</span>(drv.base + <span class="num">0x08</span>));
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+<span class="lbl">DEFINE_SHOW_ATTRIBUTE</span>(regdump);  <span class="cmt">/* creates regdump_fops automatically */</span>
+
+<span class="kw">static int</span> <span class="fn">__init</span> mydrv_init(<span class="kw">void</span>)
+{
+    <span class="cmt">/* Create /sys/kernel/debug/mydriver/ */</span>
+    dbg_root = <span class="fn">debugfs_create_dir</span>(<span class="str">"mydriver"</span>, NULL);
+
+    <span class="cmt">/* ── Simple scalar files — one line each ── */</span>
+    <span class="fn">debugfs_create_u32</span>(<span class="str">"irq_count"</span>, <span class="num">0444</span>, dbg_root, &amp;drv.irq_count);
+    <span class="fn">debugfs_create_u32</span>(<span class="str">"error_count"</span>, <span class="num">0444</span>, dbg_root, &amp;drv.errors);
+    <span class="fn">debugfs_create_bool</span>(<span class="str">"debug_mode"</span>, <span class="num">0644</span>, dbg_root, &amp;drv.debug);
+
+    <span class="cmt">/* ── Complex file (register dump) ── */</span>
+    <span class="fn">debugfs_create_file</span>(<span class="str">"registers"</span>, <span class="num">0400</span>, dbg_root, NULL, &amp;regdump_fops);
+
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> mydrv_exit(<span class="kw">void</span>)
+{
+    <span class="fn">debugfs_remove_recursive</span>(dbg_root);  <span class="cmt">/* removes dir + all files */</span>
+}</pre>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">⚡</div>
+        <div class="callout-body">
+          <div class="callout-title">DEFINE_SHOW_ATTRIBUTE Macro</div>
+          <p>The <code>DEFINE_SHOW_ATTRIBUTE(name)</code> macro auto-generates <code>name_fops</code> with proper <code>single_open</code>, <code>seq_read</code>, <code>llseek</code> and <code>release</code> — saves ~10 lines of boilerplate. Use it whenever you just need a read-only show function.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ COMPARISON -->
+    <section class="section" id="comparison">
+      <div class="section-header">
+        <div class="section-icon icon-red">⚖️</div>
+        <h2>Comparison <small>When to use which interface</small></h2>
+      </div>
+
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>procfs /proc</th>
+            <th>sysfs /sys</th>
+            <th>debugfs /sys/kernel/debug</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Purpose</td>
+            <td>Runtime diagnostics, per-driver stats</td>
+            <td>Stable device attributes (ABI)</td>
+            <td>Debug/development only</td>
+          </tr>
+          <tr>
+            <td>One-value-per-file rule</td>
+            <td class="maybe">Optional (but good practice)</td>
+            <td class="check">✓ Strict requirement</td>
+            <td class="cross">✗ No rule, dump anything</td>
+          </tr>
+          <tr>
+            <td>Stable ABI guarantee</td>
+            <td class="maybe">Partial (avoid changing format)</td>
+            <td class="check">✓ Must not break userspace</td>
+            <td class="cross">✗ None, can change anytime</td>
+          </tr>
+          <tr>
+            <td>udev/systemd integration</td>
+            <td class="cross">✗</td>
+            <td class="check">✓ Yes, via uevent</td>
+            <td class="cross">✗</td>
+          </tr>
+          <tr>
+            <td>Requires CONFIG_</td>
+            <td class="check">Always available</td>
+            <td class="check">Always available</td>
+            <td class="maybe">CONFIG_DEBUG_FS=y</td>
+          </tr>
+          <tr>
+            <td>Typical use</td>
+            <td>Driver stats, kernel module info</td>
+            <td>Device config, chip settings</td>
+            <td>Register dumps, internal state</td>
+          </tr>
+          <tr>
+            <td>Multi-value output</td>
+            <td class="check">✓ Common (seq_printf)</td>
+            <td class="cross">✗ One value per file</td>
+            <td class="check">✓ Anything goes</td>
+          </tr>
+          <tr>
+            <td>Read/Write support</td>
+            <td class="check">✓ Both</td>
+            <td class="check">✓ Both (show/store)</td>
+            <td class="check">✓ Both</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ════════════════════ FULL EXAMPLE -->
+    <section class="section" id="examples">
+      <div class="section-header">
+        <div class="section-icon icon-green">🚀</div>
+        <h2>Full Example <small>Character driver with all three interfaces</small></h2>
+      </div>
+
+      <p>This is a complete, compilable driver that exposes the same circular buffer from Day 9/10 through all three virtual filesystems. This is the Day 11 practice goal.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">virtual_sensor.c</span>
+          <span class="code-lang">C — complete driver</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="inc">#include &lt;linux/module.h&gt;
+#include &lt;linux/kernel.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;linux/cdev.h&gt;
+#include &lt;linux/device.h&gt;
+#include &lt;linux/proc_fs.h&gt;
+#include &lt;linux/seq_file.h&gt;
+#include &lt;linux/debugfs.h&gt;
+#include &lt;linux/uaccess.h&gt;
+#include &lt;linux/mutex.h&gt;</span>
+
+<span class="lbl">#define DRIVER_NAME  "vsensor"
+#define BUF_SIZE     1024</span>
+
+<span class="kw">struct</span> <span class="tp">vsensor_dev</span> {
+    <span class="kw">struct</span> <span class="tp">cdev</span>    cdev;
+    <span class="kw">struct</span> <span class="tp">device</span> *device;
+    <span class="kw">struct</span> <span class="tp">mutex</span>   lock;
+    <span class="tp">char</span>           buf[<span class="lbl">BUF_SIZE</span>];
+    <span class="tp">size_t</span>         data_len;
+    <span class="tp">unsigned long</span>  reads, writes;     <span class="cmt">/* stats */</span>
+    <span class="tp">int</span>            threshold;          <span class="cmt">/* sysfs-configurable */</span>
+};
+
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">vsensor_dev</span> vdev;
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">class</span>       *vsensor_class;
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">proc_dir_entry</span> *proc_dir;
+<span class="kw">static</span> <span class="kw">struct</span> <span class="tp">dentry</span>       *dbg_root;
+<span class="kw">static</span> <span class="tp">dev_t</span>               devnum;
+
+<span class="cmt">/* ════════════════════ procfs ════════════════════ */</span>
+
+<span class="kw">static int</span> <span class="fn">proc_stats_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="fn">seq_printf</span>(m, <span class="str">"driver     : %s\n"</span>, <span class="lbl">DRIVER_NAME</span>);
+    <span class="fn">seq_printf</span>(m, <span class="str">"reads      : %lu\n"</span>, vdev.reads);
+    <span class="fn">seq_printf</span>(m, <span class="str">"writes     : %lu\n"</span>, vdev.writes);
+    <span class="fn">seq_printf</span>(m, <span class="str">"buf_used   : %zu / %d bytes\n"</span>, vdev.data_len, <span class="lbl">BUF_SIZE</span>);
+    <span class="fn">seq_printf</span>(m, <span class="str">"threshold  : %d\n"</span>, vdev.threshold);
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+<span class="kw">static int</span> <span class="fn">proc_stats_open</span>(<span class="kw">struct</span> <span class="tp">inode</span> *i, <span class="kw">struct</span> <span class="tp">file</span> *f)
+{
+    <span class="kw">return</span> <span class="fn">single_open</span>(f, proc_stats_show, NULL);
+}
+<span class="kw">static const struct</span> <span class="tp">proc_ops</span> proc_stats_ops = {
+    .proc_open    = proc_stats_open,
+    .proc_read    = <span class="fn">seq_read</span>,
+    .proc_lseek   = <span class="fn">seq_lseek</span>,
+    .proc_release = <span class="fn">single_release</span>,
+};
+
+<span class="cmt">/* ════════════════════ sysfs ════════════════════ */</span>
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">threshold_show</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                               <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr, <span class="tp">char</span> *buf)
+{
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="str">"%d\n"</span>, vdev.threshold);
+}
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">threshold_store</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+    <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr, <span class="kw">const</span> <span class="tp">char</span> *buf, <span class="tp">size_t</span> count)
+{
+    <span class="tp">int</span> val;
+    <span class="kw">if</span> (<span class="fn">kstrtoint</span>(buf, <span class="num">10</span>, &amp;val) || val &lt; <span class="num">0</span> || val &gt; <span class="num">1000</span>)
+        <span class="kw">return</span> -<span class="lbl">EINVAL</span>;
+    <span class="fn">mutex_lock</span>(&amp;vdev.lock);
+    vdev.threshold = val;
+    <span class="fn">mutex_unlock</span>(&amp;vdev.lock);
+    <span class="kw">return</span> count;
+}
+<span class="kw">static</span> <span class="lbl">DEVICE_ATTR_RW</span>(threshold);
+
+<span class="kw">static</span> <span class="tp">ssize_t</span> <span class="fn">stats_show</span>(<span class="kw">struct</span> <span class="tp">device</span> *dev,
+                            <span class="kw">struct</span> <span class="tp">device_attribute</span> *attr, <span class="tp">char</span> *buf)
+{
+    <span class="kw">return</span> <span class="fn">sysfs_emit</span>(buf, <span class="str">"reads=%lu writes=%lu\n"</span>,
+                      vdev.reads, vdev.writes);
+}
+<span class="kw">static</span> <span class="lbl">DEVICE_ATTR_RO</span>(stats);
+
+<span class="kw">static struct</span> <span class="tp">attribute</span> *vsensor_attrs[] = {
+    &amp;dev_attr_threshold.attr,
+    &amp;dev_attr_stats.attr,
+    NULL
+};
+<span class="lbl">ATTRIBUTE_GROUPS</span>(vsensor);
+
+<span class="cmt">/* ════════════════════ debugfs ════════════════════ */</span>
+
+<span class="kw">static int</span> <span class="fn">buf_dump_show</span>(<span class="kw">struct</span> <span class="tp">seq_file</span> *m, <span class="kw">void</span> *v)
+{
+    <span class="fn">seq_printf</span>(m, <span class="str">"data_len: %zu\n"</span>, vdev.data_len);
+    <span class="fn">seq_hex_dump</span>(m, <span class="str">"buf: "</span>, <span class="lbl">DUMP_PREFIX_OFFSET</span>,
+                 <span class="num">16</span>, <span class="num">1</span>, vdev.buf, vdev.data_len, <span class="kw">true</span>);
+    <span class="kw">return</span> <span class="num">0</span>;
+}
+<span class="lbl">DEFINE_SHOW_ATTRIBUTE</span>(buf_dump);  <span class="cmt">/* generates buf_dump_fops */</span>
+
+<span class="cmt">/* ════════════════════ module init/exit ════════════════════ */</span>
+
+<span class="kw">static int</span> <span class="fn">__init</span> vsensor_init(<span class="kw">void</span>)
+{
+    <span class="tp">int</span> ret;
+
+    <span class="fn">mutex_init</span>(&amp;vdev.lock);
+    vdev.threshold = <span class="num">50</span>;
+
+    <span class="cmt">/* char device setup (from Day 8) */</span>
+    ret = <span class="fn">alloc_chrdev_region</span>(&amp;devnum, <span class="num">0</span>, <span class="num">1</span>, <span class="lbl">DRIVER_NAME</span>);
+    <span class="kw">if</span> (ret) <span class="kw">return</span> ret;
+
+    vsensor_class = <span class="fn">class_create</span>(<span class="lbl">DRIVER_NAME</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(vsensor_class)) { ret = <span class="fn">PTR_ERR</span>(vsensor_class); <span class="kw">goto</span> <span class="lbl">err_unreg</span>; }
+
+    <span class="fn">cdev_init</span>(&amp;vdev.cdev, &amp;vsensor_fops);
+    ret = <span class="fn">cdev_add</span>(&amp;vdev.cdev, devnum, <span class="num">1</span>);
+    <span class="kw">if</span> (ret) <span class="kw">goto</span> <span class="lbl">err_class</span>;
+
+    vdev.device = <span class="fn">device_create_with_groups</span>(vsensor_class, NULL,
+                    devnum, &amp;vdev, vsensor_groups, <span class="lbl">DRIVER_NAME</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(vdev.device)) { ret = <span class="fn">PTR_ERR</span>(vdev.device); <span class="kw">goto</span> <span class="lbl">err_cdev</span>; }
+
+    <span class="cmt">/* ── procfs ── */</span>
+    proc_dir = <span class="fn">proc_mkdir</span>(<span class="lbl">DRIVER_NAME</span>, NULL);
+    <span class="fn">proc_create</span>(<span class="str">"stats"</span>, <span class="num">0444</span>, proc_dir, &amp;proc_stats_ops);
+
+    <span class="cmt">/* ── debugfs ── */</span>
+    dbg_root = <span class="fn">debugfs_create_dir</span>(<span class="lbl">DRIVER_NAME</span>, NULL);
+    <span class="fn">debugfs_create_file</span>(<span class="str">"buf_dump"</span>, <span class="num">0400</span>, dbg_root, NULL, &amp;buf_dump_fops);
+    <span class="fn">debugfs_create_u32</span>(<span class="str">"read_count"</span>, <span class="num">0444</span>, dbg_root,
+                       (<span class="tp">u32</span>*)&amp;vdev.reads);
+
+    <span class="fn">pr_info</span>(<span class="str">"%s: loaded. /dev/%s, /proc/%s/, /sys/kernel/debug/%s/\n"</span>,
+           <span class="lbl">DRIVER_NAME</span>, <span class="lbl">DRIVER_NAME</span>, <span class="lbl">DRIVER_NAME</span>, <span class="lbl">DRIVER_NAME</span>);
+    <span class="kw">return</span> <span class="num">0</span>;
+
+<span class="lbl">err_cdev:</span>   <span class="fn">cdev_del</span>(&amp;vdev.cdev);
+<span class="lbl">err_class:</span>  <span class="fn">class_destroy</span>(vsensor_class);
+<span class="lbl">err_unreg:</span>  <span class="fn">unregister_chrdev_region</span>(devnum, <span class="num">1</span>);
+    <span class="kw">return</span> ret;
+}
+
+<span class="kw">static void</span> <span class="fn">__exit</span> vsensor_exit(<span class="kw">void</span>)
+{
+    <span class="fn">debugfs_remove_recursive</span>(dbg_root);
+    <span class="fn">proc_remove</span>(proc_dir);
+    <span class="fn">device_destroy</span>(vsensor_class, devnum);
+    <span class="fn">cdev_del</span>(&amp;vdev.cdev);
+    <span class="fn">class_destroy</span>(vsensor_class);
+    <span class="fn">unregister_chrdev_region</span>(devnum, <span class="num">1</span>);
+    <span class="fn">pr_info</span>(<span class="str">"%s: unloaded\n"</span>, <span class="lbl">DRIVER_NAME</span>);
+}
+
+<span class="lbl">module_init</span>(vsensor_init);
+<span class="lbl">module_exit</span>(vsensor_exit);
+<span class="lbl">MODULE_LICENSE</span>(<span class="str">"GPL"</span>);
+<span class="lbl">MODULE_AUTHOR</span>(<span class="str">"Your Name"</span>);
+<span class="lbl">MODULE_DESCRIPTION</span>(<span class="str">"Virtual sensor driver — procfs/sysfs/debugfs demo"</span>);</pre>
+      </div>
+
+      <h3>Testing the Driver</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">test_vsensor.sh</span>
+          <span class="code-lang">Bash</span>
+          <button class="copy-btn" onclick="copyCode(this)">copy</button>
+        </div>
+        <pre><span class="cmt"># Load and verify</span>
+<span class="fn">sudo insmod</span> vsensor.ko
+<span class="fn">dmesg</span> | tail -3
+
+<span class="cmt"># procfs — check all stats</span>
+<span class="fn">cat</span> /proc/vsensor/stats
+
+<span class="cmt"># sysfs — read/write threshold attribute</span>
+<span class="fn">cat</span> /sys/class/vsensor/vsensor/threshold
+<span class="fn">echo</span> 75 &gt; /sys/class/vsensor/vsensor/threshold
+<span class="fn">cat</span> /sys/class/vsensor/vsensor/threshold   <span class="cmt"># should print 75</span>
+
+<span class="cmt"># sysfs — test invalid input</span>
+<span class="fn">echo</span> 9999 &gt; /sys/class/vsensor/vsensor/threshold  <span class="cmt"># should return EINVAL</span>
+<span class="fn">echo</span> abc  &gt; /sys/class/vsensor/vsensor/threshold  <span class="cmt"># should return EINVAL</span>
+
+<span class="cmt"># debugfs — hex dump of internal buffer</span>
+<span class="fn">sudo</span> mount -t debugfs none /sys/kernel/debug   <span class="cmt"># if not already mounted</span>
+<span class="fn">echo</span> "hello kernel" &gt; /dev/vsensor
+<span class="fn">sudo cat</span> /sys/kernel/debug/vsensor/buf_dump
+<span class="fn">sudo cat</span> /sys/kernel/debug/vsensor/read_count
+
+<span class="cmt"># Cleanup</span>
+<span class="fn">sudo rmmod</span> vsensor
+<span class="fn">dmesg</span> | tail -3</pre>
+      </div>
+    </section>
+
+    <!-- ════════════════════ BEST PRACTICES -->
+    <section class="section" id="patterns">
+      <div class="section-header">
+        <div class="section-icon icon-amber">🏆</div>
+        <h2>Best Practices <small>What separates good driver code from great</small></h2>
+      </div>
+
+      <div class="bp-grid">
+        <div class="bp-card">
+          <div class="bp-icon">🔢</div>
+          <div class="bp-title">sysfs_emit() over sprintf()</div>
+          <div class="bp-text">Always use <code>sysfs_emit()</code> in show() callbacks. It bounds-checks against PAGE_SIZE and prevents buffer overflows that <code>sprintf(buf, ...)</code> ignores.</div>
+        </div>
+        <div class="bp-card">
+          <div class="bp-icon">↩️</div>
+          <div class="bp-title">Return count in store()</div>
+          <div class="bp-text">sysfs store() MUST return <code>count</code> on success, not <code>0</code>. Returning 0 causes userspace (e.g. echo) to retry the write infinitely.</div>
+        </div>
+        <div class="bp-card">
+          <div class="bp-icon">🛡️</div>
+          <div class="bp-title">Validate all store() input</div>
+          <div class="bp-text">Use <code>kstrtoint()</code>, <code>kstrtoul()</code>. Always range-check. Never apply an out-of-range value — hardware can break or wedge.</div>
+        </div>
+        <div class="bp-card">
+          <div class="bp-icon">🧹</div>
+          <div class="bp-title">Cleanup order matters</div>
+          <div class="bp-text">Remove debugfs &rarr; procfs &rarr; device &rarr; cdev &rarr; class &rarr; chrdev region. Reverse of creation order. Any deviation causes kernel oops on rmmod.</div>
+        </div>
+        <div class="bp-card">
+          <div class="bp-icon">🔒</div>
+          <div class="bp-title">Lock shared state in show/store</div>
+          <div class="bp-text">sysfs callbacks run in process context and can be preempted. Always hold your mutex when reading/writing driver state to avoid races.</div>
+        </div>
+        <div class="bp-card">
+          <div class="bp-icon">📁</div>
+          <div class="bp-title">Group your sysfs attrs</div>
+          <div class="bp-text">Use <code>ATTRIBUTE_GROUPS()</code> and <code>device_create_with_groups()</code> rather than calling <code>device_create_file()</code> for each one — atomic creation/removal, no partial state.</div>
+        </div>
+      </div>
+
+      <div class="summary-box">
+        <h3>🎯 Decision Guide: Which Interface to Use?</h3>
+        <div class="steps" style="margin-top:18px;">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-line"></div>
+            <div class="step-content">
+              <div class="step-title">Is this a stable user-visible attribute (a setting users will script)?</div>
+              <div class="step-desc"><strong style="color:var(--amber)">→ Use sysfs.</strong> Create a <code>device_attribute</code>. It becomes permanent ABI once merged upstream.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-line"></div>
+            <div class="step-content">
+              <div class="step-title">Is this a runtime statistics page with multiple values?</div>
+              <div class="step-desc"><strong style="color:var(--green)">→ Use procfs.</strong> Write a <code>seq_file</code>-backed /proc entry. Perfect for status dumps, tables, multi-line stats.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-line"></div>
+            <div class="step-content">
+              <div class="step-title">Is this for debugging during development only?</div>
+              <div class="step-desc"><strong style="color:var(--blue)">→ Use debugfs.</strong> Register a hex dump, raw register access, or internal state. Remove before shipping or guard with <code>#ifdef DEBUG</code>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ QUIZ -->
+    <section class="section" id="quiz">
+      <div class="section-header">
+        <div class="section-icon icon-purple">🧪</div>
+        <h2>Quiz <small>Test your understanding</small></h2>
+      </div>
+
+      <div class="quiz-card" id="q1">
+        <div class="quiz-q">Q1 — Your sysfs <code>store()</code> callback successfully sets a value. What must you return?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" onclick="answer('q1',this,false)"><span class="opt-letter">A</span>Return <code>0</code> to signal success</div>
+          <div class="quiz-option" onclick="answer('q1',this,true)"><span class="opt-letter">B</span>Return <code>count</code> (number of bytes written)</div>
+          <div class="quiz-option" onclick="answer('q1',this,false)"><span class="opt-letter">C</span>Return <code>1</code> (true)</div>
+          <div class="quiz-option" onclick="answer('q1',this,false)"><span class="opt-letter">D</span>Return <code>PAGE_SIZE</code></div>
+        </div>
+        <div class="quiz-result right" id="q1-right">✓ Correct! Returning <code>count</code> is mandatory. Returning 0 tells userspace nothing was consumed, causing infinite retries.</div>
+        <div class="quiz-result wrong" id="q1-wrong">✗ Wrong. You must return <code>count</code> on success. Returning 0 causes infinite loops in callers like <code>echo</code>.</div>
+      </div>
+
+      <div class="quiz-card" id="q2">
+        <div class="quiz-q">Q2 — You're writing a /proc file that outputs a 100-line table. What's the correct implementation approach?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" onclick="answer('q2',this,false)"><span class="opt-letter">A</span>Implement <code>.read</code> directly with <code>copy_to_user()</code></div>
+          <div class="quiz-option" onclick="answer('q2',this,false)"><span class="opt-letter">B</span>sprintf() everything into a static buffer, return it once</div>
+          <div class="quiz-option" onclick="answer('q2',this,true)"><span class="opt-letter">C</span>Use <code>seq_file</code> with <code>single_open()</code> + <code>seq_printf()</code></div>
+          <div class="quiz-option" onclick="answer('q2',this,false)"><span class="opt-letter">D</span>Write it as a sysfs attribute instead</div>
+        </div>
+        <div class="quiz-result right" id="q2-right">✓ Correct! <code>seq_file</code> handles partial reads, buffer growing, and cursor management automatically. Always use it for /proc.</div>
+        <div class="quiz-result wrong" id="q2-wrong">✗ Wrong. seq_file is the correct approach. Raw read() implementations break with large output and partial reads.</div>
+      </div>
+
+      <div class="quiz-card" id="q3">
+        <div class="quiz-q">Q3 — Which interface should expose internal register values for development debugging only?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" onclick="answer('q3',this,false)"><span class="opt-letter">A</span>sysfs (it has the most features)</div>
+          <div class="quiz-option" onclick="answer('q3',this,false)"><span class="opt-letter">B</span>procfs (it's always available)</div>
+          <div class="quiz-option" onclick="answer('q3',this,true)"><span class="opt-letter">C</span>debugfs (no ABI contract, intended for debug)</div>
+          <div class="quiz-option" onclick="answer('q3',this,false)"><span class="opt-letter">D</span>ioctl (it's more secure)</div>
+        </div>
+        <div class="quiz-result right" id="q3-right">✓ Correct! debugfs has no ABI guarantee and is explicitly designed for this. sysfs and procfs entries become ABI once shipped.</div>
+        <div class="quiz-result wrong" id="q3-wrong">✗ Wrong. debugfs is designed for this exact purpose — no ABI contract, freely changeable, intended only for debugging.</div>
+      </div>
+
+      <div class="quiz-card" id="q4">
+        <div class="quiz-q">Q4 — What does <code>DEFINE_SHOW_ATTRIBUTE(foo)</code> auto-generate?</div>
+        <div class="quiz-options">
+          <div class="quiz-option" onclick="answer('q4',this,false)"><span class="opt-letter">A</span>A sysfs device_attribute named <code>foo_attr</code></div>
+          <div class="quiz-option" onclick="answer('q4',this,true)"><span class="opt-letter">B</span>A <code>struct file_operations foo_fops</code> wrapping your <code>foo_show()</code></div>
+          <div class="quiz-option" onclick="answer('q4',this,false)"><span class="opt-letter">C</span>A proc_ops struct named <code>foo_ops</code></div>
+          <div class="quiz-option" onclick="answer('q4',this,false)"><span class="opt-letter">D</span>A kobject attribute for debugfs</div>
+        </div>
+        <div class="quiz-result right" id="q4-right">✓ Correct! The macro generates <code>foo_fops</code> with <code>single_open</code>, <code>seq_read</code>, <code>llseek</code>, and <code>release</code> wired up to your <code>foo_show()</code>.</div>
+        <div class="quiz-result wrong" id="q4-wrong">✗ Wrong. It generates <code>foo_fops</code> (a file_operations struct) using your <code>foo_show()</code> function with seq_file boilerplate wired up.</div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ CHECKLIST -->
+    <section class="section" id="checklist">
+      <div class="section-header">
+        <div class="section-icon icon-green">✅</div>
+        <h2>Day 11 Checklist <small>Click to mark complete</small></h2>
+      </div>
+      <ul class="checklist">
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Understand the difference between procfs, sysfs, and debugfs</li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Create a /proc directory and file using <code>proc_mkdir</code> + <code>proc_create</code></li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Implement a <code>seq_file</code> show() function using <code>single_open</code></li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Use <code>seq_printf</code> to output multiple values in procfs</li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Create a read/write sysfs attribute using <code>DEVICE_ATTR_RW</code></li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Implement show() with <code>sysfs_emit()</code> and store() with <code>kstrtoint()</code></li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Return <code>count</code> from store() on success</li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Create a debugfs directory and expose u32 variables</li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Use <code>DEFINE_SHOW_ATTRIBUTE</code> for a register dump</li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Clean up all entries in module_exit() in correct reverse order</li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Add mutex protection to show/store callbacks accessing shared state</li>
+        <li onclick="toggleCheck(this)"><span class="check-box">✓</span>Test with <code>cat</code>, <code>echo</code>, and invalid inputs to verify error handling</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════ FOOTER -->
+<div class="footer">
+  <div class="footer-day">
+    <span style="color:var(--text-faint)">Week 2 ·</span>
+    <span style="color:var(--green)"> Day 11</span>
+    <span style="color:var(--text-faint)"> · procfs / sysfs / debugfs</span>
+  </div>
+  <div class="footer-nav">
+    <a class="nav-link" href="#">← Day 10: ioctl</a>
+    <a class="nav-link" href="#">Day 12: Interrupts →</a>
+  </div>
+</div>
+
+<script>
+  // ── Tab switching ──
+  function switchTab(btn, targetId) {
+    const tabsEl = btn.closest('.tabs');
+    tabsEl.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    tabsEl.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(targetId).classList.add('active');
+  }
+
+  // ── Copy code ──
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    const text = pre.innerText || pre.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+
+  // ── Checklist toggle ──
+  function toggleCheck(li) {
+    li.classList.toggle('done');
+  }
+
+  // ── Quiz ──
+  function answer(qid, optEl, correct) {
+    const card = document.getElementById(qid);
+    if (card.dataset.answered) return;
+    card.dataset.answered = '1';
+    card.querySelectorAll('.quiz-option').forEach(o => o.style.pointerEvents = 'none');
+    optEl.classList.add(correct ? 'correct' : 'wrong');
+    const right = document.getElementById(qid + '-right');
+    const wrong = document.getElementById(qid + '-wrong');
+    if (correct) { right.classList.add('show'); }
+    else { wrong.classList.add('show'); }
+  }
+
+  // ── Active nav on scroll ──
+  const sections = document.querySelectorAll('section[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 120) current = s.id;
+    });
+    navItems.forEach(n => {
+      n.classList.toggle('active', n.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+</body>
+</html>

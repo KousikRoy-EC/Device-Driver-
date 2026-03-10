@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 7 — Week 1 Review & Mini Project</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #090b11;
+    --bg2:     #0d1018;
+    --bg3:     #111520;
+    --card:    #0d1018;
+    --border:  #1a2035;
+    --accent:  #f59e0b;
+    --accent2: #fbbf24;
+    --blue:    #3b82f6;
+    --blue2:   #60a5fa;
+    --green:   #10b981;
+    --green2:  #34d399;
+    --red:     #ef4444;
+    --red2:    #f87171;
+    --purple:  #a855f7;
+    --purple2: #c084fc;
+    --orange:  #f97316;
+    --cyan:    #06b6d4;
+    --teal:    #14b8a6;
+    --text:    #e2e8f0;
+    --text2:   #94a3b8;
+    --text3:   #64748b;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Inter', sans-serif;
+    --display: 'Syne', sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.7;font-size:15px;}
+
+  /* HERO */
+  .hero{background:linear-gradient(135deg,#090b11 0%,#17120a 50%,#090b11 100%);border-bottom:1px solid var(--border);padding:60px 40px 50px;position:relative;overflow:hidden;}
+  .hero::before{content:'';position:absolute;top:-80px;right:-60px;width:520px;height:520px;background:radial-gradient(circle,rgba(245,158,11,0.11) 0%,transparent 70%);pointer-events:none;}
+  .hero::after{content:'';position:absolute;bottom:-60px;left:150px;width:400px;height:400px;background:radial-gradient(circle,rgba(16,185,129,0.06) 0%,transparent 70%);pointer-events:none;}
+  .badge{display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:var(--accent2);padding:5px 14px;border-radius:20px;font-family:var(--mono);font-size:12px;letter-spacing:.05em;margin-bottom:20px;}
+  .badge .dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+  .hero h1{font-family:var(--display);font-size:clamp(28px,4vw,46px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;}
+  .hero h1 span{color:var(--accent2);}
+  .hero .sub{color:var(--text2);font-size:16px;max-width:660px;margin-bottom:28px;}
+  .hero-tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;font-size:12px;font-family:var(--mono);}
+
+  .container{max-width:980px;margin:0 auto;padding:40px 24px;}
+
+  .section-header{display:flex;align-items:center;gap:12px;margin:52px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .sn{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;color:#000;}
+  .sn.amber{background:var(--accent);}
+  .sn.green{background:var(--green);}
+  .sn.blue{background:var(--blue);color:#fff;}
+  .sn.red{background:var(--red);color:#fff;}
+  .sn.purple{background:var(--purple);color:#fff;}
+  .sn.cyan{background:var(--cyan);}
+  .sn.orange{background:var(--orange);}
+  .sn.teal{background:var(--teal);}
+  .section-header h2{font-family:var(--display);font-size:22px;font-weight:700;color:#fff;}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+  .card h3{font-family:var(--display);font-size:16px;font-weight:700;color:var(--accent2);margin-bottom:12px;}
+  .card p{color:var(--text2);margin-bottom:10px;font-size:14.5px;}
+  .card p:last-child{margin-bottom:0;}
+  .card ul{padding-left:20px;}
+  .card ul li{color:var(--text2);margin-bottom:7px;font-size:14.5px;}
+  .card ul li strong{color:var(--text);}
+
+  .code-block{background:#07080e;border:1px solid var(--border);border-radius:10px;margin:16px 0;overflow:hidden;}
+  .code-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0b0d16;border-bottom:1px solid var(--border);}
+  .code-lang{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;}
+  .code-dots{display:flex;gap:6px;}
+  .code-dots span{width:10px;height:10px;border-radius:50%;}
+  .code-dots span:nth-child(1){background:#ef4444;}.code-dots span:nth-child(2){background:#f59e0b;}.code-dots span:nth-child(3){background:#10b981;}
+  .code-block pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.85;color:#cdd6f4;}
+  .kw{color:#cba6f7;}.fn{color:#89b4fa;}.st{color:#a6e3a1;}.cm{color:#4a5568;font-style:italic;}
+  .nm{color:#fab387;}.tp{color:#89dceb;}.pp{color:#f38ba8;}.mc{color:#f9e2af;}
+  .hl    {background:rgba(245,158,11,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-ok {background:rgba(16,185,129,0.08);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--green);}
+  .hl-warn{background:rgba(245,158,11,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--accent);}
+  .hl-red{background:rgba(239,68,68,0.07);display:block;margin:0 -20px;padding:0 20px;border-left:3px solid var(--red);}
+
+  .terminal{background:#050505;border:1px solid #1a2035;border-radius:10px;overflow:hidden;margin:16px 0;}
+  .terminal-header{background:#0a0a0a;padding:10px 16px;display:flex;align-items:center;gap:8px;}
+  .terminal-header span{width:12px;height:12px;border-radius:50%;}
+  .terminal-header span:nth-child(1){background:#ff5f57;}.terminal-header span:nth-child(2){background:#ffbd2e;}.terminal-header span:nth-child(3){background:#28c840;}
+  .t-title{margin-left:8px;font-family:var(--mono);font-size:12px;color:#444;}
+  .terminal pre{padding:18px 20px;font-family:var(--mono);font-size:13px;line-height:1.85;color:#d4d4d4;}
+  .t-prompt{color:#f59e0b;}.t-cmd{color:#e2e8f0;}.t-out{color:#6b7280;}
+  .t-green{color:#10b981;}.t-yellow{color:#eab308;}.t-red{color:#ef4444;}
+  .t-blue{color:#60a5fa;}.t-purple{color:#c084fc;}.t-cyan{color:#22d3ee;}
+
+  .diagram{background:#07080e;border:1px solid var(--border);border-radius:10px;padding:24px;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:1.9;overflow-x:auto;white-space:pre;color:#cdd6f4;}
+
+  .info-box{display:flex;gap:14px;padding:16px 20px;border-radius:10px;margin:16px 0;font-size:14px;}
+  .info-box.note  {background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);}
+  .info-box.warn  {background:rgba(245,158,11,.07); border:1px solid rgba(245,158,11,.25);}
+  .info-box.tip   {background:rgba(16,185,129,.07); border:1px solid rgba(16,185,129,.2);}
+  .info-box.danger{background:rgba(239,68,68,.07);  border:1px solid rgba(239,68,68,.2);}
+  .info-box .icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+  .info-box .content{color:var(--text2);}
+  .info-box .content strong{color:var(--text);display:block;margin-bottom:4px;}
+
+  .table-wrap{overflow-x:auto;margin:16px 0;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{background:var(--bg3);color:var(--accent2);font-family:var(--display);font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;}
+  td{padding:11px 16px;border-bottom:1px solid rgba(26,32,53,.5);color:var(--text2);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  tr:nth-child(even) td{background:rgba(255,255,255,.013);}
+  td strong{color:var(--text);}
+  td code{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;}
+
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;}
+  .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:16px 0;}
+  @media(max-width:640px){.two-col,.three-col{grid-template-columns:1fr;}}
+
+  code{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);color:var(--accent2);padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12.5px;}
+
+  .nav-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:12px;color:var(--text3);position:sticky;top:0;z-index:100;}
+  .nav-bar .crumb{color:var(--text2);}.nav-bar .sep{color:var(--border);}.nav-bar .current{color:var(--accent2);}
+
+  .progress-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:13px;color:var(--text2);}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:18px;}
+  .progress-fill{height:100%;border-radius:3px;}
+
+  .quote{border-left:3px solid var(--accent);padding:14px 20px;margin:20px 0;background:rgba(245,158,11,0.04);border-radius:0 8px 8px 0;color:var(--text2);font-style:italic;font-size:14.5px;}
+  .quote strong{color:var(--accent2);font-style:normal;display:block;margin-top:6px;font-size:12px;}
+
+  .footer{margin-top:60px;padding:30px 24px;border-top:1px solid var(--border);text-align:center;color:var(--text3);font-size:13px;font-family:var(--mono);}
+
+  .checklist{list-style:none;padding:0;margin:12px 0;}
+  .checklist li{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid rgba(26,32,53,.4);color:var(--text2);font-size:14px;}
+  .checklist li:last-child{border-bottom:none;}
+  .chk{color:var(--green2);font-size:15px;flex-shrink:0;margin-top:1px;}
+  .chk-no{color:var(--text3);font-size:15px;flex-shrink:0;margin-top:1px;}
+
+  /* day review cards */
+  .day-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0;}
+  @media(max-width:700px){.day-grid{grid-template-columns:1fr 1fr;}}
+  .day-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:18px;position:relative;}
+  .day-num{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.1em;}
+  .day-card h4{font-family:var(--display);font-size:14px;font-weight:700;color:#fff;margin-bottom:10px;}
+  .day-card ul{list-style:none;padding:0;}
+  .day-card ul li{font-size:12.5px;color:var(--text2);padding:3px 0;border-bottom:1px solid rgba(26,32,53,.3);display:flex;align-items:flex-start;gap:6px;}
+  .day-card ul li:last-child{border-bottom:none;}
+  .day-card ul li::before{content:"▸";color:var(--accent2);font-size:10px;flex-shrink:0;margin-top:2px;}
+
+  /* concept map */
+  .concept-map{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:28px;margin:16px 0;}
+  .cm-center{text-align:center;font-family:var(--display);font-size:18px;font-weight:800;color:var(--accent2);margin-bottom:24px;}
+  .cm-row{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;}
+  .cm-node{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-family:var(--mono);font-size:12px;color:var(--text2);text-align:center;}
+  .cm-node.hl{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.06);color:var(--accent2);}
+  .cm-arrow{width:100%;text-align:center;color:var(--text3);font-size:18px;margin:4px 0;}
+
+  /* steps */
+  .steps{display:flex;flex-direction:column;gap:0;margin:16px 0;}
+  .step{display:flex;gap:16px;position:relative;padding-bottom:28px;}
+  .step:last-child{padding-bottom:0;}
+  .step-left{display:flex;flex-direction:column;align-items:center;}
+  .step-num{width:36px;height:36px;background:var(--accent);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;flex-shrink:0;z-index:1;}
+  .step-line{width:2px;flex:1;background:var(--border);margin-top:6px;}
+  .step:last-child .step-line{display:none;}
+  .step-content{padding-top:4px;flex:1;}
+  .step-content h4{color:#fff;font-weight:600;font-size:16px;margin-bottom:8px;font-family:var(--display);}
+  .step-content p{color:var(--text2);font-size:14px;margin-bottom:8px;}
+  .step-content .step-tag{display:inline-block;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--accent2);font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:4px;margin-bottom:8px;}
+
+  /* mini-project architecture */
+  .arch-box{background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:20px;margin:16px 0;font-family:var(--mono);font-size:13px;line-height:2;overflow-x:auto;white-space:pre;color:#cdd6f4;}
+
+  /* knowledge check */
+  .qblock{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:14px;}
+  .qblock .q{font-weight:600;color:#fff;margin-bottom:10px;font-size:14.5px;}
+  .qblock .opts{display:flex;flex-direction:column;gap:6px;}
+  .qblock .opt{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 14px;font-size:13.5px;color:var(--text2);cursor:default;}
+  .qblock .opt.correct{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.08);color:var(--green2);}
+  .qblock .opt.correct::before{content:"✓ ";}
+  .qblock .opt.wrong{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.06);color:var(--red2);}
+  .qblock .opt.wrong::before{content:"✗ ";}
+  .qblock .explain{margin-top:10px;font-size:13px;color:var(--text2);border-left:3px solid var(--accent);padding-left:12px;}
+
+  /* week summary ring */
+  .week-ring{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:20px 0;}
+  .ring-day{display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .ring-circle{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:700;border:3px solid;}
+  .ring-circle.done{background:rgba(16,185,129,0.15);border-color:var(--green);color:var(--green2);}
+  .ring-label{font-family:var(--mono);font-size:10px;color:var(--text3);text-align:center;max-width:60px;}
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="crumb">30-Day Driver Roadmap</span>
+  <span class="sep">›</span>
+  <span class="crumb">Week 1: Kernel Foundations</span>
+  <span class="sep">›</span>
+  <span class="current">Day 7 — Week 1 Review &amp; Mini Project</span>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge"><span class="dot"></span> Week 1 · Day 7 of 30 · Consolidation Day</div>
+  <h1>Week 1 Review &amp;<br><span>Mini Project</span></h1>
+  <p class="sub">Consolidate everything from Days 1–6 into one cohesive mental model, test your understanding with knowledge checks, and build the Week 1 capstone project — a fully-featured kernel module that exercises every concept you've learned.</p>
+  <div class="hero-tags">
+    <span class="tag">Week 1 Recap</span>
+    <span class="tag">Knowledge Checks</span>
+    <span class="tag">Architecture Review</span>
+    <span class="tag">Mini Project</span>
+    <span class="tag">Capstone Module</span>
+    <span class="tag">Week 2 Preview</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div style="margin:8px 0 36px">
+    <div class="progress-header"><span>Overall Roadmap Progress</span><span>Day 7 / 30 — End of Week 1</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:23.3%;background:linear-gradient(90deg,#f59e0b,#fbbf24)"></div></div>
+    <div class="progress-header"><span>Week 1 Complete</span><span>7 / 7 days ✓</span></div>
+    <div class="progress-bar"><div class="progress-fill" style="width:100%;background:linear-gradient(90deg,#10b981,#34d399)"></div></div>
+  </div>
+
+  <!-- Week ring -->
+  <div class="week-ring">
+    <div class="ring-day"><div class="ring-circle done">1</div><div class="ring-label">Kernel Architecture</div></div>
+    <div class="ring-day"><div class="ring-circle done">2</div><div class="ring-label">LKM & Build System</div></div>
+    <div class="ring-day"><div class="ring-circle done">3</div><div class="ring-label">Debugging & Style</div></div>
+    <div class="ring-day"><div class="ring-circle done">4</div><div class="ring-label">Memory Management</div></div>
+    <div class="ring-day"><div class="ring-circle done">5</div><div class="ring-label">Data Structures</div></div>
+    <div class="ring-day"><div class="ring-circle done">6</div><div class="ring-label">Processes & Threads</div></div>
+    <div class="ring-day"><div class="ring-circle done">7</div><div class="ring-label">Review & Project</div></div>
+  </div>
+
+<!-- ═══════════════════ SECTION 1 — Day-by-Day Review ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn amber">1</div>
+    <h2>Week 1 — Day-by-Day Concept Map</h2>
+  </div>
+
+  <div class="day-grid">
+    <div class="day-card">
+      <div class="day-num">Day 1</div>
+      <h4>Kernel Architecture</h4>
+      <ul>
+        <li>Monolithic vs microkernel</li>
+        <li>Ring 0 vs Ring 3</li>
+        <li>Syscall interface</li>
+        <li>Kernel subsystems</li>
+        <li>Driver types overview</li>
+        <li>QEMU + GDB setup</li>
+      </ul>
+    </div>
+    <div class="day-card">
+      <div class="day-num">Day 2</div>
+      <h4>LKM & Build System</h4>
+      <ul>
+        <li>Module lifecycle (__init/__exit)</li>
+        <li>Kbuild Makefile (obj-m)</li>
+        <li>insmod / rmmod / modprobe</li>
+        <li>module_param API</li>
+        <li>EXPORT_SYMBOL / _GPL</li>
+        <li>vermagic & MODULE_LICENSE</li>
+      </ul>
+    </div>
+    <div class="day-card">
+      <div class="day-num">Day 3</div>
+      <h4>Debugging & Style</h4>
+      <ul>
+        <li>Ring buffer & dmesg</li>
+        <li>dynamic_debug (+p/+pflm)</li>
+        <li>BUG_ON vs WARN_ON</li>
+        <li>Reading kernel oops</li>
+        <li>addr2line / kallsyms</li>
+        <li>Coding style & checkpatch</li>
+      </ul>
+    </div>
+    <div class="day-card">
+      <div class="day-num">Day 4</div>
+      <h4>Memory Management</h4>
+      <ul>
+        <li>Physical vs virtual space</li>
+        <li>Memory zones (DMA, NORMAL)</li>
+        <li>GFP_KERNEL vs GFP_ATOMIC</li>
+        <li>kmalloc / kzalloc / vmalloc</li>
+        <li>Page allocator</li>
+        <li>devm_ APIs & kmemleak</li>
+      </ul>
+    </div>
+    <div class="day-card">
+      <div class="day-num">Day 5</div>
+      <h4>Data Structures</h4>
+      <ul>
+        <li>container_of() mechanics</li>
+        <li>list_head (circular DLL)</li>
+        <li>DECLARE_HASHTABLE</li>
+        <li>rb_root / rb_node</li>
+        <li>XArray & IDR</li>
+        <li>kfifo & bitmap</li>
+      </ul>
+    </div>
+    <div class="day-card">
+      <div class="day-num">Day 6</div>
+      <h4>Processes & Threads</h4>
+      <ul>
+        <li>task_struct fields</li>
+        <li>current pointer context</li>
+        <li>Process states</li>
+        <li>kthread_run / _stop</li>
+        <li>Workqueues & delayed work</li>
+        <li>Wait queues & completions</li>
+      </ul>
+    </div>
+  </div>
+
+<!-- ═══════════════════ SECTION 2 — Unified Mental Model ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn green">2</div>
+    <h2>The Unified Mental Model — How Everything Connects</h2>
+  </div>
+
+  <div class="concept-map">
+    <div class="cm-center">🐧 Linux Kernel Driver Mental Model</div>
+    <div class="cm-row">
+      <div class="cm-node hl">Hardware Event<br>(IRQ fires)</div>
+      <div class="cm-node hl">User Process<br>(syscall / ioctl)</div>
+      <div class="cm-node hl">Timer / Timeout<br>(jiffies)</div>
+    </div>
+    <div class="cm-arrow">↓ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↓ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↓</div>
+    <div class="cm-row">
+      <div class="cm-node">IRQ Handler<br><span style="font-size:11px;color:#64748b">Atomic — no sleep<br>GFP_ATOMIC only</span></div>
+      <div class="cm-node hl">Your Driver Code<br><span style="font-size:11px;color:#fbbf24">Process context<br>GFP_KERNEL OK</span></div>
+      <div class="cm-node">Delayed Work<br><span style="font-size:11px;color:#64748b">schedule_delayed_work<br>kworker thread</span></div>
+    </div>
+    <div class="cm-arrow">↓ schedule_work()&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↕ wait_event / complete &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ↓</div>
+    <div class="cm-row">
+      <div class="cm-node hl">Workqueue (kworker)<br><span style="font-size:11px;color:#fbbf24">Process context<br>Can sleep, do I/O</span></div>
+      <div class="cm-node">kthread<br><span style="font-size:11px;color:#64748b">Background polling<br>mm == NULL</span></div>
+      <div class="cm-node hl">Data Structures<br><span style="font-size:11px;color:#fbbf24">list / hash / rb_tree<br>kfifo / bitmap / XArray</span></div>
+    </div>
+    <div class="cm-arrow">↓</div>
+    <div class="cm-row">
+      <div class="cm-node hl">Memory Allocation<br><span style="font-size:11px;color:#fbbf24">kmalloc (slab)<br>vmalloc / pages</span></div>
+      <div class="cm-node hl">Logging & Debug<br><span style="font-size:11px;color:#fbbf24">pr_info / pr_debug<br>dynamic_debug / oops</span></div>
+      <div class="cm-node hl">Module Framework<br><span style="font-size:11px;color:#fbbf24">__init/__exit<br>module_param</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>🔑 The Three Contexts — Never Mix Them Up</h3>
+    <p>Every decision you make in a driver — which allocator flag, which lock type, whether you can sleep — depends on knowing which of the three contexts you're in:</p>
+    <ul>
+      <li><strong>Process context</strong> — running inside a syscall, ioctl, module init/exit, or kthread. <em>Can sleep.</em> <code>current</code> is valid. <code>GFP_KERNEL</code> is fine. Mutexes work.</li>
+      <li><strong>Interrupt / Atomic context</strong> — inside an IRQ handler, softirq, tasklet, or while holding a spinlock. <em>Cannot sleep — ever.</em> Must use <code>GFP_ATOMIC</code>. Only spinlocks.</li>
+      <li><strong>Workqueue / Deferred context</strong> — runs in a kworker kernel thread (process context). <em>Can sleep.</em> Use to defer work from interrupt context.</li>
+    </ul>
+  </div>
+
+<!-- ═══════════════════ SECTION 3 — Knowledge Checks ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn blue">3</div>
+    <h2>Knowledge Checks — Test Yourself</h2>
+  </div>
+
+  <div class="card">
+    <h3>📝 12 Questions Covering All of Week 1</h3>
+    <p>Read each question, pick your answer mentally, then check the highlighted correct answer and explanation. Be honest — if you miss more than 3, re-read that day's guide before moving to Week 2.</p>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q1 — You're in an IRQ handler and need to allocate 64 bytes for a packet header. Which call is correct?</div>
+    <div class="opts">
+      <div class="opt wrong">kmalloc(64, GFP_KERNEL)</div>
+      <div class="opt correct">kmalloc(64, GFP_ATOMIC)</div>
+      <div class="opt wrong">vmalloc(64)</div>
+      <div class="opt wrong">kzalloc(64, GFP_KERNEL)</div>
+    </div>
+    <div class="explain">IRQ handlers are atomic context — sleeping is forbidden. <code>GFP_KERNEL</code> can sleep when memory is tight. <code>GFP_ATOMIC</code> never sleeps (uses emergency reserves). <code>vmalloc()</code> always sleeps internally. Always check the return value — <code>GFP_ATOMIC</code> may return NULL.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q2 — Your driver's list_for_each_entry() loop needs to delete some entries that match a condition. What must you change?</div>
+    <div class="opts">
+      <div class="opt wrong">Add a spinlock around the loop</div>
+      <div class="opt wrong">Use list_del_rcu() inside the loop</div>
+      <div class="opt correct">Switch to list_for_each_entry_safe() with a tmp pointer</div>
+      <div class="opt wrong">Nothing — list_del() inside a for_each loop is always safe</div>
+    </div>
+    <div class="explain"><code>list_for_each_entry()</code> saves only the current entry's next pointer at the top of each iteration. If you delete the current entry, that saved pointer is now invalid and the next iteration will dereference freed memory. <code>list_for_each_entry_safe()</code> saves next into a <code>tmp</code> variable before processing, making deletion safe.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q3 — A kernel oops shows "RIP: hello_write+0x3c/0x90 [hello]". What does 0x3c/0x90 mean?</div>
+    <div class="opts">
+      <div class="opt wrong">The function is at address 0x3c in kernel memory</div>
+      <div class="opt wrong">The crash happened 90 bytes before the function end</div>
+      <div class="opt correct">The crash is 0x3c (60) bytes into the function; the function is 0x90 (144) bytes total</div>
+      <div class="opt wrong">The function was called 0x3c times out of a maximum 0x90</div>
+    </div>
+    <div class="explain">The format is <code>function+offset/size</code>. Offset 0x3c from the start of <code>hello_write</code> is the exact instruction that faulted. To find the source line: <code>addr2line -e hello.o 0x3c</code> or use <code>scripts/faddr2line hello.ko hello_write+0x3c</code>.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q4 — When should you use vmalloc() instead of kmalloc()?</div>
+    <div class="opts">
+      <div class="opt wrong">When you need the fastest possible allocation</div>
+      <div class="opt wrong">When the memory will be used for DMA transfers</div>
+      <div class="opt correct">When you need a large buffer (&gt;128KB) and physical contiguity is not required</div>
+      <div class="opt wrong">When you're in atomic context and GFP_ATOMIC is not available</div>
+    </div>
+    <div class="explain"><code>vmalloc()</code> allocates memory that is virtually contiguous but physically scattered. This lets it satisfy large allocations that <code>kmalloc()</code> would fail (fragmented physical memory). However: vmalloc is slower (TLB pressure), cannot be used for DMA (not physically contiguous), and always implies GFP_KERNEL (can sleep).</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q5 — What does container_of(ptr, struct sensor, list) actually compute?</div>
+    <div class="opts">
+      <div class="opt wrong">The size of struct sensor</div>
+      <div class="opt correct">The base address of the containing struct sensor, by subtracting the offset of 'list' from ptr</div>
+      <div class="opt wrong">A new pointer to a copy of the sensor struct</div>
+      <div class="opt wrong">The field ptr points to, cast to struct sensor *</div>
+    </div>
+    <div class="explain">At compile time, <code>offsetof(struct sensor, list)</code> gives the byte distance from the struct's start to the <code>list</code> member. At runtime: <code>(struct sensor *)((char *)ptr - offsetof(struct sensor, list))</code>. GCC also type-checks that <code>ptr</code> matches the type of <code>sensor.list</code>, catching mistakes at compile time.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q6 — Your kthread loop uses msleep(1000) inside while (!kthread_should_stop()). If kthread_stop() is called, what is the worst-case wait time before the thread exits?</div>
+    <div class="opts">
+      <div class="opt wrong">Immediate — kthread_stop() forces the thread to exit</div>
+      <div class="opt correct">Up to 1 second — the thread wakes from msleep, checks kthread_should_stop(), then exits</div>
+      <div class="opt wrong">Infinite — msleep() is uninterruptible</div>
+      <div class="opt wrong">Depends on whether the thread holds a lock</div>
+    </div>
+    <div class="explain"><code>kthread_stop()</code> sets a flag and then <em>waits</em> for the thread to exit — it does not forcibly kill it. The thread must check <code>kthread_should_stop()</code> and return. With a 1-second sleep, the thread will check only once per second. To make threads more responsive, use <code>msleep_interruptible(1000)</code> — <code>kthread_stop()</code> sends a wakeup signal that cuts the sleep short.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q7 — Which GFP flag prevents the allocator from starting any I/O during memory reclaim?</div>
+    <div class="opts">
+      <div class="opt wrong">GFP_ATOMIC</div>
+      <div class="opt wrong">GFP_NOWAIT</div>
+      <div class="opt correct">GFP_NOIO</div>
+      <div class="opt wrong">GFP_DMA</div>
+    </div>
+    <div class="explain"><code>GFP_NOIO</code> prohibits the allocator from initiating I/O during memory reclaim. This is essential in block/storage drivers to prevent a deadlock where: driver needs memory → allocator tries to reclaim by flushing dirty pages → flush needs the driver → driver needs memory → deadlock. <code>GFP_NOFS</code> is similar but blocks filesystem operations specifically.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q8 — You call wait_event_interruptible(wq, condition) and the user presses Ctrl+C. What does the function return?</div>
+    <div class="opts">
+      <div class="opt wrong">0 — the wait succeeded</div>
+      <div class="opt wrong">-EINTR</div>
+      <div class="opt correct">-ERESTARTSYS</div>
+      <div class="opt wrong">1 — interrupted flag</div>
+    </div>
+    <div class="explain"><code>wait_event_interruptible()</code> returns <code>-ERESTARTSYS</code> when a signal arrives. Your driver's read/write/ioctl handler should check for this and return <code>-EINTR</code> to userspace (or <code>-ERESTARTSYS</code> to let the kernel automatically restart the syscall). The <code>-ERESTARTSYS</code> vs <code>-EINTR</code> distinction controls whether the C library retries the syscall transparently.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q9 — A new developer uses BUG_ON() for every NULL pointer check in their driver. What's wrong with this?</div>
+    <div class="opts">
+      <div class="opt wrong">BUG_ON() is not available in modules, only built-in drivers</div>
+      <div class="opt correct">Many NULL pointer conditions are recoverable — WARN_ON() with a graceful error return is safer and keeps the system alive for debugging</div>
+      <div class="opt wrong">BUG_ON() has a significant performance overhead in hot paths</div>
+      <div class="opt wrong">Nothing — BUG_ON(ptr == NULL) is the correct defensive programming style</div>
+    </div>
+    <div class="explain">Reserve <code>BUG_ON()</code> for true invariant violations where <em>continuing execution would cause worse harm</em> (data corruption, security breach). For unexpected-but-recoverable conditions, <code>WARN_ON()</code> prints the stack trace (invaluable for debugging) and lets the system continue running — giving you time to collect more information. A crashed system tells you nothing.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q10 — What is the key structural difference between a process and a kernel thread from the kernel's perspective?</div>
+    <div class="opts">
+      <div class="opt wrong">Kernel threads run in Ring 0; processes run in Ring 3</div>
+      <div class="opt wrong">Kernel threads use a different struct than task_struct</div>
+      <div class="opt correct">Kernel threads have mm == NULL (no user address space); processes have a valid mm_struct</div>
+      <div class="opt wrong">Kernel threads cannot be scheduled; they run to completion without preemption</div>
+    </div>
+    <div class="explain">Both processes and kernel threads are represented by <code>task_struct</code> and are scheduled identically. The key difference: kernel threads have <code>task-&gt;mm == NULL</code> — they have no user virtual address space. When a kernel thread runs, it borrows the <code>active_mm</code> of whatever process it displaced (for page table reasons) but never accesses user memory.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q11 — Which kfifo characteristic makes it lock-free for the single-producer / single-consumer case?</div>
+    <div class="opts">
+      <div class="opt wrong">It uses RCU (Read-Copy-Update) internally</div>
+      <div class="opt correct">The head (read) and tail (write) indices are modified by only one side each — no concurrent modification of the same variable</div>
+      <div class="opt wrong">It disables interrupts around index updates</div>
+      <div class="opt wrong">The kernel provides a hardware atomic instruction for ring buffer updates</div>
+    </div>
+    <div class="explain">The producer only ever writes to the tail index; the consumer only ever reads from the head index. Since each side modifies a different variable and they only read the other side's index, there is no conflicting concurrent write. Combined with memory barriers (which the kfifo implementation handles internally), this eliminates any need for a lock in the SPSC case.</div>
+  </div>
+
+  <div class="qblock">
+    <div class="q">Q12 — Your module has a work item scheduled via schedule_work(). In module exit, you call kfree(dev) and then cancel_work_sync(). What is wrong?</div>
+    <div class="opts">
+      <div class="opt wrong">cancel_work_sync() should be called before module exit</div>
+      <div class="opt correct">The work function may still be running when kfree(dev) executes, causing a use-after-free — cancel_work_sync() must be called BEFORE kfree(dev)</div>
+      <div class="opt wrong">schedule_work() and cancel_work_sync() cannot be used together</div>
+      <div class="opt wrong">Nothing — kfree() is safe to call while a work item references dev</div>
+    </div>
+    <div class="explain"><code>cancel_work_sync()</code> cancels any pending work item <em>and waits for any currently-running execution to finish</em>. If you free <code>dev</code> first and the work function is still running (accessing <code>dev</code> fields), you have a use-after-free — one of the most dangerous kernel bugs. Correct order: <code>cancel_work_sync()</code> → then <code>kfree(dev)</code>.</div>
+  </div>
+
+<!-- ═══════════════════ SECTION 4 — Mini Project Architecture ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn purple">4</div>
+    <h2>Mini Project — "Virtual Sensor Hub" Kernel Module</h2>
+  </div>
+
+  <div class="card">
+    <h3>🏗️ What You're Building</h3>
+    <p>The <strong>Virtual Sensor Hub</strong> is a self-contained kernel module that simulates a multi-sensor data acquisition system. It exercises <em>every concept from Week 1</em> in a realistic driver pattern — not a toy hello-world, but the skeleton of a real device driver.</p>
+    <p>The module manages a collection of virtual sensors, each producing periodic readings. A background kthread polls them, stores readings in per-sensor kfifos, organises sensors in a linked list and hash table, and signals waiting readers via a wait queue.</p>
+  </div>
+
+  <div class="arch-box">
+VIRTUAL SENSOR HUB — Architecture
+══════════════════════════════════════════════════════════════════════
+
+  Module Parameters:
+  ┌────────────────────────────────────────────────────────────────┐
+  │  num_sensors=3   poll_ms=500   max_readings=16                 │
+  └────────────────────────────────────────────────────────────────┘
+
+  Data Model:
+  ┌──────────────────────────────────────────────────────────────┐
+  │  struct virtual_sensor {                                      │
+  │      int              id;          ← assigned by IDR          │
+  │      char             name[32];                               │
+  │      int              value;       ← current simulated reading│
+  │      struct list_head list;        ← in sensor_list           │
+  │      struct hlist_node hnode;      ← in sensor_htable         │
+  │      DECLARE_KFIFO(readings, int, 16); ← circular buffer      │
+  │      bool             data_ready;                             │
+  │  };                                                           │
+  └──────────────────────────────────────────────────────────────┘
+
+  Data Flow:
+  ┌──────────────────────────────────────────────────────────────┐
+  │                                                              │
+  │  [kthread: hub_poll_thread]                                  │
+  │     every poll_ms milliseconds:                              │
+  │       for each sensor in sensor_list:                        │
+  │         simulate_reading(sensor)    → updates sensor->value  │
+  │         kfifo_put(&sensor->readings, value)                  │
+  │         schedule_work(&hub.process_work)                     │
+  │                                                              │
+  │  [workqueue: hub_process_work_fn] — process context          │
+  │     drains all sensor kfifos                                 │
+  │     updates statistics (min/max/avg per sensor)              │
+  │     wakes wait queue if any reader is sleeping               │
+  │                                                              │
+  │  [init] — creates sensors, starts thread                     │
+  │     IDR allocates IDs 0..num_sensors-1                       │
+  │     sensors added to list_head + hash table                  │
+  │     completion signals when first readings arrive            │
+  │                                                              │
+  │  [exit] — orderly teardown                                   │
+  │     kthread_stop() → cancel_work_sync()                      │
+  │     list_for_each_entry_safe() to free all sensors           │
+  │     idr_destroy()                                            │
+  │                                                              │
+  └──────────────────────────────────────────────────────────────┘
+
+  Week 1 Concepts Used:
+  ┌──────────────────┬───────────────────────────────────────────┐
+  │ Day 2            │ module_param, MODULE_LICENSE, __init/__exit│
+  │ Day 3            │ pr_debug, WARN_ON, coding style            │
+  │ Day 4            │ kzalloc/kfree, GFP_KERNEL, devm-style      │
+  │ Day 5            │ list_head, DECLARE_HASHTABLE, IDR, kfifo   │
+  │ Day 6            │ kthread, workqueue, wait_queue, completion  │
+  └──────────────────┴───────────────────────────────────────────┘</div>
+
+<!-- ═══════════════════ SECTION 5 — Full Source Code ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn cyan">5</div>
+    <h2>Full Source — sensor_hub.c</h2>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">C — sensor_hub.c — Week 1 Capstone Module (~250 lines)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre><span class="cm">/*
+ * sensor_hub.c — Day 7 Week 1 Capstone: Virtual Sensor Hub
+ *
+ * Demonstrates all Week 1 concepts in one integrated module:
+ *   - Module parameters, __init/__exit (Day 2)
+ *   - pr_debug, WARN_ON, coding style (Day 3)
+ *   - kzalloc/kfree, GFP_KERNEL (Day 4)
+ *   - list_head, hashtable, IDR, kfifo (Day 5)
+ *   - kthread, workqueue, wait_queue, completion (Day 6)
+ *
+ * Build:  make
+ * Load:   sudo insmod sensor_hub.ko
+ *         sudo insmod sensor_hub.ko num_sensors=5 poll_ms=200
+ * Debug:  sudo sh -c 'echo "module sensor_hub +p" > \
+ *             /sys/kernel/debug/dynamic_debug/control'
+ */</span>
+<span class="pp">#include &lt;linux/init.h&gt;</span>
+<span class="pp">#include &lt;linux/module.h&gt;</span>
+<span class="pp">#include &lt;linux/kernel.h&gt;</span>
+<span class="pp">#include &lt;linux/slab.h&gt;</span>         <span class="cm">/* kzalloc, kfree */</span>
+<span class="pp">#include &lt;linux/list.h&gt;</span>         <span class="cm">/* list_head */</span>
+<span class="pp">#include &lt;linux/hashtable.h&gt;</span>    <span class="cm">/* DECLARE_HASHTABLE */</span>
+<span class="pp">#include &lt;linux/idr.h&gt;</span>          <span class="cm">/* IDR */</span>
+<span class="pp">#include &lt;linux/kfifo.h&gt;</span>        <span class="cm">/* kfifo */</span>
+<span class="pp">#include &lt;linux/kthread.h&gt;</span>      <span class="cm">/* kthread_run/stop */</span>
+<span class="pp">#include &lt;linux/workqueue.h&gt;</span>    <span class="cm">/* INIT_WORK, schedule_work */</span>
+<span class="pp">#include &lt;linux/wait.h&gt;</span>         <span class="cm">/* wait_queue_head_t */</span>
+<span class="pp">#include &lt;linux/completion.h&gt;</span>   <span class="cm">/* completion */</span>
+<span class="pp">#include &lt;linux/delay.h&gt;</span>        <span class="cm">/* msleep_interruptible */</span>
+<span class="pp">#include &lt;linux/random.h&gt;</span>       <span class="cm">/* get_random_u32 */</span>
+<span class="pp">#include &lt;linux/jiffies.h&gt;</span>      <span class="cm">/* jiffies, time_after */</span>
+<span class="pp">#include &lt;linux/atomic.h&gt;</span>       <span class="cm">/* atomic_t */</span>
+
+<span class="mc">MODULE_LICENSE</span>(<span class="st">"GPL"</span>);
+<span class="mc">MODULE_AUTHOR</span>(<span class="st">"Your Name"</span>);
+<span class="mc">MODULE_DESCRIPTION</span>(<span class="st">"Week 1 Capstone: Virtual Sensor Hub"</span>);
+<span class="mc">MODULE_VERSION</span>(<span class="st">"1.0"</span>);
+
+<span class="cm">/* ── Module parameters ────────────────────────────────────────────── */</span>
+<span class="kw">static int</span>  num_sensors  = <span class="nm">3</span>;
+<span class="kw">static int</span>  poll_ms      = <span class="nm">500</span>;
+<span class="kw">static int</span>  max_readings = <span class="nm">16</span>;     <span class="cm">/* kfifo capacity per sensor */</span>
+<span class="kw">static bool</span> verbose      = <span class="nm">false</span>;
+
+<span class="mc">module_param</span>(num_sensors,  int,  <span class="nm">0444</span>);
+<span class="mc">module_param</span>(poll_ms,      int,  <span class="nm">0444</span>);
+<span class="mc">module_param</span>(max_readings, int,  <span class="nm">0444</span>);
+<span class="mc">module_param</span>(verbose,      bool, <span class="nm">0444</span>);
+<span class="mc">MODULE_PARM_DESC</span>(num_sensors,  <span class="st">"Number of virtual sensors (default: 3)"</span>);
+<span class="mc">MODULE_PARM_DESC</span>(poll_ms,      <span class="st">"Poll interval in ms (default: 500)"</span>);
+<span class="mc">MODULE_PARM_DESC</span>(max_readings, <span class="st">"kfifo depth per sensor (default: 16, must be power-of-2)"</span>);
+<span class="mc">MODULE_PARM_DESC</span>(verbose,      <span class="st">"Verbose logging (default: false)"</span>);
+
+<span class="cm">/* ── Per-sensor statistics ────────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">sensor_stats</span> {
+    <span class="kw">int</span>  min;
+    <span class="kw">int</span>  max;
+    <span class="kw">long</span> sum;
+    <span class="kw">int</span>  count;
+};
+
+<span class="cm">/* ── Virtual sensor — one per simulated device ────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">virtual_sensor</span> {
+    <span class="kw">int</span>                id;          <span class="cm">/* assigned by IDR */</span>
+    <span class="kw">char</span>               name[<span class="nm">24</span>];
+    <span class="kw">int</span>                value;       <span class="cm">/* current simulated reading */</span>
+    <span class="kw">struct</span> <span class="tp">sensor_stats</span> stats;
+
+    <span class="kw">struct</span> <span class="tp">list_head</span>   list;        <span class="cm">/* sensor_hub.sensor_list */</span>
+    <span class="kw">struct</span> <span class="tp">hlist_node</span>  hnode;       <span class="cm">/* sensor_hub.sensor_htable */</span>
+
+    <span class="kw">struct</span> <span class="tp">kfifo</span>       readings;    <span class="cm">/* dynamic kfifo (set at init) */</span>
+    <span class="kw">bool</span>               data_ready;
+};
+
+<span class="cm">/* ── Hub: global driver state ─────────────────────────────────────── */</span>
+<span class="kw">struct</span> <span class="tp">sensor_hub</span> {
+    <span class="kw">struct</span> <span class="tp">task_struct</span>   *poll_thread;
+    <span class="kw">struct</span> <span class="tp">work_struct</span>    process_work;
+    <span class="kw">wait_queue_head_t</span>     data_wq;
+    <span class="kw">struct</span> <span class="tp">completion</span>     first_reading;
+
+    <span class="kw">struct</span> <span class="tp">list_head</span>      sensor_list;
+    <span class="mc">DECLARE_HASHTABLE</span>(sensor_htable, <span class="nm">4</span>); <span class="cm">/* 16 buckets */</span>
+    <span class="kw">struct</span> <span class="tp">idr</span>            sensor_idr;
+    <span class="kw">int</span>                   sensor_count;
+
+    <span class="tp">atomic_t</span>              poll_count;
+    <span class="kw">bool</span>                  any_data_ready;
+};
+
+<span class="kw">static struct</span> <span class="tp">sensor_hub</span> hub;
+
+<span class="cm">/* ── Simulate a sensor reading (replaces real hardware read) ──────── */</span>
+<span class="kw">static int</span> <span class="fn">simulate_reading</span>(<span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s)
+{
+    <span class="cm">/* Walk from previous value ±10, clamped to 0-100 */</span>
+    <span class="kw">int</span> delta = (<span class="kw">int</span>)(<span class="fn">get_random_u32</span>() % <span class="nm">21</span>) - <span class="nm">10</span>;
+    s-&gt;value = <span class="fn">clamp</span>(s-&gt;value + delta, <span class="nm">0</span>, <span class="nm">100</span>);
+    <span class="kw">return</span> s-&gt;value;
+}
+
+<span class="cm">/* ── Update per-sensor statistics ─────────────────────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">update_stats</span>(<span class="kw">struct</span> <span class="tp">sensor_stats</span> *st, <span class="kw">int</span> val)
+{
+    <span class="kw">if</span> (st-&gt;count == <span class="nm">0</span>) {
+        st-&gt;min = st-&gt;max = val;
+    } <span class="kw">else</span> {
+        st-&gt;min = <span class="fn">min</span>(st-&gt;min, val);
+        st-&gt;max = <span class="fn">max</span>(st-&gt;max, val);
+    }
+    st-&gt;sum += val;
+    st-&gt;count++;
+}
+
+<span class="cm">/* ── Work handler: drains fifos, computes stats ───────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">hub_process_work_fn</span>(<span class="kw">struct</span> <span class="tp">work_struct</span> *work)
+{
+    <span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s;
+    <span class="kw">int</span> val, processed = <span class="nm">0</span>;
+
+    <span class="fn">pr_debug</span>(<span class="st">"hub: process_work running in '%s'\n"</span>, <span class="mc">current</span>-&gt;comm);
+
+    <span class="fn">list_for_each_entry</span>(s, &amp;hub.sensor_list, list) {
+        <span class="kw">while</span> (<span class="fn">kfifo_get</span>(&amp;s-&gt;readings, &amp;val)) {
+            <span class="fn">update_stats</span>(&amp;s-&gt;stats, val);
+            processed++;
+
+            <span class="kw">if</span> (verbose)
+                <span class="fn">pr_info</span>(<span class="st">"  sensor[%d] %s: reading=%d (min=%d max=%d avg=%ld)\n"</span>,
+                        s-&gt;id, s-&gt;name, val,
+                        s-&gt;stats.min, s-&gt;stats.max,
+                        s-&gt;stats.count ? s-&gt;stats.sum / s-&gt;stats.count : <span class="nm">0</span>);
+        }
+    }
+
+    <span class="kw">if</span> (processed &gt; <span class="nm">0</span>) {
+        hub.any_data_ready = <span class="nm">true</span>;
+        <span class="fn">complete_all</span>(&amp;hub.first_reading);  <span class="cm">/* harmless after first time */</span>
+        <span class="fn">wake_up_interruptible</span>(&amp;hub.data_wq);
+        <span class="fn">pr_debug</span>(<span class="st">"hub: processed %d readings\n"</span>, processed);
+    }
+}
+
+<span class="cm">/* ── Poll thread: periodic sensor sampling ────────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">hub_poll_thread</span>(<span class="kw">void</span> *data)
+{
+    <span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s;
+
+    <span class="fn">pr_info</span>(<span class="st">"hub: poll thread started (pid=%d, interval=%dms)\n"</span>,
+            <span class="mc">current</span>-&gt;pid, poll_ms);
+
+    <span class="kw">while</span> (!<span class="fn">kthread_should_stop</span>()) {
+        <span class="kw">int</span> poll_num = <span class="fn">atomic_inc_return</span>(&amp;hub.poll_count);
+
+        <span class="fn">pr_debug</span>(<span class="st">"hub: poll #%d\n"</span>, poll_num);
+
+        <span class="fn">list_for_each_entry</span>(s, &amp;hub.sensor_list, list) {
+            <span class="kw">int</span> reading = <span class="fn">simulate_reading</span>(s);
+
+            <span class="cm">/* Queue reading into per-sensor kfifo */</span>
+            <span class="kw">if</span> (!<span class="fn">kfifo_put</span>(&amp;s-&gt;readings, reading)) {
+                <span class="fn">pr_warn_ratelimited</span>(<span class="st">"hub: sensor[%d] fifo full, dropping reading\n"</span>,
+                                    s-&gt;id);
+            }
+        }
+
+        <span class="cm">/* Defer processing to workqueue (process context) */</span>
+        <span class="fn">schedule_work</span>(&amp;hub.process_work);
+
+        <span class="cm">/* Sleep, but wake immediately if kthread_stop() is called */</span>
+        <span class="fn">msleep_interruptible</span>(poll_ms);
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"hub: poll thread stopping after %d polls\n"</span>,
+            <span class="fn">atomic_read</span>(&amp;hub.poll_count));
+    <span class="kw">return</span> <span class="nm">0</span>;
+}
+
+<span class="cm">/* ── Sensor lifecycle helpers ─────────────────────────────────────── */</span>
+<span class="kw">static struct</span> <span class="tp">virtual_sensor</span> *<span class="fn">sensor_create</span>(<span class="kw">int</span> idx)
+{
+    <span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s;
+    <span class="kw">int</span> id, ret;
+
+    s = <span class="fn">kzalloc</span>(<span class="kw">sizeof</span>(*s), <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (!s)
+        <span class="kw">return</span> <span class="nm">NULL</span>;
+
+    <span class="cm">/* Allocate unique ID from IDR */</span>
+    id = <span class="fn">idr_alloc</span>(&amp;hub.sensor_idr, s, <span class="nm">0</span>, <span class="nm">256</span>, <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (id &lt; <span class="nm">0</span>) {
+        <span class="fn">kfree</span>(s);
+        <span class="kw">return</span> <span class="nm">NULL</span>;
+    }
+
+    s-&gt;id    = id;
+    s-&gt;value = <span class="nm">50</span>;   <span class="cm">/* start at midpoint */</span>
+    <span class="fn">snprintf</span>(s-&gt;name, <span class="kw">sizeof</span>(s-&gt;name), <span class="st">"sensor-%d"</span>, id);
+
+    <span class="cm">/* Allocate kfifo — size must be power of 2 */</span>
+    ret = <span class="fn">kfifo_alloc</span>(&amp;s-&gt;readings, <span class="fn">roundup_pow_of_two</span>(max_readings),
+                      <span class="nm">GFP_KERNEL</span>);
+    <span class="kw">if</span> (ret) {
+        <span class="fn">idr_remove</span>(&amp;hub.sensor_idr, id);
+        <span class="fn">kfree</span>(s);
+        <span class="kw">return</span> <span class="nm">NULL</span>;
+    }
+
+    <span class="cm">/* Add to linked list (insertion order) */</span>
+    <span class="fn">list_add_tail</span>(&amp;s-&gt;list, &amp;hub.sensor_list);
+
+    <span class="cm">/* Add to hash table (keyed by id) */</span>
+    <span class="fn">hash_add</span>(hub.sensor_htable, &amp;s-&gt;hnode, <span class="fn">hash_32</span>(id, <span class="nm">4</span>));
+
+    hub.sensor_count++;
+    <span class="fn">pr_info</span>(<span class="st">"hub: created %s (id=%d, fifo_depth=%u)\n"</span>,
+            s-&gt;name, id, <span class="fn">kfifo_size</span>(&amp;s-&gt;readings));
+    <span class="kw">return</span> s;
+}
+
+<span class="kw">static void</span> <span class="fn">sensor_destroy</span>(<span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s)
+{
+    <span class="fn">pr_info</span>(<span class="st">"hub: destroying %s (polls=%d, min=%d, max=%d, avg=%ld)\n"</span>,
+            s-&gt;name, s-&gt;stats.count,
+            s-&gt;stats.min, s-&gt;stats.max,
+            s-&gt;stats.count ? s-&gt;stats.sum / s-&gt;stats.count : <span class="nm">0</span>);
+
+    <span class="fn">hash_del</span>(&amp;s-&gt;hnode);
+    <span class="fn">list_del</span>(&amp;s-&gt;list);
+    <span class="fn">idr_remove</span>(&amp;hub.sensor_idr, s-&gt;id);
+    <span class="fn">kfifo_free</span>(&amp;s-&gt;readings);
+    <span class="fn">kfree</span>(s);
+    hub.sensor_count--;
+}
+
+<span class="cm">/* ── Find sensor by ID using hash table ───────────────────────────── */</span>
+<span class="kw">static struct</span> <span class="tp">virtual_sensor</span> *<span class="fn">sensor_find_by_id</span>(<span class="kw">int</span> id)
+{
+    <span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s;
+
+    <span class="fn">hash_for_each_possible</span>(hub.sensor_htable, s, hnode, <span class="fn">hash_32</span>(id, <span class="nm">4</span>)) {
+        <span class="kw">if</span> (s-&gt;id == id)
+            <span class="kw">return</span> s;
+    }
+    <span class="kw">return</span> <span class="nm">NULL</span>;
+}
+
+<span class="cm">/* ── Module init ──────────────────────────────────────────────────── */</span>
+<span class="kw">static int</span> <span class="fn">__init</span> <span class="fn">sensor_hub_init</span>(<span class="kw">void</span>)
+{
+    <span class="kw">int</span> i, ret;
+    <span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s;
+
+    <span class="fn">pr_info</span>(<span class="st">"hub: initialising (sensors=%d, poll=%dms, fifo=%d)\n"</span>,
+            num_sensors, poll_ms, max_readings);
+
+    <span class="cm">/* Validate parameters */</span>
+    <span class="kw">if</span> (<span class="fn">WARN_ON</span>(num_sensors &lt; <span class="nm">1</span> || num_sensors &gt; <span class="nm">32</span>)) {
+        <span class="fn">pr_err</span>(<span class="st">"hub: num_sensors must be 1-32\n"</span>);
+        <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    }
+    <span class="kw">if</span> (<span class="fn">WARN_ON</span>(poll_ms &lt; <span class="nm">10</span> || poll_ms &gt; <span class="nm">60000</span>)) {
+        <span class="fn">pr_err</span>(<span class="st">"hub: poll_ms must be 10-60000\n"</span>);
+        <span class="kw">return</span> -<span class="nm">EINVAL</span>;
+    }
+
+    <span class="cm">/* Initialise hub state */</span>
+    <span class="fn">INIT_LIST_HEAD</span>(&amp;hub.sensor_list);
+    <span class="fn">hash_init</span>(hub.sensor_htable);
+    <span class="fn">idr_init</span>(&amp;hub.sensor_idr);
+    <span class="fn">init_waitqueue_head</span>(&amp;hub.data_wq);
+    <span class="fn">init_completion</span>(&amp;hub.first_reading);
+    <span class="fn">INIT_WORK</span>(&amp;hub.process_work, <span class="fn">hub_process_work_fn</span>);
+    <span class="fn">atomic_set</span>(&amp;hub.poll_count, <span class="nm">0</span>);
+
+    <span class="cm">/* Create sensors — goto cleanup on any failure */</span>
+    <span class="kw">for</span> (i = <span class="nm">0</span>; i &lt; num_sensors; i++) {
+        s = <span class="fn">sensor_create</span>(i);
+        <span class="kw">if</span> (!s) {
+            <span class="fn">pr_err</span>(<span class="st">"hub: failed to create sensor %d\n"</span>, i);
+            ret = -<span class="nm">ENOMEM</span>;
+            <span class="kw">goto</span> <span class="fn">err_sensors</span>;
+        }
+    }
+
+    <span class="cm">/* Start the poll thread */</span>
+    hub.poll_thread = <span class="fn">kthread_run</span>(<span class="fn">hub_poll_thread</span>, <span class="nm">NULL</span>, <span class="st">"sensor_hub_poll"</span>);
+    <span class="kw">if</span> (<span class="fn">IS_ERR</span>(hub.poll_thread)) {
+        ret = <span class="fn">PTR_ERR</span>(hub.poll_thread);
+        hub.poll_thread = <span class="nm">NULL</span>;
+        <span class="fn">pr_err</span>(<span class="st">"hub: failed to start poll thread: %d\n"</span>, ret);
+        <span class="kw">goto</span> <span class="fn">err_sensors</span>;
+    }
+
+    <span class="cm">/* Wait for at least one poll cycle to complete */</span>
+    <span class="fn">pr_info</span>(<span class="st">"hub: waiting for first readings...\n"</span>);
+    <span class="kw">if</span> (!<span class="fn">wait_for_completion_timeout</span>(&amp;hub.first_reading,
+                                    <span class="fn">msecs_to_jiffies</span>(poll_ms * <span class="nm">3</span>))) {
+        <span class="fn">pr_warn</span>(<span class="st">"hub: timeout waiting for first readings\n"</span>);
+    }
+
+    <span class="fn">pr_info</span>(<span class="st">"hub: ready with %d sensors\n"</span>, hub.sensor_count);
+    <span class="kw">return</span> <span class="nm">0</span>;
+
+<span class="fn">err_sensors</span>: {
+    <span class="kw">struct</span> <span class="tp">virtual_sensor</span> *tmp;
+    <span class="fn">list_for_each_entry_safe</span>(s, tmp, &amp;hub.sensor_list, list)
+        <span class="fn">sensor_destroy</span>(s);
+    <span class="fn">idr_destroy</span>(&amp;hub.sensor_idr);
+    <span class="kw">return</span> ret;
+    }
+}
+
+<span class="cm">/* ── Module exit ──────────────────────────────────────────────────── */</span>
+<span class="kw">static void</span> <span class="fn">__exit</span> <span class="fn">sensor_hub_exit</span>(<span class="kw">void</span>)
+{
+    <span class="kw">struct</span> <span class="tp">virtual_sensor</span> *s, *tmp;
+
+    <span class="fn">pr_info</span>(<span class="st">"hub: shutting down after %d poll cycles\n"</span>,
+            <span class="fn">atomic_read</span>(&amp;hub.poll_count));
+
+    <span class="cm">/* 1. Stop polling — no more new data after this */</span>
+    <span class="kw">if</span> (hub.poll_thread)
+        <span class="fn">kthread_stop</span>(hub.poll_thread);
+
+    <span class="cm">/* 2. Wait for any in-flight work to complete */</span>
+    <span class="fn">cancel_work_sync</span>(&amp;hub.process_work);
+
+    <span class="cm">/* 3. Wake any sleeping readers so they can exit */</span>
+    <span class="fn">wake_up_all</span>(&amp;hub.data_wq);
+
+    <span class="cm">/* 4. Destroy all sensors (safe iteration) */</span>
+    <span class="fn">list_for_each_entry_safe</span>(s, tmp, &amp;hub.sensor_list, list)
+        <span class="fn">sensor_destroy</span>(s);
+
+    <span class="cm">/* 5. Clean up IDR */</span>
+    <span class="fn">idr_destroy</span>(&amp;hub.sensor_idr);
+
+    <span class="fn">pr_info</span>(<span class="st">"hub: shutdown complete\n"</span>);
+}
+
+<span class="mc">module_init</span>(<span class="fn">sensor_hub_init</span>);
+<span class="mc">module_exit</span>(<span class="fn">sensor_hub_exit</span>);</pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="code-lang">Makefile</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+    <pre>obj-m      += sensor_hub.o
+KDIR       ?= /lib/modules/$(shell uname -r)/build
+ccflags-y  += -g
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+
+check:
+	perl $(KDIR)/../scripts/checkpatch.pl --no-tree -f sensor_hub.c</pre>
+  </div>
+
+<!-- ═══════════════════ SECTION 6 — Exercises ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn orange">6</div>
+    <h2>Guided Exercises — Extend the Sensor Hub</h2>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">🎯</span>
+    <div class="content"><strong>How to approach these</strong>Each exercise is independent. Start with Exercise A (it's essential — verifies the base module works), then pick whichever exercises target concepts you feel least confident about. Each exercise should take 20–40 minutes.</div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-left"><div class="step-num">A</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Build, Load &amp; Observe</h4>
+        <div class="step-tag">Required — all days</div>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo insmod sensor_hub.ko verbose=true poll_ms=300</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | grep hub:</span>
+<span class="cm"># Verify: sensors created, poll thread pid shown, first_reading completed</span>
+
+<span class="cm"># Enable dynamic debug to see pr_debug output</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo sh -c 'echo "module sensor_hub +p" > /sys/kernel/debug/dynamic_debug/control'</span>
+<span class="t-prompt">$</span> <span class="t-cmd">sudo dmesg --follow &</span>
+<span class="cm"># Watch: "hub: poll #N" and "hub: processed M readings"</span>
+
+<span class="cm"># Confirm thread appears as kernel thread in ps</span>
+<span class="t-prompt">$</span> <span class="t-cmd">ps aux | grep sensor_hub</span>
+<span class="t-out">[sensor_hub_poll]</span>
+
+<span class="t-prompt">$</span> <span class="t-cmd">sudo rmmod sensor_hub</span>
+<span class="cm"># Verify: per-sensor stats (min/max/avg) printed on teardown</span>
+<span class="t-prompt">$</span> <span class="t-cmd">dmesg | grep "hub: destroy"</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">B</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Red-Black Tree — Add Sorted Lookup</h4>
+        <div class="step-tag">Day 5 — rb_tree</div>
+        <p>Add a <code>struct rb_node rb_node;</code> field to <code>struct virtual_sensor</code> and a <code>struct rb_root sensor_rbtree = RB_ROOT;</code> to <code>struct sensor_hub</code>. Implement <code>sensor_rbtree_insert()</code> (sort by <code>id</code>) and call it from <code>sensor_create()</code>. In <code>hub_process_work_fn()</code>, replace the <code>list_for_each_entry</code> with an in-order <code>rb_first()/rb_next()</code> walk and verify readings are processed in ascending sensor-ID order regardless of creation order.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">C</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Bitmap — Track Alert State</h4>
+        <div class="step-tag">Day 5 — bitmap</div>
+        <p>Add a <code>DECLARE_BITMAP(alert_map, 32);</code> to <code>struct sensor_hub</code>. In <code>hub_process_work_fn()</code>, after computing each sensor's value, <code>set_bit(s-&gt;id, hub.alert_map)</code> if the reading exceeds 80 and <code>clear_bit(s-&gt;id, hub.alert_map)</code> otherwise. Add a log line using <code>for_each_set_bit()</code> that prints all currently-alerting sensor IDs whenever any alert fires. Verify with <code>dmesg</code>.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">D</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Delayed Work — Periodic Stats Summary</h4>
+        <div class="step-tag">Day 6 — delayed_work</div>
+        <p>Add a <code>struct delayed_work stats_work;</code> to <code>struct sensor_hub</code>. Implement <code>hub_stats_work_fn()</code> that prints a one-line summary of all sensors' current stats and then re-schedules itself: <code>schedule_delayed_work(&amp;hub.stats_work, msecs_to_jiffies(5000));</code>. Start it from <code>sensor_hub_init()</code> and cancel it with <code>cancel_delayed_work_sync()</code> in exit. Confirm it fires every 5 seconds independently of the poll thread.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">E</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Memory — Stress Test the Allocator</h4>
+        <div class="step-tag">Day 4 — kmalloc / kmemleak</div>
+        <p>Add a module parameter <code>leak_test=0</code>. When set to 1, deliberately <code>kmalloc(64, GFP_KERNEL)</code> inside <code>sensor_create()</code> without a matching <code>kfree()</code>. Enable kmemleak, load with <code>leak_test=1</code>, unload, then <code>echo scan &gt; /sys/kernel/debug/kmemleak</code> and confirm it catches the leak. Then fix it and verify the leak report is empty.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-left"><div class="step-num">F</div><div class="step-line"></div></div>
+      <div class="step-content">
+        <h4>Coding Style — Pass checkpatch</h4>
+        <div class="step-tag">Day 3 — checkpatch</div>
+        <div class="terminal">
+          <div class="terminal-header"><span></span><span></span><span></span><div class="t-title">bash</div></div>
+          <pre><span class="t-prompt">$</span> <span class="t-cmd">make check</span>
+<span class="cm"># Fix every WARNING and ERROR reported by checkpatch.pl
+# Goal: "total: 0 errors, 0 warnings, N lines checked"</span></pre>
+        </div>
+        <p>Common things to fix: lines over 80 chars, missing blank lines between declarations and code, comment style, spacing around operators.</p>
+      </div>
+    </div>
+  </div>
+
+<!-- ═══════════════════ SECTION 7 — Key Patterns Cheatsheet ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn teal">7</div>
+    <h2>Week 1 Cheatsheet — Patterns You'll Use Every Day</h2>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <tr><th>Pattern</th><th>Code Skeleton</th><th>Day</th></tr>
+      <tr>
+        <td><strong>Module skeleton</strong></td>
+        <td><code>MODULE_LICENSE("GPL"); module_init(fn); module_exit(fn);</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><strong>Module param</strong></td>
+        <td><code>static int x = 0; module_param(x, int, 0444);</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><strong>Safe logging</strong></td>
+        <td><code>pr_info("msg\n"); pr_debug("debug\n"); pr_err("err %d\n", ret);</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><strong>Allocation + NULL check</strong></td>
+        <td><code>p = kzalloc(sizeof(*p), GFP_KERNEL); if (!p) return -ENOMEM;</code></td>
+        <td>4</td>
+      </tr>
+      <tr>
+        <td><strong>goto cleanup</strong></td>
+        <td><code>if (err) goto err_label; ... err_label: kfree(p); return ret;</code></td>
+        <td>3/4</td>
+      </tr>
+      <tr>
+        <td><strong>List iteration (safe delete)</strong></td>
+        <td><code>list_for_each_entry_safe(cur, tmp, &amp;head, list) { list_del(&amp;cur-&gt;list); kfree(cur); }</code></td>
+        <td>5</td>
+      </tr>
+      <tr>
+        <td><strong>container_of</strong></td>
+        <td><code>struct my_dev *dev = container_of(work, struct my_dev, work);</code></td>
+        <td>5</td>
+      </tr>
+      <tr>
+        <td><strong>Hash lookup</strong></td>
+        <td><code>hash_for_each_possible(ht, cur, node, key) { if (cur-&gt;key == k) return cur; }</code></td>
+        <td>5</td>
+      </tr>
+      <tr>
+        <td><strong>kfifo producer (IRQ)</strong></td>
+        <td><code>if (!kfifo_put(&amp;fifo, val)) pr_warn_ratelimited("full\n");</code></td>
+        <td>5</td>
+      </tr>
+      <tr>
+        <td><strong>kthread lifecycle</strong></td>
+        <td><code>t = kthread_run(fn, data, "name"); ... kthread_stop(t);</code></td>
+        <td>6</td>
+      </tr>
+      <tr>
+        <td><strong>kthread body</strong></td>
+        <td><code>while (!kthread_should_stop()) { do_work(); msleep_interruptible(ms); }</code></td>
+        <td>6</td>
+      </tr>
+      <tr>
+        <td><strong>Workqueue defer</strong></td>
+        <td><code>INIT_WORK(&amp;dev-&gt;work, fn); schedule_work(&amp;dev-&gt;work); cancel_work_sync(&amp;dev-&gt;work);</code></td>
+        <td>6</td>
+      </tr>
+      <tr>
+        <td><strong>Wait queue sleep</strong></td>
+        <td><code>ret = wait_event_interruptible(wq, cond); if (ret) return -EINTR;</code></td>
+        <td>6</td>
+      </tr>
+      <tr>
+        <td><strong>Wait queue wake</strong></td>
+        <td><code>cond = true; wake_up_interruptible(&amp;wq);</code></td>
+        <td>6</td>
+      </tr>
+      <tr>
+        <td><strong>Completion sync</strong></td>
+        <td><code>init_completion(&amp;c); wait_for_completion_timeout(&amp;c, msecs_to_jiffies(1000)); complete(&amp;c);</code></td>
+        <td>6</td>
+      </tr>
+    </table>
+  </div>
+
+<!-- ═══════════════════ SECTION 8 — Week 2 Preview ═══════════════════ -->
+  <div class="section-header">
+    <div class="sn red">8</div>
+    <h2>Week 2 Preview — Driver Interfaces &amp; Concurrency</h2>
+  </div>
+
+  <div class="card">
+    <h3>🔜 What's Coming in Week 2</h3>
+    <p>Week 1 gave you the kernel's internal vocabulary and tools. Week 2 is where you write actual <em>device drivers</em> — code that talks to hardware and exposes it to userspace. Every day this week builds directly on Week 1 foundations:</p>
+  </div>
+
+  <div class="three-col">
+    <div class="mini-card">
+      <h4>Day 8 — Character Devices</h4>
+      <p style="color:var(--text2);font-size:13px">register_chrdev_region, cdev_add, file_operations: open/read/write/ioctl/release. Your first device that userspace can open like a file.</p>
+    </div>
+    <div class="mini-card">
+      <h4>Day 9 — /proc &amp; sysfs</h4>
+      <p style="color:var(--text2);font-size:13px">proc_create, seq_file, kobject, sysfs_create_file. Exposing driver state to userspace via virtual filesystems.</p>
+    </div>
+    <div class="mini-card">
+      <h4>Day 10 — Interrupt Handling</h4>
+      <p style="color:var(--text2);font-size:13px">request_irq, threaded IRQs (request_threaded_irq), IRQ affinity, shared interrupts, devm_request_irq.</p>
+    </div>
+    <div class="mini-card">
+      <h4>Day 11 — Spinlocks &amp; Mutexes</h4>
+      <p style="color:var(--text2);font-size:13px">spin_lock_irqsave, mutex_lock, rwlock, RCU read/write. Choosing the right lock for every context.</p>
+    </div>
+    <div class="mini-card">
+      <h4>Day 12 — Atomic Ops &amp; Barriers</h4>
+      <p style="color:var(--text2);font-size:13px">atomic_t, atomic64_t, cmpxchg, memory barriers (smp_mb, smp_rmb, smp_wmb). Lock-free data sharing.</p>
+    </div>
+    <div class="mini-card">
+      <h4>Day 13 — Device Model &amp; Platform Bus</h4>
+      <p style="color:var(--text2);font-size:13px">platform_driver, device tree, probe/remove lifecycle, resource management. How Linux discovers and binds drivers to hardware.</p>
+    </div>
+  </div>
+
+  <div class="info-box tip">
+    <span class="icon">📚</span>
+    <div class="content"><strong>Weekend Reading List (before Day 8)</strong>LDD3 Chapter 3 — "Char Drivers". Then read <code>drivers/char/mem.c</code> in the kernel source — it's the simplest real character driver in the tree (implements /dev/null, /dev/zero, /dev/mem). Read it end-to-end; you'll understand 90% of it after Week 1.</div>
+  </div>
+
+  <div class="quote">
+    "Week 1 was about understanding the terrain. You learned the language, the tools, the rules, and the idioms of kernel programming. Week 2 is where you start building things that actually matter — drivers that expose hardware to userspace, handle interrupts, and share data safely across CPU contexts. The foundations you laid this week will make every concept in Week 2 click faster than you expect."
+    <strong>— Week 1 Complete ✓ — You now think like a kernel developer. Week 2 starts Monday.</strong>
+  </div>
+
+</div>
+<div class="footer">
+  Day 7 of 30 · Linux Device Driver Roadmap · Week 1 Complete!
+</div>
+</body>
+</html>
